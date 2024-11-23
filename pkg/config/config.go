@@ -6,6 +6,7 @@ type CognitoConfig struct {
 	Url          string `env:"POOL_URL,notEmpty"`
 	ClientId     string `env:"CLIENT_ID,notEmpty"`
 	ClientSecret string `env:"CLIENT_SECRET,notEmpty"`
+	Region       string `env:"REGION,notEmpty" envDefault:"eu-west-1"`
 }
 
 type AppConfig struct {

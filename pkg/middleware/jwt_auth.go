@@ -14,12 +14,12 @@ import (
 const bearerSchema = "Bearer "
 const wwwAuthenticateHeader = "WWW-Authenticate"
 
-type AuthMiddleware struct {
+type JWTAuthMiddleware struct {
 	Config   *config.AppConfig
 	JwkCache *jwk.Cache
 }
 
-func (a *AuthMiddleware) ValidateJWT(c *gin.Context) {
+func (a *JWTAuthMiddleware) Validate(c *gin.Context) {
 	header := c.GetHeader("Authorization")
 	if header == "" || !strings.HasPrefix(header, bearerSchema) {
 		c.Header(wwwAuthenticateHeader, a.getAuthenticationUrl())
@@ -43,6 +43,6 @@ func (a *AuthMiddleware) ValidateJWT(c *gin.Context) {
 	c.Next()
 }
 
-func (a *AuthMiddleware) getAuthenticationUrl() string {
-	return fmt.Sprintf(`Bearer realm="https://%s/v2/login",service="registry.io"`, a.Config.BaseURL)
+func (a *JWTAuthMiddleware) getAuthenticationUrl() string {
+	return fmt.Sprintf(`Bearer realm="%s/v2/login",service="registry.io"`, a.Config.BaseURL)
 }

@@ -20,7 +20,10 @@ func NewRouter(ctx context.Context, cfg config.AppConfig) (*Router, error) {
 	r := gin.Default()
 
 	healthHandler := HealthHandler{}
-	v2LoginHandler := V2LoginHandler{}
+	v2LoginHandler := V2LoginHandler{
+		Config:        &cfg,
+		CognitoClient: helpers.GetCognitoClient(ctx, cfg),
+	}
 	v2PingHandler := V2PingHandler{}
 
 	jwkCache, err := helpers.InitJWKCache(ctx, &cfg)
@@ -28,16 +31,17 @@ func NewRouter(ctx context.Context, cfg config.AppConfig) (*Router, error) {
 		return nil, err
 	}
 
-	authMiddleware := middleware.AuthMiddleware{
+	jwtAuthMiddleware := middleware.JWTAuthMiddleware{
 		Config:   &cfg,
 		JwkCache: jwkCache,
 	}
 
+	extractBasicAuthMiddleware := middleware.ExtractBasicCredentialsMiddleware{}
+
 	r.GET("/health", healthHandler.GetHealth)
+	r.GET("/v2/login", extractBasicAuthMiddleware.Validate, v2LoginHandler.Login)
 
-	r.GET("/v2/login", v2LoginHandler.Login)
-
-	authenticatedOciV2 := r.Group("/v2", authMiddleware.ValidateJWT)
+	authenticatedOciV2 := r.Group("/v2", jwtAuthMiddleware.Validate)
 	{
 		authenticatedOciV2.GET("/", v2PingHandler.Ping)
 	}
