@@ -1,15 +1,9 @@
 package api
 
-import (
-	"log"
-
-	"github.com/gin-gonic/gin"
-)
+import "net/http"
 
 type V2PingHandler struct{}
 
-func (h *V2PingHandler) Ping(c *gin.Context) {
-	auth := c.GetHeader("Authorization")
-	log.Println(auth)
-	c.AbortWithStatus(200)
+func (h *V2PingHandler) Ping(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
 }

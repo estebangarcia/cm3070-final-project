@@ -1,9 +1,8 @@
 package responses
 
 import (
+	"encoding/json"
 	"net/http"
-
-	"github.com/gin-gonic/gin"
 )
 
 type OCIErrorDetail struct {
@@ -16,8 +15,9 @@ type OCIErrorResponse struct {
 	Errors []OCIErrorDetail `json:"errors"`
 }
 
-func GenericOCIError(c *gin.Context, code string, status int, message string, detail interface{}) {
-	c.JSON(status, OCIErrorResponse{
+func GenericOCIError(w http.ResponseWriter, code string, status int, message string, detail interface{}) {
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(OCIErrorResponse{
 		Errors: []OCIErrorDetail{
 			{
 				Code:    code,
@@ -26,11 +26,12 @@ func GenericOCIError(c *gin.Context, code string, status int, message string, de
 			},
 		},
 	})
-	c.Abort()
+
 }
 
-func OCIUnauthorizedError(c *gin.Context) {
-	c.JSON(http.StatusUnauthorized, OCIErrorResponse{
+func OCIUnauthorizedError(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusUnauthorized)
+	json.NewEncoder(w).Encode(OCIErrorResponse{
 		Errors: []OCIErrorDetail{
 			{
 				Code:    "UNAUTHORIZED",
@@ -39,11 +40,11 @@ func OCIUnauthorizedError(c *gin.Context) {
 			},
 		},
 	})
-	c.Abort()
 }
 
-func OCIInternalServerError(c *gin.Context) {
-	c.JSON(http.StatusInternalServerError, OCIErrorResponse{
+func OCIInternalServerError(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusUnauthorized)
+	json.NewEncoder(w).Encode(OCIErrorResponse{
 		Errors: []OCIErrorDetail{
 			{
 				Code:    "INTERNAL_ERROR",
@@ -52,5 +53,4 @@ func OCIInternalServerError(c *gin.Context) {
 			},
 		},
 	})
-	c.Abort()
 }

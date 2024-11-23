@@ -4,14 +4,15 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"log"
+	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider/types"
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
 	"github.com/estebangarcia/cm3070-final-project/pkg/responses"
-	"github.com/gin-gonic/gin"
 )
 
 type V2LoginHandler struct {
@@ -19,15 +20,15 @@ type V2LoginHandler struct {
 	CognitoClient *cognitoidentityprovider.Client
 }
 
-func (h *V2LoginHandler) Login(c *gin.Context) {
-	authHeader := c.GetHeader("Authorization")
+func (h *V2LoginHandler) Login(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
-		responses.OCIUnauthorizedError(c)
+		responses.OCIUnauthorizedError(w)
 		return
 	}
 
-	uV, _ := c.Get("username")
-	pV, _ := c.Get("password")
+	uV := r.Context().Value("username")
+	pV := r.Context().Value("password")
 
 	username := uV.(string)
 	password := pV.(string)
@@ -51,15 +52,16 @@ func (h *V2LoginHandler) Login(c *gin.Context) {
 	}
 
 	// Call Cognito
-	output, err := h.CognitoClient.InitiateAuth(c, input)
+	output, err := h.CognitoClient.InitiateAuth(r.Context(), input)
 	if err != nil {
 		log.Println(err.Error())
-		responses.OCIUnauthorizedError(c)
+		responses.OCIUnauthorizedError(w)
 		return
 	}
 
-	c.JSON(200, gin.H{
-		"token":      output.AuthenticationResult.AccessToken,
-		"expires_in": output.AuthenticationResult.ExpiresIn,
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(responses.TokenResponse{
+		Token:     *output.AuthenticationResult.AccessToken,
+		ExpiresIn: output.AuthenticationResult.ExpiresIn,
 	})
 }

@@ -6,6 +6,7 @@ import (
 
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
 )
 
@@ -17,4 +18,13 @@ func GetCognitoClient(ctx context.Context, cfg config.AppConfig) *cognitoidentit
 
 	// Create a Cognito Identity Provider client
 	return cognitoidentityprovider.NewFromConfig(awsCfg)
+}
+
+func GetS3Client(ctx context.Context, cfg config.AppConfig) *s3.Client {
+	awsCfg, err := awsConfig.LoadDefaultConfig(ctx, awsConfig.WithRegion(cfg.Cognito.Region))
+	if err != nil {
+		log.Fatalf("unable to load SDK config, %v", err)
+	}
+
+	return s3.NewFromConfig(awsCfg)
 }

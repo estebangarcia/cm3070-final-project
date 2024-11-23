@@ -11,7 +11,6 @@ import (
 	"github.com/caarlos0/env/v11"
 	"github.com/estebangarcia/cm3070-final-project/pkg/api"
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
-	"github.com/gin-gonic/gin"
 )
 
 func NewSigKillContext() context.Context {
@@ -35,7 +34,6 @@ func main() {
 
 	ctx := NewSigKillContext()
 
-	gin.SetMode(gin.DebugMode)
 	r, err := api.NewRouter(ctx, cfg)
 	if err != nil {
 		log.Fatal(err)

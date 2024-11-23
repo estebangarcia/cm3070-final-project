@@ -1,12 +1,18 @@
 package api
 
-import "github.com/gin-gonic/gin"
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/estebangarcia/cm3070-final-project/pkg/responses"
+)
 
 type HealthHandler struct {
 }
 
-func (h *HealthHandler) GetHealth(c *gin.Context) {
-	c.JSON(200, gin.H{
-		"status": "ok",
+func (h *HealthHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(responses.HealthResponse{
+		Status: "ok",
 	})
 }
