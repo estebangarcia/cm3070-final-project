@@ -28,3 +28,7 @@ func GetS3Client(ctx context.Context, cfg config.AppConfig) *s3.Client {
 
 	return s3.NewFromConfig(awsCfg)
 }
+
+func GetS3PresignClient(s3Client *s3.Client) *s3.PresignClient {
+	return s3.NewPresignClient(s3Client)
+}

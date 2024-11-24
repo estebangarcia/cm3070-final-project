@@ -31,9 +31,19 @@ func NewRouter(ctx context.Context, cfg config.AppConfig) (*Router, error) {
 	}
 	v2PingHandler := V2PingHandler{}
 
+	s3Client := helpers.GetS3Client(ctx, cfg)
+	s3Presigner := helpers.GetS3PresignClient(s3Client)
+
 	v2BlobsHandler := V2BlobsHandler{
-		Config:   &cfg,
-		S3Client: helpers.GetS3Client(ctx, cfg),
+		Config:          &cfg,
+		S3Client:        s3Client,
+		S3PresignClient: s3Presigner,
+	}
+
+	v2ManifestsHandlers := V2ManifestsHandler{
+		Config:          &cfg,
+		S3Client:        s3Client,
+		S3PresignClient: s3Presigner,
 	}
 
 	jwkCache, err := helpers.InitJWKCache(ctx, &cfg)
@@ -55,7 +65,14 @@ func NewRouter(ctx context.Context, cfg config.AppConfig) (*Router, error) {
 		authenticatedOciV2.Use(jwtAuthMiddleware.Validate)
 		authenticatedOciV2.Get("/", v2PingHandler.Ping)
 		customMux.Post(`^(?P<imageName>[\/\w]+)\/blobs\/uploads`, v2BlobsHandler.InitiateUploadSession)
+		customMux.Patch(`^(?P<imageName>[\/\w]+)\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.UploadBlob)
+		customMux.Put(`^(?P<imageName>[\/\w]+)\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.FinalizeBlobUploadSession)
+		customMux.Get(`^(?P<imageName>[\/\w]+)\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.DownloadBlob)
 		customMux.Head(`^(?P<imageName>[\/\w]+)\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.HeadBlob)
+
+		customMux.Put(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w]+)`, v2ManifestsHandlers.UploadManifest)
+		customMux.Get(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w]+)`, v2ManifestsHandlers.DownloadManifest)
+		customMux.Head(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w]+)`, v2ManifestsHandlers.HeadManifest)
 
 		authenticatedOciV2.HandleFunc("/*", customMux.Handle)
 	})

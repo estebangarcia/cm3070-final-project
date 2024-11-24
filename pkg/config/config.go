@@ -14,10 +14,12 @@ type S3Config struct {
 }
 
 type AppConfig struct {
-	ServerPort uint16        `env:"SERVER_PORT,notEmpty" envDefault:"8081"`
-	BaseURL    string        `env:"BASE_URL,notEmpty"`
-	Cognito    CognitoConfig `envPrefix:"COGNITO_"`
-	S3         S3Config      `envPrefix:"S3_"`
+	ServerPort        uint16        `env:"SERVER_PORT,notEmpty" envDefault:"8081"`
+	BaseURL           string        `env:"BASE_URL,notEmpty"`
+	Cognito           CognitoConfig `envPrefix:"COGNITO_"`
+	S3                S3Config      `envPrefix:"S3_"`
+	ChunkMinLength    uint32        `env:"CHUNK_MIN_LENGTH" envDefault:"5242880"`
+	ChunkBufferLength uint32        `env:"CHUNK_BUFFER_LENGTH" envDefault:"52428800"`
 }
 
 func (a AppConfig) GetCognitoJWKUrl() string {
