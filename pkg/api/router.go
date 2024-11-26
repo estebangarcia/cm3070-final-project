@@ -4,21 +4,27 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"regexp"
 	"time"
 
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
 	"github.com/estebangarcia/cm3070-final-project/pkg/helpers"
 	"github.com/estebangarcia/cm3070-final-project/pkg/middleware"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent"
 	"github.com/go-chi/chi/v5"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
 type Router struct {
 	engine *chi.Mux
 }
 
-func NewRouter(ctx context.Context, cfg config.AppConfig) (*Router, error) {
+func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) (*Router, error) {
 	r := chi.NewRouter()
+
+	customMux := NewCustomMux()
+
+	r.Use(chiMiddleware.Logger)
 
 	healthHandler := HealthHandler{}
 	v2LoginHandler := V2LoginHandler{
@@ -27,9 +33,24 @@ func NewRouter(ctx context.Context, cfg config.AppConfig) (*Router, error) {
 	}
 	v2PingHandler := V2PingHandler{}
 
+	s3Client := helpers.GetS3Client(ctx, cfg)
+	s3Presigner := helpers.GetS3PresignClient(s3Client)
+
 	v2BlobsHandler := V2BlobsHandler{
-		Config:   &cfg,
-		S3Client: helpers.GetS3Client(ctx, cfg),
+		Config:          &cfg,
+		S3Client:        s3Client,
+		S3PresignClient: s3Presigner,
+	}
+
+	manifestRepository := repositories.NewManifestRepository(dbClient)
+	repositoryRepository := repositories.NewRepositoryRepository(dbClient)
+
+	v2ManifestsHandlers := V2ManifestsHandler{
+		Config:               &cfg,
+		S3Client:             s3Client,
+		S3PresignClient:      s3Presigner,
+		ManifestRepository:   manifestRepository,
+		RepositoryRepository: repositoryRepository,
 	}
 
 	jwkCache, err := helpers.InitJWKCache(ctx, &cfg)
@@ -50,49 +71,17 @@ func NewRouter(ctx context.Context, cfg config.AppConfig) (*Router, error) {
 	r.Route("/v2", func(authenticatedOciV2 chi.Router) {
 		authenticatedOciV2.Use(jwtAuthMiddleware.Validate)
 		authenticatedOciV2.Get("/", v2PingHandler.Ping)
-		authenticatedOciV2.Handle("/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			uri := chi.URLParam(r, "*")
+		customMux.Post(`^(?P<imageName>[\/\w]+)\/blobs\/uploads`, v2BlobsHandler.InitiateUploadSession)
+		customMux.Patch(`^(?P<imageName>[\/\w]+)\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.UploadBlob)
+		customMux.Put(`^(?P<imageName>[\/\w]+)\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.FinalizeBlobUploadSession)
+		customMux.Get(`^(?P<imageName>[\/\w]+)\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.DownloadBlob)
+		customMux.Head(`^(?P<imageName>[\/\w]+)\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.HeadBlob)
 
-			routes := map[string][]struct {
-				Pattern *regexp.Regexp
-				Handler http.HandlerFunc
-			}{
-				http.MethodPost: {
-					{
-						Pattern: regexp.MustCompile(`^(?P<imageName>[\/\w]+)\/blobs\/uploads`), Handler: v2BlobsHandler.InitiateUploadSession,
-					},
-				},
-				http.MethodHead: {
-					{
-						Pattern: regexp.MustCompile(`^(?P<imageName>[\/\w]+)\/blobs\/(?P<digest>[\/\w:]+)`), Handler: v2BlobsHandler.HeadBlob,
-					},
-				},
-			}
+		customMux.Put(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.UploadManifest)
+		customMux.Get(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.DownloadManifest)
+		customMux.Head(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.HeadManifest)
 
-			methodRoutes, exists := routes[r.Method]
-			if !exists {
-				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-				return
-			}
-
-			for _, route := range methodRoutes {
-				matches := route.Pattern.FindStringSubmatch(uri)
-				if len(matches) > 0 {
-					ctx := r.Context()
-					for i, name := range route.Pattern.SubexpNames() {
-						if i != 0 && name != "" {
-							ctx = context.WithValue(ctx, name, matches[i])
-						}
-					}
-					route.Handler(w, r.WithContext(ctx))
-					return
-				}
-			}
-
-			http.Error(w, "Not Found", http.StatusNotFound)
-		}))
-		//authenticatedOciV2.Post("/{imageName}/*/blobs/uploads/", v2BlobUploadHandler.InitiateUploadSession)
-
+		authenticatedOciV2.HandleFunc("/*", customMux.Handle)
 	})
 
 	return &Router{

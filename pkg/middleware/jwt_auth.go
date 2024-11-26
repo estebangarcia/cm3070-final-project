@@ -39,6 +39,7 @@ func (a *JWTAuthMiddleware) Validate(next http.Handler) http.Handler {
 		if err != nil {
 			w.Header().Set(wwwAuthenticateHeader, a.getAuthenticationUrl())
 			responses.OCIUnauthorizedError(w)
+			return
 		}
 
 		next.ServeHTTP(w, r)
