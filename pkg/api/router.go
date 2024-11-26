@@ -9,6 +9,8 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
 	"github.com/estebangarcia/cm3070-final-project/pkg/helpers"
 	"github.com/estebangarcia/cm3070-final-project/pkg/middleware"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent"
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 )
@@ -17,7 +19,7 @@ type Router struct {
 	engine *chi.Mux
 }
 
-func NewRouter(ctx context.Context, cfg config.AppConfig) (*Router, error) {
+func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) (*Router, error) {
 	r := chi.NewRouter()
 
 	customMux := NewCustomMux()
@@ -40,10 +42,15 @@ func NewRouter(ctx context.Context, cfg config.AppConfig) (*Router, error) {
 		S3PresignClient: s3Presigner,
 	}
 
+	manifestRepository := repositories.NewManifestRepository(dbClient)
+	repositoryRepository := repositories.NewRepositoryRepository(dbClient)
+
 	v2ManifestsHandlers := V2ManifestsHandler{
-		Config:          &cfg,
-		S3Client:        s3Client,
-		S3PresignClient: s3Presigner,
+		Config:               &cfg,
+		S3Client:             s3Client,
+		S3PresignClient:      s3Presigner,
+		ManifestRepository:   manifestRepository,
+		RepositoryRepository: repositoryRepository,
 	}
 
 	jwkCache, err := helpers.InitJWKCache(ctx, &cfg)
@@ -70,9 +77,9 @@ func NewRouter(ctx context.Context, cfg config.AppConfig) (*Router, error) {
 		customMux.Get(`^(?P<imageName>[\/\w]+)\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.DownloadBlob)
 		customMux.Head(`^(?P<imageName>[\/\w]+)\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.HeadBlob)
 
-		customMux.Put(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w]+)`, v2ManifestsHandlers.UploadManifest)
-		customMux.Get(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w]+)`, v2ManifestsHandlers.DownloadManifest)
-		customMux.Head(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w]+)`, v2ManifestsHandlers.HeadManifest)
+		customMux.Put(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.UploadManifest)
+		customMux.Get(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.DownloadManifest)
+		customMux.Head(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.HeadManifest)
 
 		authenticatedOciV2.HandleFunc("/*", customMux.Handle)
 	})

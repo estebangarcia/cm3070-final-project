@@ -11,6 +11,7 @@ import (
 	"github.com/caarlos0/env/v11"
 	"github.com/estebangarcia/cm3070-final-project/pkg/api"
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
+	"github.com/estebangarcia/cm3070-final-project/pkg/helpers"
 )
 
 func NewSigKillContext() context.Context {
@@ -34,7 +35,13 @@ func main() {
 
 	ctx := NewSigKillContext()
 
-	r, err := api.NewRouter(ctx, cfg)
+	dbClient, err := helpers.GetDBClient(ctx, &cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer dbClient.Close()
+
+	r, err := api.NewRouter(ctx, cfg, dbClient)
 	if err != nil {
 		log.Fatal(err)
 	}

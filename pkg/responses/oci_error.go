@@ -2,6 +2,7 @@ package responses
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -16,6 +17,7 @@ type OCIErrorResponse struct {
 }
 
 func GenericOCIError(w http.ResponseWriter, code string, status int, message string, detail interface{}) {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(OCIErrorResponse{
 		Errors: []OCIErrorDetail{
@@ -26,31 +28,20 @@ func GenericOCIError(w http.ResponseWriter, code string, status int, message str
 			},
 		},
 	})
-
 }
 
 func OCIUnauthorizedError(w http.ResponseWriter) {
-	w.WriteHeader(http.StatusUnauthorized)
-	json.NewEncoder(w).Encode(OCIErrorResponse{
-		Errors: []OCIErrorDetail{
-			{
-				Code:    "UNAUTHORIZED",
-				Message: "Authentication is required",
-				Detail:  nil,
-			},
-		},
-	})
+	GenericOCIError(w, "UNAUTHORIZED", http.StatusUnauthorized, "Authentication is required", nil)
 }
 
 func OCIInternalServerError(w http.ResponseWriter) {
-	w.WriteHeader(http.StatusUnauthorized)
-	json.NewEncoder(w).Encode(OCIErrorResponse{
-		Errors: []OCIErrorDetail{
-			{
-				Code:    "INTERNAL_ERROR",
-				Message: "Internal Server Error",
-				Detail:  nil,
-			},
-		},
-	})
+	GenericOCIError(w, "INTERNAL_ERROR", http.StatusInternalServerError, "Internal Server Error", nil)
+}
+
+func OCIManifestUnknown(w http.ResponseWriter, reference string) {
+	GenericOCIError(w, "MANIFEST_UNKNOWN", http.StatusNotFound, fmt.Sprintf("Manifest with reference '%s' not found", reference), nil)
+}
+
+func OCIBlobUnknown(w http.ResponseWriter, digest string) {
+	GenericOCIError(w, "BLOB_UNKNOWN", http.StatusNotFound, fmt.Sprintf("Blob with digest '%s' not found", digest), nil)
 }

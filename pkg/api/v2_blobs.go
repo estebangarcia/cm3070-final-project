@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -17,6 +16,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
+	"github.com/estebangarcia/cm3070-final-project/pkg/helpers"
+	"github.com/estebangarcia/cm3070-final-project/pkg/responses"
 	"github.com/oklog/ulid/v2"
 	"golang.org/x/sync/errgroup"
 )
@@ -47,7 +48,7 @@ func (h *V2BlobsHandler) InitiateUploadSession(w http.ResponseWriter, r *http.Re
 	})
 	if err != nil {
 		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		responses.OCIInternalServerError(w)
 		return
 	}
 
@@ -65,13 +66,12 @@ func (h *V2BlobsHandler) HeadBlob(w http.ResponseWriter, r *http.Request) {
 		Key:    aws.String(h.getKeyForBlob(imageName, blobDigest)),
 	})
 
-	if err != nil {
-		var nfe *types.NotFound
-		if errors.As(err, &nfe) {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.WriteHeader(http.StatusInternalServerError)
+	var nfe *types.NotFound
+	if err != nil && errors.As(err, &nfe) {
+		responses.OCIBlobUnknown(w, blobDigest)
+		return
+	} else if err != nil {
+		responses.OCIInternalServerError(w)
 		log.Println(err)
 		return
 	}
@@ -92,7 +92,7 @@ func (h *V2BlobsHandler) DownloadBlob(w http.ResponseWriter, r *http.Request) {
 		Key:    &keyName,
 	}, s3.WithPresignExpires(*aws.Duration(time.Minute * 10)))
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		responses.OCIInternalServerError(w)
 		log.Println(err)
 		return
 	}
@@ -161,7 +161,6 @@ func (h *V2BlobsHandler) FinalizeBlobUploadSession(w http.ResponseWriter, r *htt
 	uploadId := r.Context().Value("uploadId").(string)
 	sessionId := r.URL.Query().Get("session")
 	blobDigest := r.URL.Query().Get("digest")
-	log.Println(blobDigest)
 
 	keyName := h.getKeyForBlobInFlight(imageName, uploadId)
 
@@ -172,7 +171,7 @@ func (h *V2BlobsHandler) FinalizeBlobUploadSession(w http.ResponseWriter, r *htt
 	})
 	if err != nil {
 		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		responses.OCIInternalServerError(w)
 		return
 	}
 
@@ -196,7 +195,7 @@ func (h *V2BlobsHandler) FinalizeBlobUploadSession(w http.ResponseWriter, r *htt
 
 	if err != nil {
 		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		responses.OCIInternalServerError(w)
 		return
 	}
 
@@ -206,7 +205,7 @@ func (h *V2BlobsHandler) FinalizeBlobUploadSession(w http.ResponseWriter, r *htt
 	})
 	if err != nil {
 		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		responses.OCIInternalServerError(w)
 		return
 	}
 
@@ -228,7 +227,7 @@ func (h *V2BlobsHandler) FinalizeBlobUploadSession(w http.ResponseWriter, r *htt
 
 	if err != nil {
 		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		responses.OCIInternalServerError(w)
 		return
 	}
 
@@ -267,7 +266,7 @@ func (h *V2BlobsHandler) getKeyForBlobInFlight(imageName string, uploadId string
 }
 
 func (h *V2BlobsHandler) getKeyForBlob(imageName string, digest string) string {
-	return fmt.Sprintf("%s/blobs/%s/blob.data", imageName, getDigestAsNestedFolder(digest))
+	return fmt.Sprintf("%s/blobs/%s/blob.data", imageName, helpers.GetDigestAsNestedFolder(digest))
 }
 
 func (h *V2BlobsHandler) getUploadUrl(imageName string, uploadId string, s3UploadId string) string {
@@ -276,29 +275,4 @@ func (h *V2BlobsHandler) getUploadUrl(imageName string, uploadId string, s3Uploa
 
 func (h *V2BlobsHandler) getBlobDownloadUrl(imageName string, digest string) string {
 	return fmt.Sprintf("%s/v2/%s/blobs/%s", h.Config.BaseURL, imageName, digest)
-}
-
-func getDigestAsNestedFolder(digest string) string {
-	// Remove the "sha256:" prefix if it exists
-	if strings.HasPrefix(digest, sha256Prefix) {
-		digest = strings.TrimPrefix(digest, sha256Prefix)
-	}
-
-	// Split the digest into chunks of 2 characters
-	var folders []string
-	for i := 0; i < len(digest); i += 2 {
-		if i+2 > len(digest) {
-			// Handle any remainder (unlikely with SHA256 as it's 64 characters)
-			folders = append(folders, digest[i:])
-		} else {
-			folders = append(folders, digest[i:i+2])
-		}
-	}
-
-	// Join the folders with a "/" to simulate the S3 folder structure
-	return strings.Join(folders, "/")
-}
-
-func isSHA256Digest(digest string) bool {
-	return strings.HasPrefix(digest, sha256Prefix)
 }
