@@ -12,6 +12,8 @@ import (
 // Tx is a transactional client that is created by calling Client.Tx().
 type Tx struct {
 	config
+	// BlobChunk is the client for interacting with the BlobChunk builders.
+	BlobChunk *BlobChunkClient
 	// Manifest is the client for interacting with the Manifest builders.
 	Manifest *ManifestClient
 	// ManifestTagReference is the client for interacting with the ManifestTagReference builders.
@@ -149,6 +151,7 @@ func (tx *Tx) Client() *Client {
 }
 
 func (tx *Tx) init() {
+	tx.BlobChunk = NewBlobChunkClient(tx.config)
 	tx.Manifest = NewManifestClient(tx.config)
 	tx.ManifestTagReference = NewManifestTagReferenceClient(tx.config)
 	tx.Repository = NewRepositoryClient(tx.config)
@@ -161,7 +164,7 @@ func (tx *Tx) init() {
 // of them in order to commit or rollback the transaction.
 //
 // If a closed transaction is embedded in one of the generated entities, and the entity
-// applies a query, for example: Manifest.QueryXXX(), the query will be executed
+// applies a query, for example: BlobChunk.QueryXXX(), the query will be executed
 // through the driver which created this transaction.
 //
 // Note that txDriver is not goroutine safe.

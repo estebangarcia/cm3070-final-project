@@ -45,3 +45,11 @@ func OCIManifestUnknown(w http.ResponseWriter, reference string) {
 func OCIBlobUnknown(w http.ResponseWriter, digest string) {
 	GenericOCIError(w, "BLOB_UNKNOWN", http.StatusNotFound, fmt.Sprintf("Blob with digest '%s' not found", digest), nil)
 }
+
+func OCIBlobUploadInvalid(w http.ResponseWriter) {
+	GenericOCIError(w, "BLOB_UPLOAD_INVALID", http.StatusBadRequest, "Failed to upload blob", nil)
+}
+
+func OCIBlobUploadUnknown(w http.ResponseWriter) {
+	GenericOCIError(w, "BLOB_UPLOAD_UNKNOWN", http.StatusNotFound, "Blob upload session not found", nil)
+}

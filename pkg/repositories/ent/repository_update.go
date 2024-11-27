@@ -286,7 +286,7 @@ func (ruo *RepositoryUpdateOne) sqlSave(ctx context.Context) (_node *Repository,
 	_spec := sqlgraph.NewUpdateSpec(repository.Table, repository.Columns, sqlgraph.NewFieldSpec(repository.FieldID, field.TypeInt))
 	id, ok := ruo.mutation.ID()
 	if !ok {
-		return nil, &ValidationError{Name: "id", err: errors.New(`entities: missing "Repository.id" for update`)}
+		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "Repository.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
 	if fields := ruo.fields; len(fields) > 0 {
@@ -294,7 +294,7 @@ func (ruo *RepositoryUpdateOne) sqlSave(ctx context.Context) (_node *Repository,
 		_spec.Node.Columns = append(_spec.Node.Columns, repository.FieldID)
 		for _, f := range fields {
 			if !repository.ValidColumn(f) {
-				return nil, &ValidationError{Name: f, err: fmt.Errorf("entities: invalid field %q for query", f)}
+				return nil, &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 			}
 			if f != repository.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, f)

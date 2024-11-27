@@ -121,7 +121,7 @@ func (mtr *ManifestTagReference) Update() *ManifestTagReferenceUpdateOne {
 func (mtr *ManifestTagReference) Unwrap() *ManifestTagReference {
 	_tx, ok := mtr.config.driver.(*txDriver)
 	if !ok {
-		panic("entities: ManifestTagReference is not a transactional entity")
+		panic("ent: ManifestTagReference is not a transactional entity")
 	}
 	mtr.config.driver = _tx.drv
 	return mtr

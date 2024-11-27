@@ -55,6 +55,7 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 
 	digest, checksumBytes, err := h.getDigestFromReferenceOrBody(reference, buffer)
 	if err != nil {
+		log.Println(err)
 		responses.OCIInternalServerError(w)
 		return
 	}
@@ -186,13 +187,14 @@ func (h *V2ManifestsHandler) getManifestDownloadUrl(imageName string, reference 
 }
 
 func (h *V2ManifestsHandler) getDigestFromReferenceOrBody(reference string, body []byte) (string, []byte, error) {
-	digest := reference
+	digest := helpers.TrimDigest(reference)
 	if !helpers.IsSHA256Digest(reference) {
 		hash := sha256.New()
 		hash.Write(body)
 		hashDigest := hash.Sum(nil)
 		digest = fmt.Sprintf("%x", hashDigest)
 	}
+
 	checksumBytes, err := hex.DecodeString(digest)
 
 	return digest, checksumBytes, err

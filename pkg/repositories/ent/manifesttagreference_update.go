@@ -248,7 +248,7 @@ func (mtruo *ManifestTagReferenceUpdateOne) sqlSave(ctx context.Context) (_node 
 	_spec := sqlgraph.NewUpdateSpec(manifesttagreference.Table, manifesttagreference.Columns, sqlgraph.NewFieldSpec(manifesttagreference.FieldID, field.TypeInt))
 	id, ok := mtruo.mutation.ID()
 	if !ok {
-		return nil, &ValidationError{Name: "id", err: errors.New(`entities: missing "ManifestTagReference.id" for update`)}
+		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "ManifestTagReference.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
 	if fields := mtruo.fields; len(fields) > 0 {
@@ -256,7 +256,7 @@ func (mtruo *ManifestTagReferenceUpdateOne) sqlSave(ctx context.Context) (_node 
 		_spec.Node.Columns = append(_spec.Node.Columns, manifesttagreference.FieldID)
 		for _, f := range fields {
 			if !manifesttagreference.ValidColumn(f) {
-				return nil, &ValidationError{Name: f, err: fmt.Errorf("entities: invalid field %q for query", f)}
+				return nil, &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 			}
 			if f != manifesttagreference.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, f)

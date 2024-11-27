@@ -108,13 +108,13 @@ func (mc *ManifestCreate) ExecX(ctx context.Context) {
 // check runs all checks and user-defined validators on the builder.
 func (mc *ManifestCreate) check() error {
 	if _, ok := mc.mutation.MediaType(); !ok {
-		return &ValidationError{Name: "media_type", err: errors.New(`entities: missing required field "Manifest.media_type"`)}
+		return &ValidationError{Name: "media_type", err: errors.New(`ent: missing required field "Manifest.media_type"`)}
 	}
 	if _, ok := mc.mutation.S3Path(); !ok {
-		return &ValidationError{Name: "s3_path", err: errors.New(`entities: missing required field "Manifest.s3_path"`)}
+		return &ValidationError{Name: "s3_path", err: errors.New(`ent: missing required field "Manifest.s3_path"`)}
 	}
 	if _, ok := mc.mutation.Digest(); !ok {
-		return &ValidationError{Name: "digest", err: errors.New(`entities: missing required field "Manifest.digest"`)}
+		return &ValidationError{Name: "digest", err: errors.New(`ent: missing required field "Manifest.digest"`)}
 	}
 	return nil
 }

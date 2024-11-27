@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/blobchunk"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifest"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
@@ -25,10 +26,655 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
+	TypeBlobChunk            = "BlobChunk"
 	TypeManifest             = "Manifest"
 	TypeManifestTagReference = "ManifestTagReference"
 	TypeRepository           = "Repository"
 )
+
+// BlobChunkMutation represents an operation that mutates the BlobChunk nodes in the graph.
+type BlobChunkMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *int
+	upload_id      *string
+	session_id     *string
+	range_from     *uint64
+	addrange_from  *int64
+	range_to       *uint64
+	addrange_to    *int64
+	part_number    *uint64
+	addpart_number *int64
+	clearedFields  map[string]struct{}
+	done           bool
+	oldValue       func(context.Context) (*BlobChunk, error)
+	predicates     []predicate.BlobChunk
+}
+
+var _ ent.Mutation = (*BlobChunkMutation)(nil)
+
+// blobchunkOption allows management of the mutation configuration using functional options.
+type blobchunkOption func(*BlobChunkMutation)
+
+// newBlobChunkMutation creates new mutation for the BlobChunk entity.
+func newBlobChunkMutation(c config, op Op, opts ...blobchunkOption) *BlobChunkMutation {
+	m := &BlobChunkMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeBlobChunk,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withBlobChunkID sets the ID field of the mutation.
+func withBlobChunkID(id int) blobchunkOption {
+	return func(m *BlobChunkMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *BlobChunk
+		)
+		m.oldValue = func(ctx context.Context) (*BlobChunk, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().BlobChunk.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withBlobChunk sets the old BlobChunk of the mutation.
+func withBlobChunk(node *BlobChunk) blobchunkOption {
+	return func(m *BlobChunkMutation) {
+		m.oldValue = func(context.Context) (*BlobChunk, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m BlobChunkMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m BlobChunkMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *BlobChunkMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *BlobChunkMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().BlobChunk.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetUploadID sets the "upload_id" field.
+func (m *BlobChunkMutation) SetUploadID(s string) {
+	m.upload_id = &s
+}
+
+// UploadID returns the value of the "upload_id" field in the mutation.
+func (m *BlobChunkMutation) UploadID() (r string, exists bool) {
+	v := m.upload_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUploadID returns the old "upload_id" field's value of the BlobChunk entity.
+// If the BlobChunk object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BlobChunkMutation) OldUploadID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUploadID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUploadID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUploadID: %w", err)
+	}
+	return oldValue.UploadID, nil
+}
+
+// ResetUploadID resets all changes to the "upload_id" field.
+func (m *BlobChunkMutation) ResetUploadID() {
+	m.upload_id = nil
+}
+
+// SetSessionID sets the "session_id" field.
+func (m *BlobChunkMutation) SetSessionID(s string) {
+	m.session_id = &s
+}
+
+// SessionID returns the value of the "session_id" field in the mutation.
+func (m *BlobChunkMutation) SessionID() (r string, exists bool) {
+	v := m.session_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSessionID returns the old "session_id" field's value of the BlobChunk entity.
+// If the BlobChunk object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BlobChunkMutation) OldSessionID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSessionID: %w", err)
+	}
+	return oldValue.SessionID, nil
+}
+
+// ResetSessionID resets all changes to the "session_id" field.
+func (m *BlobChunkMutation) ResetSessionID() {
+	m.session_id = nil
+}
+
+// SetRangeFrom sets the "range_from" field.
+func (m *BlobChunkMutation) SetRangeFrom(u uint64) {
+	m.range_from = &u
+	m.addrange_from = nil
+}
+
+// RangeFrom returns the value of the "range_from" field in the mutation.
+func (m *BlobChunkMutation) RangeFrom() (r uint64, exists bool) {
+	v := m.range_from
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRangeFrom returns the old "range_from" field's value of the BlobChunk entity.
+// If the BlobChunk object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BlobChunkMutation) OldRangeFrom(ctx context.Context) (v uint64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRangeFrom is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRangeFrom requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRangeFrom: %w", err)
+	}
+	return oldValue.RangeFrom, nil
+}
+
+// AddRangeFrom adds u to the "range_from" field.
+func (m *BlobChunkMutation) AddRangeFrom(u int64) {
+	if m.addrange_from != nil {
+		*m.addrange_from += u
+	} else {
+		m.addrange_from = &u
+	}
+}
+
+// AddedRangeFrom returns the value that was added to the "range_from" field in this mutation.
+func (m *BlobChunkMutation) AddedRangeFrom() (r int64, exists bool) {
+	v := m.addrange_from
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRangeFrom resets all changes to the "range_from" field.
+func (m *BlobChunkMutation) ResetRangeFrom() {
+	m.range_from = nil
+	m.addrange_from = nil
+}
+
+// SetRangeTo sets the "range_to" field.
+func (m *BlobChunkMutation) SetRangeTo(u uint64) {
+	m.range_to = &u
+	m.addrange_to = nil
+}
+
+// RangeTo returns the value of the "range_to" field in the mutation.
+func (m *BlobChunkMutation) RangeTo() (r uint64, exists bool) {
+	v := m.range_to
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRangeTo returns the old "range_to" field's value of the BlobChunk entity.
+// If the BlobChunk object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BlobChunkMutation) OldRangeTo(ctx context.Context) (v uint64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRangeTo is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRangeTo requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRangeTo: %w", err)
+	}
+	return oldValue.RangeTo, nil
+}
+
+// AddRangeTo adds u to the "range_to" field.
+func (m *BlobChunkMutation) AddRangeTo(u int64) {
+	if m.addrange_to != nil {
+		*m.addrange_to += u
+	} else {
+		m.addrange_to = &u
+	}
+}
+
+// AddedRangeTo returns the value that was added to the "range_to" field in this mutation.
+func (m *BlobChunkMutation) AddedRangeTo() (r int64, exists bool) {
+	v := m.addrange_to
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRangeTo resets all changes to the "range_to" field.
+func (m *BlobChunkMutation) ResetRangeTo() {
+	m.range_to = nil
+	m.addrange_to = nil
+}
+
+// SetPartNumber sets the "part_number" field.
+func (m *BlobChunkMutation) SetPartNumber(u uint64) {
+	m.part_number = &u
+	m.addpart_number = nil
+}
+
+// PartNumber returns the value of the "part_number" field in the mutation.
+func (m *BlobChunkMutation) PartNumber() (r uint64, exists bool) {
+	v := m.part_number
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPartNumber returns the old "part_number" field's value of the BlobChunk entity.
+// If the BlobChunk object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BlobChunkMutation) OldPartNumber(ctx context.Context) (v uint64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPartNumber is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPartNumber requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPartNumber: %w", err)
+	}
+	return oldValue.PartNumber, nil
+}
+
+// AddPartNumber adds u to the "part_number" field.
+func (m *BlobChunkMutation) AddPartNumber(u int64) {
+	if m.addpart_number != nil {
+		*m.addpart_number += u
+	} else {
+		m.addpart_number = &u
+	}
+}
+
+// AddedPartNumber returns the value that was added to the "part_number" field in this mutation.
+func (m *BlobChunkMutation) AddedPartNumber() (r int64, exists bool) {
+	v := m.addpart_number
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPartNumber resets all changes to the "part_number" field.
+func (m *BlobChunkMutation) ResetPartNumber() {
+	m.part_number = nil
+	m.addpart_number = nil
+}
+
+// Where appends a list predicates to the BlobChunkMutation builder.
+func (m *BlobChunkMutation) Where(ps ...predicate.BlobChunk) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the BlobChunkMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *BlobChunkMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.BlobChunk, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *BlobChunkMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *BlobChunkMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (BlobChunk).
+func (m *BlobChunkMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *BlobChunkMutation) Fields() []string {
+	fields := make([]string, 0, 5)
+	if m.upload_id != nil {
+		fields = append(fields, blobchunk.FieldUploadID)
+	}
+	if m.session_id != nil {
+		fields = append(fields, blobchunk.FieldSessionID)
+	}
+	if m.range_from != nil {
+		fields = append(fields, blobchunk.FieldRangeFrom)
+	}
+	if m.range_to != nil {
+		fields = append(fields, blobchunk.FieldRangeTo)
+	}
+	if m.part_number != nil {
+		fields = append(fields, blobchunk.FieldPartNumber)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *BlobChunkMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case blobchunk.FieldUploadID:
+		return m.UploadID()
+	case blobchunk.FieldSessionID:
+		return m.SessionID()
+	case blobchunk.FieldRangeFrom:
+		return m.RangeFrom()
+	case blobchunk.FieldRangeTo:
+		return m.RangeTo()
+	case blobchunk.FieldPartNumber:
+		return m.PartNumber()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *BlobChunkMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case blobchunk.FieldUploadID:
+		return m.OldUploadID(ctx)
+	case blobchunk.FieldSessionID:
+		return m.OldSessionID(ctx)
+	case blobchunk.FieldRangeFrom:
+		return m.OldRangeFrom(ctx)
+	case blobchunk.FieldRangeTo:
+		return m.OldRangeTo(ctx)
+	case blobchunk.FieldPartNumber:
+		return m.OldPartNumber(ctx)
+	}
+	return nil, fmt.Errorf("unknown BlobChunk field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *BlobChunkMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case blobchunk.FieldUploadID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUploadID(v)
+		return nil
+	case blobchunk.FieldSessionID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSessionID(v)
+		return nil
+	case blobchunk.FieldRangeFrom:
+		v, ok := value.(uint64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRangeFrom(v)
+		return nil
+	case blobchunk.FieldRangeTo:
+		v, ok := value.(uint64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRangeTo(v)
+		return nil
+	case blobchunk.FieldPartNumber:
+		v, ok := value.(uint64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPartNumber(v)
+		return nil
+	}
+	return fmt.Errorf("unknown BlobChunk field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *BlobChunkMutation) AddedFields() []string {
+	var fields []string
+	if m.addrange_from != nil {
+		fields = append(fields, blobchunk.FieldRangeFrom)
+	}
+	if m.addrange_to != nil {
+		fields = append(fields, blobchunk.FieldRangeTo)
+	}
+	if m.addpart_number != nil {
+		fields = append(fields, blobchunk.FieldPartNumber)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *BlobChunkMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case blobchunk.FieldRangeFrom:
+		return m.AddedRangeFrom()
+	case blobchunk.FieldRangeTo:
+		return m.AddedRangeTo()
+	case blobchunk.FieldPartNumber:
+		return m.AddedPartNumber()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *BlobChunkMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case blobchunk.FieldRangeFrom:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRangeFrom(v)
+		return nil
+	case blobchunk.FieldRangeTo:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRangeTo(v)
+		return nil
+	case blobchunk.FieldPartNumber:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPartNumber(v)
+		return nil
+	}
+	return fmt.Errorf("unknown BlobChunk numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *BlobChunkMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *BlobChunkMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *BlobChunkMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown BlobChunk nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *BlobChunkMutation) ResetField(name string) error {
+	switch name {
+	case blobchunk.FieldUploadID:
+		m.ResetUploadID()
+		return nil
+	case blobchunk.FieldSessionID:
+		m.ResetSessionID()
+		return nil
+	case blobchunk.FieldRangeFrom:
+		m.ResetRangeFrom()
+		return nil
+	case blobchunk.FieldRangeTo:
+		m.ResetRangeTo()
+		return nil
+	case blobchunk.FieldPartNumber:
+		m.ResetPartNumber()
+		return nil
+	}
+	return fmt.Errorf("unknown BlobChunk field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *BlobChunkMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *BlobChunkMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *BlobChunkMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *BlobChunkMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *BlobChunkMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *BlobChunkMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *BlobChunkMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown BlobChunk unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *BlobChunkMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown BlobChunk edge %s", name)
+}
 
 // ManifestMutation represents an operation that mutates the Manifest nodes in the graph.
 type ManifestMutation struct {
@@ -113,7 +759,7 @@ func (m ManifestMutation) Client() *Client {
 // it returns an error otherwise.
 func (m ManifestMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("entities: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -694,7 +1340,7 @@ func (m ManifestTagReferenceMutation) Client() *Client {
 // it returns an error otherwise.
 func (m ManifestTagReferenceMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("entities: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -1088,7 +1734,7 @@ func (m RepositoryMutation) Client() *Client {
 // it returns an error otherwise.
 func (m RepositoryMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("entities: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()

@@ -15,6 +15,7 @@ import (
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/blobchunk"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifest"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
@@ -25,6 +26,8 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
+	// BlobChunk is the client for interacting with the BlobChunk builders.
+	BlobChunk *BlobChunkClient
 	// Manifest is the client for interacting with the Manifest builders.
 	Manifest *ManifestClient
 	// ManifestTagReference is the client for interacting with the ManifestTagReference builders.
@@ -42,6 +45,7 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
+	c.BlobChunk = NewBlobChunkClient(c.config)
 	c.Manifest = NewManifestClient(c.config)
 	c.ManifestTagReference = NewManifestTagReferenceClient(c.config)
 	c.Repository = NewRepositoryClient(c.config)
@@ -120,7 +124,7 @@ func Open(driverName, dataSourceName string, options ...Option) (*Client, error)
 }
 
 // ErrTxStarted is returned when trying to start a new transaction from a transactional client.
-var ErrTxStarted = errors.New("entities: cannot start a transaction within a transaction")
+var ErrTxStarted = errors.New("ent: cannot start a transaction within a transaction")
 
 // Tx returns a new transactional client. The provided context
 // is used until the transaction is committed or rolled back.
@@ -130,13 +134,14 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	}
 	tx, err := newTx(ctx, c.driver)
 	if err != nil {
-		return nil, fmt.Errorf("entities: starting a transaction: %w", err)
+		return nil, fmt.Errorf("ent: starting a transaction: %w", err)
 	}
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
 		ctx:                  ctx,
 		config:               cfg,
+		BlobChunk:            NewBlobChunkClient(cfg),
 		Manifest:             NewManifestClient(cfg),
 		ManifestTagReference: NewManifestTagReferenceClient(cfg),
 		Repository:           NewRepositoryClient(cfg),
@@ -159,6 +164,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	return &Tx{
 		ctx:                  ctx,
 		config:               cfg,
+		BlobChunk:            NewBlobChunkClient(cfg),
 		Manifest:             NewManifestClient(cfg),
 		ManifestTagReference: NewManifestTagReferenceClient(cfg),
 		Repository:           NewRepositoryClient(cfg),
@@ -168,7 +174,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		Manifest.
+//		BlobChunk.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -190,6 +196,7 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
+	c.BlobChunk.Use(hooks...)
 	c.Manifest.Use(hooks...)
 	c.ManifestTagReference.Use(hooks...)
 	c.Repository.Use(hooks...)
@@ -198,6 +205,7 @@ func (c *Client) Use(hooks ...Hook) {
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
+	c.BlobChunk.Intercept(interceptors...)
 	c.Manifest.Intercept(interceptors...)
 	c.ManifestTagReference.Intercept(interceptors...)
 	c.Repository.Intercept(interceptors...)
@@ -206,6 +214,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
+	case *BlobChunkMutation:
+		return c.BlobChunk.mutate(ctx, m)
 	case *ManifestMutation:
 		return c.Manifest.mutate(ctx, m)
 	case *ManifestTagReferenceMutation:
@@ -213,7 +223,140 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	case *RepositoryMutation:
 		return c.Repository.mutate(ctx, m)
 	default:
-		return nil, fmt.Errorf("entities: unknown mutation type %T", m)
+		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
+	}
+}
+
+// BlobChunkClient is a client for the BlobChunk schema.
+type BlobChunkClient struct {
+	config
+}
+
+// NewBlobChunkClient returns a client for the BlobChunk from the given config.
+func NewBlobChunkClient(c config) *BlobChunkClient {
+	return &BlobChunkClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `blobchunk.Hooks(f(g(h())))`.
+func (c *BlobChunkClient) Use(hooks ...Hook) {
+	c.hooks.BlobChunk = append(c.hooks.BlobChunk, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `blobchunk.Intercept(f(g(h())))`.
+func (c *BlobChunkClient) Intercept(interceptors ...Interceptor) {
+	c.inters.BlobChunk = append(c.inters.BlobChunk, interceptors...)
+}
+
+// Create returns a builder for creating a BlobChunk entity.
+func (c *BlobChunkClient) Create() *BlobChunkCreate {
+	mutation := newBlobChunkMutation(c.config, OpCreate)
+	return &BlobChunkCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of BlobChunk entities.
+func (c *BlobChunkClient) CreateBulk(builders ...*BlobChunkCreate) *BlobChunkCreateBulk {
+	return &BlobChunkCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *BlobChunkClient) MapCreateBulk(slice any, setFunc func(*BlobChunkCreate, int)) *BlobChunkCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &BlobChunkCreateBulk{err: fmt.Errorf("calling to BlobChunkClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*BlobChunkCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &BlobChunkCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for BlobChunk.
+func (c *BlobChunkClient) Update() *BlobChunkUpdate {
+	mutation := newBlobChunkMutation(c.config, OpUpdate)
+	return &BlobChunkUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *BlobChunkClient) UpdateOne(bc *BlobChunk) *BlobChunkUpdateOne {
+	mutation := newBlobChunkMutation(c.config, OpUpdateOne, withBlobChunk(bc))
+	return &BlobChunkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *BlobChunkClient) UpdateOneID(id int) *BlobChunkUpdateOne {
+	mutation := newBlobChunkMutation(c.config, OpUpdateOne, withBlobChunkID(id))
+	return &BlobChunkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for BlobChunk.
+func (c *BlobChunkClient) Delete() *BlobChunkDelete {
+	mutation := newBlobChunkMutation(c.config, OpDelete)
+	return &BlobChunkDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *BlobChunkClient) DeleteOne(bc *BlobChunk) *BlobChunkDeleteOne {
+	return c.DeleteOneID(bc.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *BlobChunkClient) DeleteOneID(id int) *BlobChunkDeleteOne {
+	builder := c.Delete().Where(blobchunk.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &BlobChunkDeleteOne{builder}
+}
+
+// Query returns a query builder for BlobChunk.
+func (c *BlobChunkClient) Query() *BlobChunkQuery {
+	return &BlobChunkQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeBlobChunk},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a BlobChunk entity by its id.
+func (c *BlobChunkClient) Get(ctx context.Context, id int) (*BlobChunk, error) {
+	return c.Query().Where(blobchunk.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *BlobChunkClient) GetX(ctx context.Context, id int) *BlobChunk {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *BlobChunkClient) Hooks() []Hook {
+	return c.hooks.BlobChunk
+}
+
+// Interceptors returns the client interceptors.
+func (c *BlobChunkClient) Interceptors() []Interceptor {
+	return c.inters.BlobChunk
+}
+
+func (c *BlobChunkClient) mutate(ctx context.Context, m *BlobChunkMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&BlobChunkCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&BlobChunkUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&BlobChunkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&BlobChunkDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown BlobChunk mutation op: %q", m.Op())
 	}
 }
 
@@ -378,7 +521,7 @@ func (c *ManifestClient) mutate(ctx context.Context, m *ManifestMutation) (Value
 	case OpDelete, OpDeleteOne:
 		return (&ManifestDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("entities: unknown Manifest mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown Manifest mutation op: %q", m.Op())
 	}
 }
 
@@ -527,7 +670,7 @@ func (c *ManifestTagReferenceClient) mutate(ctx context.Context, m *ManifestTagR
 	case OpDelete, OpDeleteOne:
 		return (&ManifestTagReferenceDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("entities: unknown ManifestTagReference mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown ManifestTagReference mutation op: %q", m.Op())
 	}
 }
 
@@ -676,16 +819,16 @@ func (c *RepositoryClient) mutate(ctx context.Context, m *RepositoryMutation) (V
 	case OpDelete, OpDeleteOne:
 		return (&RepositoryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("entities: unknown Repository mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown Repository mutation op: %q", m.Op())
 	}
 }
 
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Manifest, ManifestTagReference, Repository []ent.Hook
+		BlobChunk, Manifest, ManifestTagReference, Repository []ent.Hook
 	}
 	inters struct {
-		Manifest, ManifestTagReference, Repository []ent.Interceptor
+		BlobChunk, Manifest, ManifestTagReference, Repository []ent.Interceptor
 	}
 )

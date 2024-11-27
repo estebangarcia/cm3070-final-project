@@ -248,7 +248,7 @@ func (mtrq *ManifestTagReferenceQuery) Exist(ctx context.Context) (bool, error) 
 	case IsNotFound(err):
 		return false, nil
 	case err != nil:
-		return false, fmt.Errorf("entities: check existence: %w", err)
+		return false, fmt.Errorf("ent: check existence: %w", err)
 	default:
 		return true, nil
 	}
@@ -305,7 +305,7 @@ func (mtrq *ManifestTagReferenceQuery) WithManifests(opts ...func(*ManifestQuery
 //
 //	client.ManifestTagReference.Query().
 //		GroupBy(manifesttagreference.FieldTag).
-//		Aggregate(entities.Count()).
+//		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
 func (mtrq *ManifestTagReferenceQuery) GroupBy(field string, fields ...string) *ManifestTagReferenceGroupBy {
 	mtrq.ctx.Fields = append([]string{field}, fields...)
@@ -344,7 +344,7 @@ func (mtrq *ManifestTagReferenceQuery) Aggregate(fns ...AggregateFunc) *Manifest
 func (mtrq *ManifestTagReferenceQuery) prepareQuery(ctx context.Context) error {
 	for _, inter := range mtrq.inters {
 		if inter == nil {
-			return fmt.Errorf("entities: uninitialized interceptor (forgotten import entities/runtime?)")
+			return fmt.Errorf("ent: uninitialized interceptor (forgotten import ent/runtime?)")
 		}
 		if trv, ok := inter.(Traverser); ok {
 			if err := trv.Traverse(ctx, mtrq); err != nil {
@@ -354,7 +354,7 @@ func (mtrq *ManifestTagReferenceQuery) prepareQuery(ctx context.Context) error {
 	}
 	for _, f := range mtrq.ctx.Fields {
 		if !manifesttagreference.ValidColumn(f) {
-			return &ValidationError{Name: f, err: fmt.Errorf("entities: invalid field %q for query", f)}
+			return &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 		}
 	}
 	if mtrq.path != nil {

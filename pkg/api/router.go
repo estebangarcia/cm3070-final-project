@@ -36,10 +36,13 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 	s3Client := helpers.GetS3Client(ctx, cfg)
 	s3Presigner := helpers.GetS3PresignClient(s3Client)
 
+	blobChunkRepository := repositories.NewBlobChunkRepository(dbClient)
+
 	v2BlobsHandler := V2BlobsHandler{
-		Config:          &cfg,
-		S3Client:        s3Client,
-		S3PresignClient: s3Presigner,
+		Config:              &cfg,
+		S3Client:            s3Client,
+		S3PresignClient:     s3Presigner,
+		BlobChunkRepository: blobChunkRepository,
 	}
 
 	manifestRepository := repositories.NewManifestRepository(dbClient)
@@ -74,6 +77,7 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 		customMux.Post(`^(?P<imageName>[\/\w]+)\/blobs\/uploads`, v2BlobsHandler.InitiateUploadSession)
 		customMux.Patch(`^(?P<imageName>[\/\w]+)\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.UploadBlob)
 		customMux.Put(`^(?P<imageName>[\/\w]+)\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.FinalizeBlobUploadSession)
+		customMux.Get(`^(?P<imageName>[\/\w]+)\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.GetBlobUploadSession)
 		customMux.Get(`^(?P<imageName>[\/\w]+)\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.DownloadBlob)
 		customMux.Head(`^(?P<imageName>[\/\w]+)\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.HeadBlob)
 

@@ -153,7 +153,7 @@ func (m *Manifest) Update() *ManifestUpdateOne {
 func (m *Manifest) Unwrap() *Manifest {
 	_tx, ok := m.config.driver.(*txDriver)
 	if !ok {
-		panic("entities: Manifest is not a transactional entity")
+		panic("ent: Manifest is not a transactional entity")
 	}
 	m.config.driver = _tx.drv
 	return m

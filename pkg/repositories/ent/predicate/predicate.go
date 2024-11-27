@@ -6,6 +6,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// BlobChunk is the predicate function for blobchunk builders.
+type BlobChunk func(*sql.Selector)
+
 // Manifest is the predicate function for manifest builders.
 type Manifest func(*sql.Selector)
 

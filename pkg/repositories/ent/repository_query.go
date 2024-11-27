@@ -248,7 +248,7 @@ func (rq *RepositoryQuery) Exist(ctx context.Context) (bool, error) {
 	case IsNotFound(err):
 		return false, nil
 	case err != nil:
-		return false, fmt.Errorf("entities: check existence: %w", err)
+		return false, fmt.Errorf("ent: check existence: %w", err)
 	default:
 		return true, nil
 	}
@@ -305,7 +305,7 @@ func (rq *RepositoryQuery) WithManifests(opts ...func(*ManifestQuery)) *Reposito
 //
 //	client.Repository.Query().
 //		GroupBy(repository.FieldName).
-//		Aggregate(entities.Count()).
+//		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
 func (rq *RepositoryQuery) GroupBy(field string, fields ...string) *RepositoryGroupBy {
 	rq.ctx.Fields = append([]string{field}, fields...)
@@ -344,7 +344,7 @@ func (rq *RepositoryQuery) Aggregate(fns ...AggregateFunc) *RepositorySelect {
 func (rq *RepositoryQuery) prepareQuery(ctx context.Context) error {
 	for _, inter := range rq.inters {
 		if inter == nil {
-			return fmt.Errorf("entities: uninitialized interceptor (forgotten import entities/runtime?)")
+			return fmt.Errorf("ent: uninitialized interceptor (forgotten import ent/runtime?)")
 		}
 		if trv, ok := inter.(Traverser); ok {
 			if err := trv.Traverse(ctx, rq); err != nil {
@@ -354,7 +354,7 @@ func (rq *RepositoryQuery) prepareQuery(ctx context.Context) error {
 	}
 	for _, f := range rq.ctx.Fields {
 		if !repository.ValidColumn(f) {
-			return &ValidationError{Name: f, err: fmt.Errorf("entities: invalid field %q for query", f)}
+			return &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 		}
 	}
 	if rq.path != nil {

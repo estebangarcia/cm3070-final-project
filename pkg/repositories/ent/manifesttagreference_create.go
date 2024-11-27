@@ -80,7 +80,7 @@ func (mtrc *ManifestTagReferenceCreate) ExecX(ctx context.Context) {
 // check runs all checks and user-defined validators on the builder.
 func (mtrc *ManifestTagReferenceCreate) check() error {
 	if _, ok := mtrc.mutation.Tag(); !ok {
-		return &ValidationError{Name: "tag", err: errors.New(`entities: missing required field "ManifestTagReference.tag"`)}
+		return &ValidationError{Name: "tag", err: errors.New(`ent: missing required field "ManifestTagReference.tag"`)}
 	}
 	return nil
 }

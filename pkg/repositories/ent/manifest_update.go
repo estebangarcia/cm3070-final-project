@@ -428,7 +428,7 @@ func (muo *ManifestUpdateOne) sqlSave(ctx context.Context) (_node *Manifest, err
 	_spec := sqlgraph.NewUpdateSpec(manifest.Table, manifest.Columns, sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt))
 	id, ok := muo.mutation.ID()
 	if !ok {
-		return nil, &ValidationError{Name: "id", err: errors.New(`entities: missing "Manifest.id" for update`)}
+		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "Manifest.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
 	if fields := muo.fields; len(fields) > 0 {
@@ -436,7 +436,7 @@ func (muo *ManifestUpdateOne) sqlSave(ctx context.Context) (_node *Manifest, err
 		_spec.Node.Columns = append(_spec.Node.Columns, manifest.FieldID)
 		for _, f := range fields {
 			if !manifest.ValidColumn(f) {
-				return nil, &ValidationError{Name: f, err: fmt.Errorf("entities: invalid field %q for query", f)}
+				return nil, &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 			}
 			if f != manifest.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, f)

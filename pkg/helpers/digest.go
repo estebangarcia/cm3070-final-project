@@ -8,6 +8,10 @@ func IsSHA256Digest(digest string) bool {
 	return strings.HasPrefix(digest, sha256Prefix)
 }
 
+func TrimDigest(digest string) string {
+	return strings.TrimPrefix(digest, sha256Prefix)
+}
+
 func GetDigestAsNestedFolder(digest string) string {
 	// Remove the "sha256:" prefix if it exists
 	digest = strings.TrimPrefix(digest, sha256Prefix)

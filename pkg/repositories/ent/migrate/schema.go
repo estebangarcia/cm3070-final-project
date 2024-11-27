@@ -8,6 +8,33 @@ import (
 )
 
 var (
+	// BlobChunksColumns holds the columns for the "blob_chunks" table.
+	BlobChunksColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "upload_id", Type: field.TypeString},
+		{Name: "session_id", Type: field.TypeString},
+		{Name: "range_from", Type: field.TypeUint64},
+		{Name: "range_to", Type: field.TypeUint64},
+		{Name: "part_number", Type: field.TypeUint64},
+	}
+	// BlobChunksTable holds the schema information for the "blob_chunks" table.
+	BlobChunksTable = &schema.Table{
+		Name:       "blob_chunks",
+		Columns:    BlobChunksColumns,
+		PrimaryKey: []*schema.Column{BlobChunksColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "blobchunk_upload_id",
+				Unique:  true,
+				Columns: []*schema.Column{BlobChunksColumns[1]},
+			},
+			{
+				Name:    "blobchunk_session_id",
+				Unique:  true,
+				Columns: []*schema.Column{BlobChunksColumns[2]},
+			},
+		},
+	}
 	// ManifestsColumns holds the columns for the "manifests" table.
 	ManifestsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -63,6 +90,7 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		BlobChunksTable,
 		ManifestsTable,
 		ManifestTagReferencesTable,
 		RepositoriesTable,

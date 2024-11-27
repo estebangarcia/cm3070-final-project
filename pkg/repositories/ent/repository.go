@@ -108,7 +108,7 @@ func (r *Repository) Update() *RepositoryUpdateOne {
 func (r *Repository) Unwrap() *Repository {
 	_tx, ok := r.config.driver.(*txDriver)
 	if !ok {
-		panic("entities: Repository is not a transactional entity")
+		panic("ent: Repository is not a transactional entity")
 	}
 	r.config.driver = _tx.drv
 	return r

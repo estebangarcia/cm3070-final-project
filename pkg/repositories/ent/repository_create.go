@@ -76,7 +76,7 @@ func (rc *RepositoryCreate) ExecX(ctx context.Context) {
 // check runs all checks and user-defined validators on the builder.
 func (rc *RepositoryCreate) check() error {
 	if _, ok := rc.mutation.Name(); !ok {
-		return &ValidationError{Name: "name", err: errors.New(`entities: missing required field "Repository.name"`)}
+		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "Repository.name"`)}
 	}
 	return nil
 }

@@ -18,13 +18,14 @@ type S3Config struct {
 }
 
 type AppConfig struct {
-	ServerPort        uint16         `env:"SERVER_PORT,notEmpty" envDefault:"8081"`
-	BaseURL           string         `env:"BASE_URL,notEmpty"`
-	Database          DatabaseConfig `envPrefix:"DB_"`
-	Cognito           CognitoConfig  `envPrefix:"COGNITO_"`
-	S3                S3Config       `envPrefix:"S3_"`
-	ChunkMinLength    uint32         `env:"CHUNK_MIN_LENGTH" envDefault:"5242880"`
-	ChunkBufferLength uint32         `env:"CHUNK_BUFFER_LENGTH" envDefault:"52428800"`
+	ServerPort              uint16         `env:"SERVER_PORT,notEmpty" envDefault:"8081"`
+	BaseURL                 string         `env:"BASE_URL,notEmpty"`
+	Database                DatabaseConfig `envPrefix:"DB_"`
+	Cognito                 CognitoConfig  `envPrefix:"COGNITO_"`
+	S3                      S3Config       `envPrefix:"S3_"`
+	ChunkMinLength          uint32         `env:"CHUNK_MIN_LENGTH" envDefault:"5242880"`
+	ChunkBufferLength       uint32         `env:"CHUNK_BUFFER_LENGTH" envDefault:"52428800"`
+	BlobUploadMaxGoRoutines int            `env:"BLOB_UPLOAD_MAX_GO_ROUTINES" envDefault:"10"`
 }
 
 func (a AppConfig) GetCognitoJWKUrl() string {

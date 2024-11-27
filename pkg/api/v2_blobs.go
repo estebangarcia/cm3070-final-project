@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -17,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
 	"github.com/estebangarcia/cm3070-final-project/pkg/helpers"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories"
 	"github.com/estebangarcia/cm3070-final-project/pkg/responses"
 	"github.com/oklog/ulid/v2"
 	"golang.org/x/sync/errgroup"
@@ -30,17 +32,17 @@ const (
 	TiB
 )
 
-const sha256Prefix = "sha256:"
-
 type V2BlobsHandler struct {
-	Config          *config.AppConfig
-	S3Client        *s3.Client
-	S3PresignClient *s3.PresignClient
+	Config              *config.AppConfig
+	S3Client            *s3.Client
+	S3PresignClient     *s3.PresignClient
+	BlobChunkRepository *repositories.BlobChunkRepository
 }
 
 func (h *V2BlobsHandler) InitiateUploadSession(w http.ResponseWriter, r *http.Request) {
 	imageName := r.Context().Value("imageName").(string)
 	uploadId := ulid.Make().String()
+	blobDigest := r.URL.Query().Get("digest")
 
 	output, err := h.S3Client.CreateMultipartUpload(r.Context(), &s3.CreateMultipartUploadInput{
 		Bucket: &h.Config.S3.BlobsBucketName,
@@ -52,9 +54,40 @@ func (h *V2BlobsHandler) InitiateUploadSession(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	w.Header().Set("Location", h.getUploadUrl(imageName, uploadId, *output.UploadId))
-	w.Header().Set("OCI-Chunk-Min-Length", strconv.Itoa(int(h.Config.ChunkMinLength)))
-	w.WriteHeader(http.StatusAccepted)
+	sessionId := *output.UploadId
+
+	contentType := r.Header.Get("Content-Type")
+
+	var fullBytesRead int = -1
+
+	if blobDigest != "" && h.isMonolithicUpload(r.ContentLength, contentType) {
+		keyName := h.getKeyForBlobInFlight(imageName, uploadId)
+
+		fullBytesRead, err = h.handleStreamingUpload(r.Context(), r.Body, keyName, sessionId)
+		if err != nil {
+			responses.OCIBlobUploadInvalid(w)
+			return
+		}
+
+		err = h.completeMultiPartUpload(r.Context(), keyName, sessionId, imageName, blobDigest)
+		if err != nil {
+			responses.OCIBlobUploadInvalid(w)
+			return
+		}
+	}
+
+	status := http.StatusAccepted
+
+	if fullBytesRead > 0 {
+		w.Header().Set("Range", fmt.Sprintf("0-%d", fullBytesRead))
+		w.Header().Set("Location", h.getBlobDownloadUrl(imageName, blobDigest))
+		status = http.StatusCreated
+	} else {
+		w.Header().Set("Location", h.getUploadUrl(imageName, uploadId, sessionId))
+		w.Header().Set("OCI-Chunk-Min-Length", strconv.Itoa(int(h.Config.ChunkMinLength)))
+	}
+
+	w.WriteHeader(status)
 }
 
 func (h *V2BlobsHandler) HeadBlob(w http.ResponseWriter, r *http.Request) {
@@ -105,53 +138,68 @@ func (h *V2BlobsHandler) UploadBlob(w http.ResponseWriter, r *http.Request) {
 	imageName := r.Context().Value("imageName").(string)
 	uploadId := r.Context().Value("uploadId").(string)
 	sessionId := r.URL.Query().Get("session")
+	defer r.Body.Close()
 
 	if sessionId == "" {
-		w.WriteHeader(http.StatusBadRequest)
+		responses.OCIBlobUploadUnknown(w)
 		return
 	}
 
 	keyName := h.getKeyForBlobInFlight(imageName, uploadId)
 
-	partNumber := 0
-
-	fullBytesRead := 0
-
-	eg := errgroup.Group{}
-	eg.SetLimit(10)
-
-	// Read file in chunks
-	for {
-		buffer := make([]byte, h.Config.ChunkBufferLength)
-		bytesRead, readErr := io.ReadFull(r.Body, buffer)
-
-		if bytesRead > 0 {
-			partNumber++
-			eg.Go(func() error {
-				_, err := h.asyncPartUpload(r.Context(), keyName, buffer, bytesRead, partNumber, sessionId)
-				if err != nil {
-					return err
-				}
-				return nil
-			})
-			fullBytesRead += bytesRead
-		}
-
-		// Break out of the loop if end of file is reached
-		if readErr == io.EOF || readErr == io.ErrUnexpectedEOF {
-			break
-		} else if readErr != nil {
-			http.Error(w, "Failed to read the file", http.StatusInternalServerError)
-			return
-		}
-	}
-
-	if err := eg.Wait(); err != nil {
-		http.Error(w, "Failed to upload part to S3", http.StatusInternalServerError)
+	contentRange := r.Header.Get("Content-Range")
+	rangeFrom, rangeTo, err := h.parseContentRange(contentRange)
+	if err != nil {
+		responses.OCIBlobUploadInvalid(w)
 		return
 	}
+	isChunkUpload := rangeTo > 0
 
-	w.Header().Set("Range", fmt.Sprintf("0-%d", fullBytesRead))
+	if isChunkUpload {
+		isOutOfOrder, err := h.BlobChunkRepository.IsOutOfOrder(r.Context(), sessionId, uploadId, rangeFrom, rangeTo)
+		if err != nil {
+			responses.OCIBlobUploadInvalid(w)
+			return
+		}
+
+		if isOutOfOrder {
+			w.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
+			return
+		}
+
+		chunk, err := h.BlobChunkRepository.GetNext(r.Context(), sessionId, uploadId, rangeFrom, rangeTo)
+		if err != nil {
+			log.Println(err)
+			responses.OCIBlobUploadInvalid(w)
+			return
+		}
+
+		partInput := &s3.UploadPartInput{
+			ContentLength: &r.ContentLength,
+			Body:          r.Body,
+			Bucket:        &h.Config.S3.BlobsBucketName,
+			Key:           &keyName,
+			PartNumber:    aws.Int32(int32(chunk.PartNumber)),
+			UploadId:      &sessionId,
+		}
+
+		// Upload each chunk to S3
+		_, err = h.S3Client.UploadPart(r.Context(), partInput)
+		if err != nil {
+			log.Println(err)
+			responses.OCIBlobUploadInvalid(w)
+			return
+		}
+	} else {
+		fullBytesRead, err := h.handleStreamingUpload(r.Context(), r.Body, keyName, sessionId)
+		if err != nil {
+			responses.OCIBlobUploadInvalid(w)
+			return
+		}
+		rangeTo = uint64(fullBytesRead)
+	}
+
+	w.Header().Set("Range", fmt.Sprintf("%d-%d", rangeFrom, rangeTo))
 	w.Header().Set("Location", h.getUploadUrl(imageName, uploadId, sessionId))
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -160,79 +208,77 @@ func (h *V2BlobsHandler) FinalizeBlobUploadSession(w http.ResponseWriter, r *htt
 	imageName := r.Context().Value("imageName").(string)
 	uploadId := r.Context().Value("uploadId").(string)
 	sessionId := r.URL.Query().Get("session")
+
+	if sessionId == "" {
+		responses.OCIBlobUploadUnknown(w)
+		return
+	}
+
 	blobDigest := r.URL.Query().Get("digest")
+	if sessionId == "" {
+		responses.OCIBlobUploadInvalid(w)
+		return
+	}
 
 	keyName := h.getKeyForBlobInFlight(imageName, uploadId)
 
-	partsOutput, err := h.S3Client.ListParts(r.Context(), &s3.ListPartsInput{
-		Bucket:   &h.Config.S3.BlobsBucketName,
-		Key:      &keyName,
-		UploadId: &sessionId,
-	})
+	contentType := r.Header.Get("Content-Type")
+
+	var fullBytesRead int = -1
+	var err error
+
+	if h.isMonolithicUpload(r.ContentLength, contentType) {
+		fullBytesRead, err = h.handleStreamingUpload(r.Context(), r.Body, keyName, sessionId)
+		if err != nil {
+			responses.OCIBlobUploadInvalid(w)
+			return
+		}
+	}
+
+	err = h.completeMultiPartUpload(r.Context(), keyName, sessionId, imageName, blobDigest)
 	if err != nil {
 		log.Println(err)
+		responses.OCIBlobUploadInvalid(w)
+		return
+	}
+
+	err = h.BlobChunkRepository.DeleteAllForUploadID(r.Context(), uploadId)
+	if err != nil {
 		responses.OCIInternalServerError(w)
 		return
 	}
 
-	var completedParts []types.CompletedPart
-
-	for _, p := range partsOutput.Parts {
-		completedParts = append(completedParts, types.CompletedPart{
-			PartNumber: p.PartNumber,
-			ETag:       p.ETag,
-		})
+	if fullBytesRead > 0 {
+		w.Header().Set("Range", fmt.Sprintf("0-%d", fullBytesRead))
 	}
-
-	_, err = h.S3Client.CompleteMultipartUpload(r.Context(), &s3.CompleteMultipartUploadInput{
-		Bucket:   &h.Config.S3.BlobsBucketName,
-		Key:      &keyName,
-		UploadId: &sessionId,
-		MultipartUpload: &types.CompletedMultipartUpload{
-			Parts: completedParts,
-		},
-	})
-
-	if err != nil {
-		log.Println(err)
-		responses.OCIInternalServerError(w)
-		return
-	}
-
-	headResp, err := h.S3Client.HeadObject(r.Context(), &s3.HeadObjectInput{
-		Bucket: &h.Config.S3.BlobsBucketName,
-		Key:    &keyName,
-	})
-	if err != nil {
-		log.Println(err)
-		responses.OCIInternalServerError(w)
-		return
-	}
-
-	objectSize := *headResp.ContentLength
-
-	if objectSize > (5 * GiB) {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		return
-	}
-
-	destKey := h.getKeyForBlob(imageName, blobDigest)
-	copySource := fmt.Sprintf("%s/%s", h.Config.S3.BlobsBucketName, keyName)
-
-	_, err = h.S3Client.CopyObject(r.Context(), &s3.CopyObjectInput{
-		Bucket:     &h.Config.S3.BlobsBucketName,
-		CopySource: &copySource,
-		Key:        &destKey,
-	})
-
-	if err != nil {
-		log.Println(err)
-		responses.OCIInternalServerError(w)
-		return
-	}
-
 	w.Header().Set("Location", h.getBlobDownloadUrl(imageName, blobDigest))
 	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *V2BlobsHandler) GetBlobUploadSession(w http.ResponseWriter, r *http.Request) {
+	imageName := r.Context().Value("imageName").(string)
+	uploadId := r.Context().Value("uploadId").(string)
+
+	chunks, err := h.BlobChunkRepository.GetByUploadID(r.Context(), uploadId)
+	if err != nil {
+		responses.OCIInternalServerError(w)
+		return
+	}
+
+	if len(chunks) == 0 {
+		responses.OCIBlobUploadUnknown(w)
+		return
+	}
+
+	totalUploadedRange := 0
+
+	for _, chunk := range chunks {
+		totalUploadedRange += int(chunk.RangeTo)
+	}
+
+	w.Header().Set("Range", fmt.Sprintf("0-%d", totalUploadedRange))
+	w.Header().Set("Location", h.getUploadUrl(imageName, uploadId, chunks[0].SessionID))
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *V2BlobsHandler) asyncPartUpload(ctx context.Context, objectKey string, buffer []byte, bytesRead int, partNumber int, uploadId string) (*types.CompletedPart, error) {
@@ -261,6 +307,102 @@ func (h *V2BlobsHandler) asyncPartUpload(ctx context.Context, objectKey string, 
 	}, nil
 }
 
+func (h *V2BlobsHandler) handleStreamingUpload(ctx context.Context, body io.ReadCloser, keyName string, sessionId string) (int, error) {
+	partNumber := 0
+	fullBytesRead := 0
+
+	eg := errgroup.Group{}
+	eg.SetLimit(h.Config.BlobUploadMaxGoRoutines)
+
+	// Read file in chunks
+	for {
+		buffer := make([]byte, h.Config.ChunkBufferLength)
+		bytesRead, readErr := io.ReadFull(body, buffer)
+
+		if bytesRead > 0 {
+			partNumber++
+			eg.Go(func() error {
+				_, err := h.asyncPartUpload(ctx, keyName, buffer, bytesRead, partNumber, sessionId)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+			fullBytesRead += bytesRead
+		}
+
+		// Break out of the loop if end of file is reached
+		if readErr == io.EOF || readErr == io.ErrUnexpectedEOF {
+			break
+		} else if readErr != nil {
+			return 0, errors.New("failed to read the file")
+		}
+	}
+
+	if err := eg.Wait(); err != nil {
+		return 0, errors.New("failed to upload part to S3")
+	}
+
+	return fullBytesRead, nil
+}
+
+func (h *V2BlobsHandler) completeMultiPartUpload(ctx context.Context, keyName string, sessionId string, imageName string, blobDigest string) error {
+	partsOutput, err := h.S3Client.ListParts(ctx, &s3.ListPartsInput{
+		Bucket:   &h.Config.S3.BlobsBucketName,
+		Key:      &keyName,
+		UploadId: &sessionId,
+	})
+	if err != nil {
+		return err
+	}
+
+	var completedParts []types.CompletedPart
+
+	for _, p := range partsOutput.Parts {
+		completedParts = append(completedParts, types.CompletedPart{
+			PartNumber: p.PartNumber,
+			ETag:       p.ETag,
+		})
+	}
+
+	_, err = h.S3Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
+		Bucket:   &h.Config.S3.BlobsBucketName,
+		Key:      &keyName,
+		UploadId: &sessionId,
+		MultipartUpload: &types.CompletedMultipartUpload{
+			Parts: completedParts,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	headResp, err := h.S3Client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: &h.Config.S3.BlobsBucketName,
+		Key:    &keyName,
+	})
+	if err != nil {
+		return err
+	}
+
+	objectSize := *headResp.ContentLength
+
+	if objectSize > (5 * GiB) {
+		return errors.New("object size is above 5GB")
+	}
+
+	destKey := h.getKeyForBlob(imageName, blobDigest)
+	copySource := fmt.Sprintf("%s/%s", h.Config.S3.BlobsBucketName, keyName)
+
+	_, err = h.S3Client.CopyObject(ctx, &s3.CopyObjectInput{
+		Bucket:     &h.Config.S3.BlobsBucketName,
+		CopySource: &copySource,
+		Key:        &destKey,
+	})
+
+	return err
+}
+
 func (h *V2BlobsHandler) getKeyForBlobInFlight(imageName string, uploadId string) string {
 	return fmt.Sprintf("%s/in-flight/%s.blob", imageName, uploadId)
 }
@@ -275,4 +417,31 @@ func (h *V2BlobsHandler) getUploadUrl(imageName string, uploadId string, s3Uploa
 
 func (h *V2BlobsHandler) getBlobDownloadUrl(imageName string, digest string) string {
 	return fmt.Sprintf("%s/v2/%s/blobs/%s", h.Config.BaseURL, imageName, digest)
+}
+
+func (h *V2BlobsHandler) isMonolithicUpload(contentLength int64, contentType string) bool {
+	return contentLength > 0 && contentType == "application/octet-stream"
+}
+
+func (h *V2BlobsHandler) parseContentRange(contentRange string) (uint64, uint64, error) {
+	if contentRange == "" {
+		return 0, 0, nil
+	}
+
+	ranges := strings.Split(contentRange, "-")
+	if len(ranges) < 2 {
+		return 0, 0, errors.New("invalid content range")
+	}
+
+	rangeFrom, err := strconv.ParseUint(ranges[0], 10, 64)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	rangeTo, err := strconv.ParseUint(ranges[1], 10, 64)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return rangeFrom, rangeTo, nil
 }
