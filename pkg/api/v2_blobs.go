@@ -43,10 +43,19 @@ func (h *V2BlobsHandler) InitiateUploadSession(w http.ResponseWriter, r *http.Re
 	imageName := r.Context().Value("imageName").(string)
 	uploadId := ulid.Make().String()
 	blobDigest := r.URL.Query().Get("digest")
+	mount := r.URL.Query().Get("mount")
+	mountFrom := r.URL.Query().Get("from")
+
+	if err := h.mountBlob(r.Context(), mount, mountFrom); err == nil {
+		w.Header().Set("Location", h.getBlobDownloadUrl(imageName, mount))
+		w.Header().Set("Docker-Content-Digest", mount)
+		w.WriteHeader(http.StatusCreated)
+		return
+	}
 
 	output, err := h.S3Client.CreateMultipartUpload(r.Context(), &s3.CreateMultipartUploadInput{
 		Bucket: &h.Config.S3.BlobsBucketName,
-		Key:    aws.String(h.getKeyForBlobInFlight(imageName, uploadId)),
+		Key:    aws.String(h.getKeyForBlobInFlight(uploadId)),
 	})
 	if err != nil {
 		log.Println(err)
@@ -61,7 +70,7 @@ func (h *V2BlobsHandler) InitiateUploadSession(w http.ResponseWriter, r *http.Re
 	var fullBytesRead int = -1
 
 	if blobDigest != "" && h.isMonolithicUpload(r.ContentLength, contentType) {
-		keyName := h.getKeyForBlobInFlight(imageName, uploadId)
+		keyName := h.getKeyForBlobInFlight(uploadId)
 
 		fullBytesRead, err = h.handleStreamingUpload(r.Context(), r.Body, keyName, sessionId)
 		if err != nil {
@@ -90,20 +99,31 @@ func (h *V2BlobsHandler) InitiateUploadSession(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(status)
 }
 
+func (h *V2BlobsHandler) mountBlob(ctx context.Context, digest string, from string) error {
+	if digest == "" {
+		return errors.New("digest is empty")
+	}
+
+	_, found, err := h.s3HeadBlob(ctx, digest)
+	if !found {
+		return errors.New("blob not found")
+	}
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (h *V2BlobsHandler) HeadBlob(w http.ResponseWriter, r *http.Request) {
-	imageName := r.Context().Value("imageName").(string)
 	blobDigest := r.Context().Value("digest").(string)
 
-	output, err := h.S3Client.HeadObject(r.Context(), &s3.HeadObjectInput{
-		Bucket: &h.Config.S3.BlobsBucketName,
-		Key:    aws.String(h.getKeyForBlob(imageName, blobDigest)),
-	})
-
-	var nfe *types.NotFound
-	if err != nil && errors.As(err, &nfe) {
+	output, found, err := h.s3HeadBlob(r.Context(), blobDigest)
+	if !found {
 		responses.OCIBlobUnknown(w, blobDigest)
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		responses.OCIInternalServerError(w)
 		log.Println(err)
 		return
@@ -115,10 +135,9 @@ func (h *V2BlobsHandler) HeadBlob(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *V2BlobsHandler) DownloadBlob(w http.ResponseWriter, r *http.Request) {
-	imageName := r.Context().Value("imageName").(string)
 	blobDigest := r.Context().Value("digest").(string)
 
-	keyName := h.getKeyForBlob(imageName, blobDigest)
+	keyName := h.getKeyForBlob(blobDigest)
 
 	req, err := h.S3PresignClient.PresignGetObject(r.Context(), &s3.GetObjectInput{
 		Bucket: &h.Config.S3.BlobsBucketName,
@@ -145,7 +164,7 @@ func (h *V2BlobsHandler) UploadBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	keyName := h.getKeyForBlobInFlight(imageName, uploadId)
+	keyName := h.getKeyForBlobInFlight(uploadId)
 
 	contentRange := r.Header.Get("Content-Range")
 	rangeFrom, rangeTo, err := h.parseContentRange(contentRange)
@@ -220,7 +239,7 @@ func (h *V2BlobsHandler) FinalizeBlobUploadSession(w http.ResponseWriter, r *htt
 		return
 	}
 
-	keyName := h.getKeyForBlobInFlight(imageName, uploadId)
+	keyName := h.getKeyForBlobInFlight(uploadId)
 
 	contentType := r.Header.Get("Content-Type")
 
@@ -391,7 +410,7 @@ func (h *V2BlobsHandler) completeMultiPartUpload(ctx context.Context, keyName st
 		return errors.New("object size is above 5GB")
 	}
 
-	destKey := h.getKeyForBlob(imageName, blobDigest)
+	destKey := h.getKeyForBlob(blobDigest)
 	copySource := fmt.Sprintf("%s/%s", h.Config.S3.BlobsBucketName, keyName)
 
 	_, err = h.S3Client.CopyObject(ctx, &s3.CopyObjectInput{
@@ -403,12 +422,28 @@ func (h *V2BlobsHandler) completeMultiPartUpload(ctx context.Context, keyName st
 	return err
 }
 
-func (h *V2BlobsHandler) getKeyForBlobInFlight(imageName string, uploadId string) string {
-	return fmt.Sprintf("%s/in-flight/%s.blob", imageName, uploadId)
+func (h *V2BlobsHandler) s3HeadBlob(ctx context.Context, blobDigest string) (*s3.HeadObjectOutput, bool, error) {
+	output, err := h.S3Client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: &h.Config.S3.BlobsBucketName,
+		Key:    aws.String(h.getKeyForBlob(blobDigest)),
+	})
+
+	var nfe *types.NotFound
+	if err != nil && errors.As(err, &nfe) {
+		return nil, false, nil
+	} else if err != nil {
+		return nil, false, err
+	}
+
+	return output, true, nil
 }
 
-func (h *V2BlobsHandler) getKeyForBlob(imageName string, digest string) string {
-	return fmt.Sprintf("%s/blobs/%s/blob.data", imageName, helpers.GetDigestAsNestedFolder(digest))
+func (h *V2BlobsHandler) getKeyForBlobInFlight(uploadId string) string {
+	return fmt.Sprintf("in-flight/%s.blob", uploadId)
+}
+
+func (h *V2BlobsHandler) getKeyForBlob(digest string) string {
+	return fmt.Sprintf("blobs/%s/blob.data", helpers.GetDigestAsNestedFolder(digest))
 }
 
 func (h *V2BlobsHandler) getUploadUrl(imageName string, uploadId string, s3UploadId string) string {
