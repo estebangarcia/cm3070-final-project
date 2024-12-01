@@ -24,13 +24,18 @@ var (
 		PrimaryKey: []*schema.Column{BlobChunksColumns[0]},
 		Indexes: []*schema.Index{
 			{
-				Name:    "blobchunk_upload_id",
+				Name:    "blobchunk_upload_id_session_id_part_number",
 				Unique:  true,
+				Columns: []*schema.Column{BlobChunksColumns[1], BlobChunksColumns[2], BlobChunksColumns[5]},
+			},
+			{
+				Name:    "blobchunk_upload_id",
+				Unique:  false,
 				Columns: []*schema.Column{BlobChunksColumns[1]},
 			},
 			{
 				Name:    "blobchunk_session_id",
-				Unique:  true,
+				Unique:  false,
 				Columns: []*schema.Column{BlobChunksColumns[2]},
 			},
 		},
@@ -88,12 +93,39 @@ var (
 		Columns:    RepositoriesColumns,
 		PrimaryKey: []*schema.Column{RepositoriesColumns[0]},
 	}
+	// UsersColumns holds the columns for the "users" table.
+	UsersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "given_name", Type: field.TypeString},
+		{Name: "family_name", Type: field.TypeString},
+		{Name: "email", Type: field.TypeString},
+		{Name: "sub", Type: field.TypeString},
+	}
+	// UsersTable holds the schema information for the "users" table.
+	UsersTable = &schema.Table{
+		Name:       "users",
+		Columns:    UsersColumns,
+		PrimaryKey: []*schema.Column{UsersColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "user_email",
+				Unique:  true,
+				Columns: []*schema.Column{UsersColumns[3]},
+			},
+			{
+				Name:    "user_sub",
+				Unique:  true,
+				Columns: []*schema.Column{UsersColumns[4]},
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		BlobChunksTable,
 		ManifestsTable,
 		ManifestTagReferencesTable,
 		RepositoriesTable,
+		UsersTable,
 	}
 )
 

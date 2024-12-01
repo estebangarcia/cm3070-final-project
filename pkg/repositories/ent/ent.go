@@ -16,6 +16,7 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifest"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/user"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -80,6 +81,7 @@ func checkColumn(table, column string) error {
 			manifest.Table:             manifest.ValidColumn,
 			manifesttagreference.Table: manifesttagreference.ValidColumn,
 			repository.Table:           repository.ValidColumn,
+			user.Table:                 user.ValidColumn,
 		})
 	})
 	return columnCheck(table, column)

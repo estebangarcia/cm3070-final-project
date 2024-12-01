@@ -44,9 +44,8 @@ func (h *V2BlobsHandler) InitiateUploadSession(w http.ResponseWriter, r *http.Re
 	uploadId := ulid.Make().String()
 	blobDigest := r.URL.Query().Get("digest")
 	mount := r.URL.Query().Get("mount")
-	mountFrom := r.URL.Query().Get("from")
 
-	if err := h.mountBlob(r.Context(), mount, mountFrom); err == nil {
+	if err := h.mountBlob(r.Context(), mount); err == nil {
 		w.Header().Set("Location", h.getBlobDownloadUrl(imageName, mount))
 		w.Header().Set("Docker-Content-Digest", mount)
 		w.WriteHeader(http.StatusCreated)
@@ -99,7 +98,7 @@ func (h *V2BlobsHandler) InitiateUploadSession(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(status)
 }
 
-func (h *V2BlobsHandler) mountBlob(ctx context.Context, digest string, from string) error {
+func (h *V2BlobsHandler) mountBlob(ctx context.Context, digest string) error {
 	if digest == "" {
 		return errors.New("digest is empty")
 	}

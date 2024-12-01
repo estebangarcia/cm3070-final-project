@@ -20,6 +20,8 @@ type Tx struct {
 	ManifestTagReference *ManifestTagReferenceClient
 	// Repository is the client for interacting with the Repository builders.
 	Repository *RepositoryClient
+	// User is the client for interacting with the User builders.
+	User *UserClient
 
 	// lazily loaded.
 	client     *Client
@@ -155,6 +157,7 @@ func (tx *Tx) init() {
 	tx.Manifest = NewManifestClient(tx.config)
 	tx.ManifestTagReference = NewManifestTagReferenceClient(tx.config)
 	tx.Repository = NewRepositoryClient(tx.config)
+	tx.User = NewUserClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.
