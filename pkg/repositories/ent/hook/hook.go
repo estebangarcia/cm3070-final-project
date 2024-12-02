@@ -45,6 +45,42 @@ func (f ManifestTagReferenceFunc) Mutate(ctx context.Context, m ent.Mutation) (e
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ManifestTagReferenceMutation", m)
 }
 
+// The OrganizationFunc type is an adapter to allow the use of ordinary
+// function as Organization mutator.
+type OrganizationFunc func(context.Context, *ent.OrganizationMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f OrganizationFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.OrganizationMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.OrganizationMutation", m)
+}
+
+// The OrganizationMembershipFunc type is an adapter to allow the use of ordinary
+// function as OrganizationMembership mutator.
+type OrganizationMembershipFunc func(context.Context, *ent.OrganizationMembershipMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f OrganizationMembershipFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.OrganizationMembershipMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.OrganizationMembershipMutation", m)
+}
+
+// The RegistryFunc type is an adapter to allow the use of ordinary
+// function as Registry mutator.
+type RegistryFunc func(context.Context, *ent.RegistryMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RegistryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RegistryMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RegistryMutation", m)
+}
+
 // The RepositoryFunc type is an adapter to allow the use of ordinary
 // function as Repository mutator.
 type RepositoryFunc func(context.Context, *ent.RepositoryMutation) (ent.Value, error)

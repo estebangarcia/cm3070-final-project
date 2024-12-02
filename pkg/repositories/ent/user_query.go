@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -11,6 +12,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organizationmembership"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/user"
 )
@@ -18,10 +21,12 @@ import (
 // UserQuery is the builder for querying User entities.
 type UserQuery struct {
 	config
-	ctx        *QueryContext
-	order      []user.OrderOption
-	inters     []Interceptor
-	predicates []predicate.User
+	ctx                     *QueryContext
+	order                   []user.OrderOption
+	inters                  []Interceptor
+	predicates              []predicate.User
+	withOrganizations       *OrganizationQuery
+	withJoinedOrganizations *OrganizationMembershipQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -56,6 +61,50 @@ func (uq *UserQuery) Unique(unique bool) *UserQuery {
 func (uq *UserQuery) Order(o ...user.OrderOption) *UserQuery {
 	uq.order = append(uq.order, o...)
 	return uq
+}
+
+// QueryOrganizations chains the current query on the "organizations" edge.
+func (uq *UserQuery) QueryOrganizations() *OrganizationQuery {
+	query := (&OrganizationClient{config: uq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(organization.Table, organization.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, user.OrganizationsTable, user.OrganizationsPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryJoinedOrganizations chains the current query on the "joined_organizations" edge.
+func (uq *UserQuery) QueryJoinedOrganizations() *OrganizationMembershipQuery {
+	query := (&OrganizationMembershipClient{config: uq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(organizationmembership.Table, organizationmembership.UserColumn),
+			sqlgraph.Edge(sqlgraph.O2M, true, user.JoinedOrganizationsTable, user.JoinedOrganizationsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // First returns the first User entity from the query.
@@ -245,15 +294,39 @@ func (uq *UserQuery) Clone() *UserQuery {
 		return nil
 	}
 	return &UserQuery{
-		config:     uq.config,
-		ctx:        uq.ctx.Clone(),
-		order:      append([]user.OrderOption{}, uq.order...),
-		inters:     append([]Interceptor{}, uq.inters...),
-		predicates: append([]predicate.User{}, uq.predicates...),
+		config:                  uq.config,
+		ctx:                     uq.ctx.Clone(),
+		order:                   append([]user.OrderOption{}, uq.order...),
+		inters:                  append([]Interceptor{}, uq.inters...),
+		predicates:              append([]predicate.User{}, uq.predicates...),
+		withOrganizations:       uq.withOrganizations.Clone(),
+		withJoinedOrganizations: uq.withJoinedOrganizations.Clone(),
 		// clone intermediate query.
 		sql:  uq.sql.Clone(),
 		path: uq.path,
 	}
+}
+
+// WithOrganizations tells the query-builder to eager-load the nodes that are connected to
+// the "organizations" edge. The optional arguments are used to configure the query builder of the edge.
+func (uq *UserQuery) WithOrganizations(opts ...func(*OrganizationQuery)) *UserQuery {
+	query := (&OrganizationClient{config: uq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	uq.withOrganizations = query
+	return uq
+}
+
+// WithJoinedOrganizations tells the query-builder to eager-load the nodes that are connected to
+// the "joined_organizations" edge. The optional arguments are used to configure the query builder of the edge.
+func (uq *UserQuery) WithJoinedOrganizations(opts ...func(*OrganizationMembershipQuery)) *UserQuery {
+	query := (&OrganizationMembershipClient{config: uq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	uq.withJoinedOrganizations = query
+	return uq
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.
@@ -332,8 +405,12 @@ func (uq *UserQuery) prepareQuery(ctx context.Context) error {
 
 func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, error) {
 	var (
-		nodes = []*User{}
-		_spec = uq.querySpec()
+		nodes       = []*User{}
+		_spec       = uq.querySpec()
+		loadedTypes = [2]bool{
+			uq.withOrganizations != nil,
+			uq.withJoinedOrganizations != nil,
+		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*User).scanValues(nil, columns)
@@ -341,6 +418,7 @@ func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	_spec.Assign = func(columns []string, values []any) error {
 		node := &User{config: uq.config}
 		nodes = append(nodes, node)
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	for i := range hooks {
@@ -352,7 +430,115 @@ func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := uq.withOrganizations; query != nil {
+		if err := uq.loadOrganizations(ctx, query, nodes,
+			func(n *User) { n.Edges.Organizations = []*Organization{} },
+			func(n *User, e *Organization) { n.Edges.Organizations = append(n.Edges.Organizations, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := uq.withJoinedOrganizations; query != nil {
+		if err := uq.loadJoinedOrganizations(ctx, query, nodes,
+			func(n *User) { n.Edges.JoinedOrganizations = []*OrganizationMembership{} },
+			func(n *User, e *OrganizationMembership) {
+				n.Edges.JoinedOrganizations = append(n.Edges.JoinedOrganizations, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
+}
+
+func (uq *UserQuery) loadOrganizations(ctx context.Context, query *OrganizationQuery, nodes []*User, init func(*User), assign func(*User, *Organization)) error {
+	edgeIDs := make([]driver.Value, len(nodes))
+	byID := make(map[int]*User)
+	nids := make(map[int]map[*User]struct{})
+	for i, node := range nodes {
+		edgeIDs[i] = node.ID
+		byID[node.ID] = node
+		if init != nil {
+			init(node)
+		}
+	}
+	query.Where(func(s *sql.Selector) {
+		joinT := sql.Table(user.OrganizationsTable)
+		s.Join(joinT).On(s.C(organization.FieldID), joinT.C(user.OrganizationsPrimaryKey[1]))
+		s.Where(sql.InValues(joinT.C(user.OrganizationsPrimaryKey[0]), edgeIDs...))
+		columns := s.SelectedColumns()
+		s.Select(joinT.C(user.OrganizationsPrimaryKey[0]))
+		s.AppendSelect(columns...)
+		s.SetDistinct(false)
+	})
+	if err := query.prepareQuery(ctx); err != nil {
+		return err
+	}
+	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
+		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
+			assign := spec.Assign
+			values := spec.ScanValues
+			spec.ScanValues = func(columns []string) ([]any, error) {
+				values, err := values(columns[1:])
+				if err != nil {
+					return nil, err
+				}
+				return append([]any{new(sql.NullInt64)}, values...), nil
+			}
+			spec.Assign = func(columns []string, values []any) error {
+				outValue := int(values[0].(*sql.NullInt64).Int64)
+				inValue := int(values[1].(*sql.NullInt64).Int64)
+				if nids[inValue] == nil {
+					nids[inValue] = map[*User]struct{}{byID[outValue]: {}}
+					return assign(columns[1:], values[1:])
+				}
+				nids[inValue][byID[outValue]] = struct{}{}
+				return nil
+			}
+		})
+	})
+	neighbors, err := withInterceptors[[]*Organization](ctx, query, qr, query.inters)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected "organizations" node returned %v`, n.ID)
+		}
+		for kn := range nodes {
+			assign(kn, n)
+		}
+	}
+	return nil
+}
+func (uq *UserQuery) loadJoinedOrganizations(ctx context.Context, query *OrganizationMembershipQuery, nodes []*User, init func(*User), assign func(*User, *OrganizationMembership)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(organizationmembership.FieldUserID)
+	}
+	query.Where(predicate.OrganizationMembership(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.JoinedOrganizationsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n)
+		}
+		assign(node, n)
+	}
+	return nil
 }
 
 func (uq *UserQuery) sqlCount(ctx context.Context) (int, error) {

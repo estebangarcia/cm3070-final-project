@@ -9,6 +9,7 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/user"
 )
 
@@ -41,6 +42,21 @@ func (uc *UserCreate) SetEmail(s string) *UserCreate {
 func (uc *UserCreate) SetSub(s string) *UserCreate {
 	uc.mutation.SetSub(s)
 	return uc
+}
+
+// AddOrganizationIDs adds the "organizations" edge to the Organization entity by IDs.
+func (uc *UserCreate) AddOrganizationIDs(ids ...int) *UserCreate {
+	uc.mutation.AddOrganizationIDs(ids...)
+	return uc
+}
+
+// AddOrganizations adds the "organizations" edges to the Organization entity.
+func (uc *UserCreate) AddOrganizations(o ...*Organization) *UserCreate {
+	ids := make([]int, len(o))
+	for i := range o {
+		ids[i] = o[i].ID
+	}
+	return uc.AddOrganizationIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -130,6 +146,22 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := uc.mutation.Sub(); ok {
 		_spec.SetField(user.FieldSub, field.TypeString, value)
 		_node.Sub = value
+	}
+	if nodes := uc.mutation.OrganizationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.OrganizationsTable,
+			Columns: user.OrganizationsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organization.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

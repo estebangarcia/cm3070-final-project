@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -35,14 +36,18 @@ func (a *JWTAuthMiddleware) Validate(next http.Handler) http.Handler {
 		}
 
 		jwtToken := header[len(bearerSchema):]
-		_, err = jwt.Parse([]byte(jwtToken), jwt.WithKeySet(jwkSet))
+		token, err := jwt.Parse([]byte(jwtToken), jwt.WithKeySet(jwkSet))
 		if err != nil {
 			w.Header().Set(wwwAuthenticateHeader, a.getAuthenticationUrl())
 			responses.OCIUnauthorizedError(w)
 			return
 		}
 
-		next.ServeHTTP(w, r)
+		userSub, _ := token.Subject()
+
+		ctx := context.WithValue(r.Context(), "user_sub", userSub)
+
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 

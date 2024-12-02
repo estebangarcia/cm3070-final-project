@@ -15,6 +15,15 @@ type Manifest func(*sql.Selector)
 // ManifestTagReference is the predicate function for manifesttagreference builders.
 type ManifestTagReference func(*sql.Selector)
 
+// Organization is the predicate function for organization builders.
+type Organization func(*sql.Selector)
+
+// OrganizationMembership is the predicate function for organizationmembership builders.
+type OrganizationMembership func(*sql.Selector)
+
+// Registry is the predicate function for registry builders.
+type Registry func(*sql.Selector)
+
 // Repository is the predicate function for repository builders.
 type Repository func(*sql.Selector)
 

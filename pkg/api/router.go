@@ -68,9 +68,20 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 
 	extractBasicAuthMiddleware := middleware.ExtractBasicCredentialsMiddleware{}
 
-	r.Get("/health", healthHandler.GetHealth)
-	r.With(extractBasicAuthMiddleware.Validate).Get("/v2/login", v2LoginHandler.Login)
+	organizationsRepository := repositories.NewOrganizationRepository(dbClient)
+	organizationsHandlers := OrganizationsHandler{
+		Config:                 &cfg,
+		OrganizationRepository: organizationsRepository,
+	}
 
+	r.Get("/api/v1/health", healthHandler.GetHealth)
+
+	r.Route("/api/v1", func(authenticatedApiV1 chi.Router) {
+		authenticatedApiV1.Use(jwtAuthMiddleware.Validate)
+		authenticatedApiV1.Get("/organizations", organizationsHandlers.GetOrganizationsForUser)
+	})
+
+	r.With(extractBasicAuthMiddleware.Validate).Get("/v2/login", v2LoginHandler.Login)
 	r.Route("/v2", func(authenticatedOciV2 chi.Router) {
 		authenticatedOciV2.Use(jwtAuthMiddleware.Validate)
 		authenticatedOciV2.Get("/", v2PingHandler.Ping)

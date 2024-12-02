@@ -82,6 +82,72 @@ var (
 			},
 		},
 	}
+	// OrganizationsColumns holds the columns for the "organizations" table.
+	OrganizationsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "slug", Type: field.TypeString},
+	}
+	// OrganizationsTable holds the schema information for the "organizations" table.
+	OrganizationsTable = &schema.Table{
+		Name:       "organizations",
+		Columns:    OrganizationsColumns,
+		PrimaryKey: []*schema.Column{OrganizationsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "organization_slug",
+				Unique:  true,
+				Columns: []*schema.Column{OrganizationsColumns[2]},
+			},
+		},
+	}
+	// OrganizationMembershipsColumns holds the columns for the "organization_memberships" table.
+	OrganizationMembershipsColumns = []*schema.Column{
+		{Name: "role", Type: field.TypeInt},
+		{Name: "user_id", Type: field.TypeInt},
+		{Name: "organization_id", Type: field.TypeInt},
+	}
+	// OrganizationMembershipsTable holds the schema information for the "organization_memberships" table.
+	OrganizationMembershipsTable = &schema.Table{
+		Name:       "organization_memberships",
+		Columns:    OrganizationMembershipsColumns,
+		PrimaryKey: []*schema.Column{OrganizationMembershipsColumns[1], OrganizationMembershipsColumns[2]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "organization_memberships_users_user",
+				Columns:    []*schema.Column{OrganizationMembershipsColumns[1]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "organization_memberships_organizations_organization",
+				Columns:    []*schema.Column{OrganizationMembershipsColumns[2]},
+				RefColumns: []*schema.Column{OrganizationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// RegistriesColumns holds the columns for the "registries" table.
+	RegistriesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "slug", Type: field.TypeString},
+		{Name: "organization_registries", Type: field.TypeInt, Nullable: true},
+	}
+	// RegistriesTable holds the schema information for the "registries" table.
+	RegistriesTable = &schema.Table{
+		Name:       "registries",
+		Columns:    RegistriesColumns,
+		PrimaryKey: []*schema.Column{RegistriesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "registries_organizations_registries",
+				Columns:    []*schema.Column{RegistriesColumns[3]},
+				RefColumns: []*schema.Column{OrganizationsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+	}
 	// RepositoriesColumns holds the columns for the "repositories" table.
 	RepositoriesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -124,6 +190,9 @@ var (
 		BlobChunksTable,
 		ManifestsTable,
 		ManifestTagReferencesTable,
+		OrganizationsTable,
+		OrganizationMembershipsTable,
+		RegistriesTable,
 		RepositoriesTable,
 		UsersTable,
 	}
@@ -132,4 +201,7 @@ var (
 func init() {
 	ManifestsTable.ForeignKeys[0].RefTable = RepositoriesTable
 	ManifestTagReferencesTable.ForeignKeys[0].RefTable = ManifestsTable
+	OrganizationMembershipsTable.ForeignKeys[0].RefTable = UsersTable
+	OrganizationMembershipsTable.ForeignKeys[1].RefTable = OrganizationsTable
+	RegistriesTable.ForeignKeys[0].RefTable = OrganizationsTable
 }
