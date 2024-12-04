@@ -18,6 +18,7 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
 	"github.com/estebangarcia/cm3070-final-project/pkg/helpers"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent"
 	"github.com/estebangarcia/cm3070-final-project/pkg/responses"
 )
 
@@ -32,16 +33,18 @@ type V2ManifestsHandler struct {
 func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Request) {
 	imageName := r.Context().Value("imageName").(string)
 	reference := r.Context().Value("reference").(string)
+	org := r.Context().Value("organization").(*ent.Organization)
+	registry := r.Context().Value("registry").(*ent.Registry)
 	manifestContentType := r.Header.Get("Content-Type")
 
-	repo, err := h.RepositoryRepository.GetOrCreateRepository(r.Context(), imageName)
+	repo, err := h.RepositoryRepository.GetOrCreateRepository(r.Context(), registry.ID, imageName)
 	if err != nil {
 		log.Println(err)
 		responses.OCIInternalServerError(w)
 		return
 	}
 
-	keyName := h.getKeyForManifestRef(manifestContentType, imageName, reference)
+	keyName := h.getKeyForManifestRef(manifestContentType, org.Slug, registry.Slug, imageName, reference)
 
 	defer r.Body.Close()
 
@@ -87,16 +90,24 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 	}
 
 	w.Header().Set("Docker-Content-Digest", m.Digest)
-	w.Header().Set("Location", h.getManifestDownloadUrl(imageName, reference))
+	w.Header().Set("Location", h.getManifestDownloadUrl(org.Slug, registry.Slug, imageName, reference))
 	w.WriteHeader(http.StatusCreated)
 }
 
 func (h *V2ManifestsHandler) DownloadManifest(w http.ResponseWriter, r *http.Request) {
 	imageName := r.Context().Value("imageName").(string)
 	reference := r.Context().Value("reference").(string)
+	registry := r.Context().Value("registry").(*ent.Registry)
 	acceptedTypes := r.Header.Values("Accept")
 
-	manifests, err := h.ManifestRepository.GetManifestsByReferenceAndMediaType(r.Context(), reference, acceptedTypes, imageName)
+	repo, err := h.RepositoryRepository.GetOrCreateRepository(r.Context(), registry.ID, imageName)
+	if err != nil {
+		log.Println(err)
+		responses.OCIInternalServerError(w)
+		return
+	}
+
+	manifests, err := h.ManifestRepository.GetManifestsByReferenceAndMediaType(r.Context(), reference, acceptedTypes, repo)
 	if err != nil {
 		responses.OCIInternalServerError(w)
 		log.Println(err)
@@ -127,9 +138,17 @@ func (h *V2ManifestsHandler) DownloadManifest(w http.ResponseWriter, r *http.Req
 func (h *V2ManifestsHandler) HeadManifest(w http.ResponseWriter, r *http.Request) {
 	imageName := r.Context().Value("imageName").(string)
 	reference := r.Context().Value("reference").(string)
+	registry := r.Context().Value("registry").(*ent.Registry)
 	acceptedTypes := r.Header.Values("Accept")
 
-	manifests, err := h.ManifestRepository.GetManifestsByReferenceAndMediaType(r.Context(), reference, acceptedTypes, imageName)
+	repo, err := h.RepositoryRepository.GetOrCreateRepository(r.Context(), registry.ID, imageName)
+	if err != nil {
+		log.Println(err)
+		responses.OCIInternalServerError(w)
+		return
+	}
+
+	manifests, err := h.ManifestRepository.GetManifestsByReferenceAndMediaType(r.Context(), reference, acceptedTypes, repo)
 	if err != nil {
 		responses.OCIInternalServerError(w)
 		log.Println(err)
@@ -157,7 +176,7 @@ func (h *V2ManifestsHandler) HeadManifest(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *V2ManifestsHandler) getKeyForManifestRef(contentType string, imageName string, reference string) string {
+func (h *V2ManifestsHandler) getKeyForManifestRef(contentType string, orgSlug string, registrySlug string, imageName string, reference string) string {
 	ref := reference
 	if helpers.IsSHA256Digest(reference) {
 		ref = helpers.GetDigestAsNestedFolder(reference)
@@ -179,11 +198,11 @@ func (h *V2ManifestsHandler) getKeyForManifestRef(contentType string, imageName 
 		}
 	}
 
-	return fmt.Sprintf("%s/manifests/%s%s/manifest.json", imageName, ref, contentTypeSubFolder)
+	return fmt.Sprintf("%s/manifests/%s/%s/%s%s/manifest.json", orgSlug, registrySlug, imageName, ref, contentTypeSubFolder)
 }
 
-func (h *V2ManifestsHandler) getManifestDownloadUrl(imageName string, reference string) string {
-	return fmt.Sprintf("%s/v2/%s/manifests/%s", h.Config.BaseURL, imageName, reference)
+func (h *V2ManifestsHandler) getManifestDownloadUrl(orgSlug string, registrySlug string, imageName string, reference string) string {
+	return fmt.Sprintf("%s/v2/%s/%s/%s/manifests/%s", h.Config.BaseURL, orgSlug, registrySlug, imageName, reference)
 }
 
 func (h *V2ManifestsHandler) getDigestFromReferenceOrBody(reference string, body []byte) (string, []byte, error) {

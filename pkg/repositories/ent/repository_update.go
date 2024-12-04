@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifest"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
 )
 
@@ -57,6 +58,25 @@ func (ru *RepositoryUpdate) AddManifests(m ...*Manifest) *RepositoryUpdate {
 	return ru.AddManifestIDs(ids...)
 }
 
+// SetRegistryID sets the "registry" edge to the Registry entity by ID.
+func (ru *RepositoryUpdate) SetRegistryID(id int) *RepositoryUpdate {
+	ru.mutation.SetRegistryID(id)
+	return ru
+}
+
+// SetNillableRegistryID sets the "registry" edge to the Registry entity by ID if the given value is not nil.
+func (ru *RepositoryUpdate) SetNillableRegistryID(id *int) *RepositoryUpdate {
+	if id != nil {
+		ru = ru.SetRegistryID(*id)
+	}
+	return ru
+}
+
+// SetRegistry sets the "registry" edge to the Registry entity.
+func (ru *RepositoryUpdate) SetRegistry(r *Registry) *RepositoryUpdate {
+	return ru.SetRegistryID(r.ID)
+}
+
 // Mutation returns the RepositoryMutation object of the builder.
 func (ru *RepositoryUpdate) Mutation() *RepositoryMutation {
 	return ru.mutation
@@ -81,6 +101,12 @@ func (ru *RepositoryUpdate) RemoveManifests(m ...*Manifest) *RepositoryUpdate {
 		ids[i] = m[i].ID
 	}
 	return ru.RemoveManifestIDs(ids...)
+}
+
+// ClearRegistry clears the "registry" edge to the Registry entity.
+func (ru *RepositoryUpdate) ClearRegistry() *RepositoryUpdate {
+	ru.mutation.ClearRegistry()
+	return ru
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -167,6 +193,35 @@ func (ru *RepositoryUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if ru.mutation.RegistryCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   repository.RegistryTable,
+			Columns: []string{repository.RegistryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(registry.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := ru.mutation.RegistryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   repository.RegistryTable,
+			Columns: []string{repository.RegistryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(registry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, ru.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{repository.Label}
@@ -216,6 +271,25 @@ func (ruo *RepositoryUpdateOne) AddManifests(m ...*Manifest) *RepositoryUpdateOn
 	return ruo.AddManifestIDs(ids...)
 }
 
+// SetRegistryID sets the "registry" edge to the Registry entity by ID.
+func (ruo *RepositoryUpdateOne) SetRegistryID(id int) *RepositoryUpdateOne {
+	ruo.mutation.SetRegistryID(id)
+	return ruo
+}
+
+// SetNillableRegistryID sets the "registry" edge to the Registry entity by ID if the given value is not nil.
+func (ruo *RepositoryUpdateOne) SetNillableRegistryID(id *int) *RepositoryUpdateOne {
+	if id != nil {
+		ruo = ruo.SetRegistryID(*id)
+	}
+	return ruo
+}
+
+// SetRegistry sets the "registry" edge to the Registry entity.
+func (ruo *RepositoryUpdateOne) SetRegistry(r *Registry) *RepositoryUpdateOne {
+	return ruo.SetRegistryID(r.ID)
+}
+
 // Mutation returns the RepositoryMutation object of the builder.
 func (ruo *RepositoryUpdateOne) Mutation() *RepositoryMutation {
 	return ruo.mutation
@@ -240,6 +314,12 @@ func (ruo *RepositoryUpdateOne) RemoveManifests(m ...*Manifest) *RepositoryUpdat
 		ids[i] = m[i].ID
 	}
 	return ruo.RemoveManifestIDs(ids...)
+}
+
+// ClearRegistry clears the "registry" edge to the Registry entity.
+func (ruo *RepositoryUpdateOne) ClearRegistry() *RepositoryUpdateOne {
+	ruo.mutation.ClearRegistry()
+	return ruo
 }
 
 // Where appends a list predicates to the RepositoryUpdate builder.
@@ -349,6 +429,35 @@ func (ruo *RepositoryUpdateOne) sqlSave(ctx context.Context) (_node *Repository,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if ruo.mutation.RegistryCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   repository.RegistryTable,
+			Columns: []string{repository.RegistryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(registry.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := ruo.mutation.RegistryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   repository.RegistryTable,
+			Columns: []string{repository.RegistryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(registry.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifest"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
 )
 
@@ -39,6 +40,25 @@ func (rc *RepositoryCreate) AddManifests(m ...*Manifest) *RepositoryCreate {
 		ids[i] = m[i].ID
 	}
 	return rc.AddManifestIDs(ids...)
+}
+
+// SetRegistryID sets the "registry" edge to the Registry entity by ID.
+func (rc *RepositoryCreate) SetRegistryID(id int) *RepositoryCreate {
+	rc.mutation.SetRegistryID(id)
+	return rc
+}
+
+// SetNillableRegistryID sets the "registry" edge to the Registry entity by ID if the given value is not nil.
+func (rc *RepositoryCreate) SetNillableRegistryID(id *int) *RepositoryCreate {
+	if id != nil {
+		rc = rc.SetRegistryID(*id)
+	}
+	return rc
+}
+
+// SetRegistry sets the "registry" edge to the Registry entity.
+func (rc *RepositoryCreate) SetRegistry(r *Registry) *RepositoryCreate {
+	return rc.SetRegistryID(r.ID)
 }
 
 // Mutation returns the RepositoryMutation object of the builder.
@@ -122,6 +142,23 @@ func (rc *RepositoryCreate) createSpec() (*Repository, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := rc.mutation.RegistryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   repository.RegistryTable,
+			Columns: []string{repository.RegistryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(registry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.registry_repositories = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

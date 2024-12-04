@@ -146,6 +146,29 @@ func HasManifestsWith(preds ...predicate.Manifest) predicate.Repository {
 	})
 }
 
+// HasRegistry applies the HasEdge predicate on the "registry" edge.
+func HasRegistry() predicate.Repository {
+	return predicate.Repository(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, RegistryTable, RegistryColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRegistryWith applies the HasEdge predicate on the "registry" edge with a given conditions (other predicates).
+func HasRegistryWith(preds ...predicate.Registry) predicate.Repository {
+	return predicate.Repository(func(s *sql.Selector) {
+		step := newRegistryStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Repository) predicate.Repository {
 	return predicate.Repository(sql.AndPredicates(predicates...))

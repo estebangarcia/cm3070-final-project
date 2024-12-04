@@ -8,6 +8,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
 )
 
@@ -20,17 +21,20 @@ type Repository struct {
 	Name string `json:"name,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the RepositoryQuery when eager-loading is set.
-	Edges        RepositoryEdges `json:"edges"`
-	selectValues sql.SelectValues
+	Edges                 RepositoryEdges `json:"edges"`
+	registry_repositories *int
+	selectValues          sql.SelectValues
 }
 
 // RepositoryEdges holds the relations/edges for other nodes in the graph.
 type RepositoryEdges struct {
 	// Manifests holds the value of the manifests edge.
 	Manifests []*Manifest `json:"manifests,omitempty"`
+	// Registry holds the value of the registry edge.
+	Registry *Registry `json:"registry,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // ManifestsOrErr returns the Manifests value or an error if the edge
@@ -42,6 +46,17 @@ func (e RepositoryEdges) ManifestsOrErr() ([]*Manifest, error) {
 	return nil, &NotLoadedError{edge: "manifests"}
 }
 
+// RegistryOrErr returns the Registry value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e RepositoryEdges) RegistryOrErr() (*Registry, error) {
+	if e.Registry != nil {
+		return e.Registry, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: registry.Label}
+	}
+	return nil, &NotLoadedError{edge: "registry"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Repository) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -51,6 +66,8 @@ func (*Repository) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case repository.FieldName:
 			values[i] = new(sql.NullString)
+		case repository.ForeignKeys[0]: // registry_repositories
+			values[i] = new(sql.NullInt64)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -78,6 +95,13 @@ func (r *Repository) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				r.Name = value.String
 			}
+		case repository.ForeignKeys[0]:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for edge-field registry_repositories", value)
+			} else if value.Valid {
+				r.registry_repositories = new(int)
+				*r.registry_repositories = int(value.Int64)
+			}
 		default:
 			r.selectValues.Set(columns[i], values[i])
 		}
@@ -94,6 +118,11 @@ func (r *Repository) Value(name string) (ent.Value, error) {
 // QueryManifests queries the "manifests" edge of the Repository entity.
 func (r *Repository) QueryManifests() *ManifestQuery {
 	return NewRepositoryClient(r.config).QueryManifests(r)
+}
+
+// QueryRegistry queries the "registry" edge of the Repository entity.
+func (r *Repository) QueryRegistry() *RegistryQuery {
+	return NewRepositoryClient(r.config).QueryRegistry(r)
 }
 
 // Update returns a builder for updating this Repository.

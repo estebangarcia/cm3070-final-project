@@ -18,8 +18,16 @@ type Tx struct {
 	Manifest *ManifestClient
 	// ManifestTagReference is the client for interacting with the ManifestTagReference builders.
 	ManifestTagReference *ManifestTagReferenceClient
+	// Organization is the client for interacting with the Organization builders.
+	Organization *OrganizationClient
+	// OrganizationMembership is the client for interacting with the OrganizationMembership builders.
+	OrganizationMembership *OrganizationMembershipClient
+	// Registry is the client for interacting with the Registry builders.
+	Registry *RegistryClient
 	// Repository is the client for interacting with the Repository builders.
 	Repository *RepositoryClient
+	// User is the client for interacting with the User builders.
+	User *UserClient
 
 	// lazily loaded.
 	client     *Client
@@ -154,7 +162,11 @@ func (tx *Tx) init() {
 	tx.BlobChunk = NewBlobChunkClient(tx.config)
 	tx.Manifest = NewManifestClient(tx.config)
 	tx.ManifestTagReference = NewManifestTagReferenceClient(tx.config)
+	tx.Organization = NewOrganizationClient(tx.config)
+	tx.OrganizationMembership = NewOrganizationMembershipClient(tx.config)
+	tx.Registry = NewRegistryClient(tx.config)
 	tx.Repository = NewRepositoryClient(tx.config)
+	tx.User = NewUserClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

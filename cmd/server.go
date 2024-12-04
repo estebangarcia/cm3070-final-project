@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/api"
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
 	"github.com/estebangarcia/cm3070-final-project/pkg/helpers"
+	"github.com/spf13/cobra"
 )
 
 func NewSigKillContext() context.Context {
@@ -26,27 +27,36 @@ func NewSigKillContext() context.Context {
 	return ctx
 }
 
-func main() {
-	var cfg config.AppConfig
+// serverCmd represents the server command
+var serverCmd = &cobra.Command{
+	Use:   "server",
+	Short: "Start registry server",
+	Run: func(cmd *cobra.Command, args []string) {
+		var cfg config.AppConfig
 
-	if err := env.Parse(&cfg); err != nil {
-		log.Fatal(err)
-	}
+		if err := env.Parse(&cfg); err != nil {
+			log.Fatal(err)
+		}
 
-	ctx := NewSigKillContext()
+		ctx := NewSigKillContext()
 
-	dbClient, err := helpers.GetDBClient(ctx, &cfg)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer dbClient.Close()
+		dbClient, err := helpers.GetDBClient(ctx, &cfg)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer dbClient.Close()
 
-	r, err := api.NewRouter(ctx, cfg, dbClient)
-	if err != nil {
-		log.Fatal(err)
-	}
+		r, err := api.NewRouter(ctx, cfg, dbClient)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	if err := r.Run(ctx, fmt.Sprintf(":%d", cfg.ServerPort)); err != nil {
-		log.Fatal(err)
-	}
+		if err := r.Run(ctx, fmt.Sprintf(":%d", cfg.ServerPort)); err != nil {
+			log.Fatal(err)
+		}
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(serverCmd)
 }

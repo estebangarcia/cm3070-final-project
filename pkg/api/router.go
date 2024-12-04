@@ -25,18 +25,49 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 	customMux := NewCustomMux()
 
 	r.Use(chiMiddleware.Logger)
+	r.Use(chiMiddleware.Recoverer)
 
+	/* DB Repositories */
+	blobChunkRepository := repositories.NewBlobChunkRepository(dbClient)
+	manifestRepository := repositories.NewManifestRepository(dbClient)
+	repositoryRepository := repositories.NewRepositoryRepository(dbClient)
+	organizationsRepository := repositories.NewOrganizationRepository(dbClient)
+	registryRepository := repositories.NewRegistryRepository(dbClient)
+
+	/* AWS Helpers */
+	s3Client := helpers.GetS3Client(ctx, cfg)
+	s3Presigner := helpers.GetS3PresignClient(s3Client)
+	jwkCache, err := helpers.InitJWKCache(ctx, &cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	/* Middlewares */
+	jwtAuthMiddleware := middleware.JWTAuthMiddleware{
+		Config:   &cfg,
+		JwkCache: jwkCache,
+	}
+	organizationsHandlers := OrganizationsHandler{
+		Config:                 &cfg,
+		OrganizationRepository: organizationsRepository,
+	}
+
+	orgMiddleware := middleware.OrganizationMiddleware{
+		Config:                 &cfg,
+		OrganizationRepository: organizationsRepository,
+		RegistryRepository:     registryRepository,
+	}
+	extractBasicAuthMiddleware := middleware.ExtractBasicCredentialsMiddleware{}
+
+	/* HTTP Handlers */
 	healthHandler := HealthHandler{}
+
 	v2LoginHandler := V2LoginHandler{
 		Config:        &cfg,
 		CognitoClient: helpers.GetCognitoClient(ctx, cfg),
 	}
+
 	v2PingHandler := V2PingHandler{}
-
-	s3Client := helpers.GetS3Client(ctx, cfg)
-	s3Presigner := helpers.GetS3PresignClient(s3Client)
-
-	blobChunkRepository := repositories.NewBlobChunkRepository(dbClient)
 
 	v2BlobsHandler := V2BlobsHandler{
 		Config:              &cfg,
@@ -44,9 +75,6 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 		S3PresignClient:     s3Presigner,
 		BlobChunkRepository: blobChunkRepository,
 	}
-
-	manifestRepository := repositories.NewManifestRepository(dbClient)
-	repositoryRepository := repositories.NewRepositoryRepository(dbClient)
 
 	v2ManifestsHandlers := V2ManifestsHandler{
 		Config:               &cfg,
@@ -56,36 +84,45 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 		RepositoryRepository: repositoryRepository,
 	}
 
-	jwkCache, err := helpers.InitJWKCache(ctx, &cfg)
-	if err != nil {
-		return nil, err
+	registriesHandler := RegistriesHandler{
+		Config:             &cfg,
+		RegistryRepository: registryRepository,
 	}
 
-	jwtAuthMiddleware := middleware.JWTAuthMiddleware{
-		Config:   &cfg,
-		JwkCache: jwkCache,
-	}
+	r.Get("/api/v1/health", healthHandler.GetHealth)
 
-	extractBasicAuthMiddleware := middleware.ExtractBasicCredentialsMiddleware{}
+	r.Route("/api/v1", func(authenticatedApiV1 chi.Router) {
+		authenticatedApiV1.Use(jwtAuthMiddleware.Validate)
+		authenticatedApiV1.Get("/organizations", organizationsHandlers.GetOrganizationsForUser)
 
-	r.Get("/health", healthHandler.GetHealth)
+		authenticatedApiV1.Route("/organizations/{organizationSlug:[a-z-]+}", func(orgScopedRoutes chi.Router) {
+			orgScopedRoutes.Use(orgMiddleware.ValidateOrg)
+			orgScopedRoutes.Get("/", organizationsHandlers.GetOrganizationsBySlugForUser)
+			orgScopedRoutes.Get("/registries", registriesHandler.GetRegistries)
+			orgScopedRoutes.Post("/registries", registriesHandler.CreateRegistries)
+		})
+	})
+
 	r.With(extractBasicAuthMiddleware.Validate).Get("/v2/login", v2LoginHandler.Login)
-
 	r.Route("/v2", func(authenticatedOciV2 chi.Router) {
 		authenticatedOciV2.Use(jwtAuthMiddleware.Validate)
 		authenticatedOciV2.Get("/", v2PingHandler.Ping)
-		customMux.Post(`^(?P<imageName>[\/\w]+)\/blobs\/uploads`, v2BlobsHandler.InitiateUploadSession)
-		customMux.Patch(`^(?P<imageName>[\/\w]+)\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.UploadBlob)
-		customMux.Put(`^(?P<imageName>[\/\w]+)\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.FinalizeBlobUploadSession)
-		customMux.Get(`^(?P<imageName>[\/\w]+)\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.GetBlobUploadSession)
-		customMux.Get(`^(?P<imageName>[\/\w]+)\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.DownloadBlob)
-		customMux.Head(`^(?P<imageName>[\/\w]+)\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.HeadBlob)
+		authenticatedOciV2.Route("/{organizationSlug:[a-z-]+}/{registrySlug:[a-z-]+}", func(registryScopedOCIRoutes chi.Router) {
+			registryScopedOCIRoutes.Use(orgMiddleware.ValidateOrgAndRegistry)
 
-		customMux.Put(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.UploadManifest)
-		customMux.Get(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.DownloadManifest)
-		customMux.Head(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.HeadManifest)
+			customMux.Post(`^(?P<imageName>[\/\w]+)\/blobs\/uploads`, v2BlobsHandler.InitiateUploadSession)
+			customMux.Patch(`^(?P<imageName>[\/\w]+)\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.UploadBlob)
+			customMux.Put(`^(?P<imageName>[\/\w]+)\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.FinalizeBlobUploadSession)
+			customMux.Get(`^(?P<imageName>[\/\w]+)\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.GetBlobUploadSession)
+			customMux.Get(`^(?P<imageName>[\/\w]+)\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.DownloadBlob)
+			customMux.Head(`^(?P<imageName>[\/\w]+)\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.HeadBlob)
 
-		authenticatedOciV2.HandleFunc("/*", customMux.Handle)
+			customMux.Put(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.UploadManifest)
+			customMux.Get(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.DownloadManifest)
+			customMux.Head(`^(?P<imageName>[\/\w]+)\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.HeadManifest)
+
+			registryScopedOCIRoutes.HandleFunc("/*", customMux.Handle)
+		})
 	})
 
 	return &Router{
