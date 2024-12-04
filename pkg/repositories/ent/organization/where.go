@@ -63,6 +63,11 @@ func Slug(v string) predicate.Organization {
 	return predicate.Organization(sql.FieldEQ(FieldSlug, v))
 }
 
+// IsPersonal applies equality check predicate on the "is_personal" field. It's identical to IsPersonalEQ.
+func IsPersonal(v bool) predicate.Organization {
+	return predicate.Organization(sql.FieldEQ(FieldIsPersonal, v))
+}
+
 // NameEQ applies the EQ predicate on the "name" field.
 func NameEQ(v string) predicate.Organization {
 	return predicate.Organization(sql.FieldEQ(FieldName, v))
@@ -191,6 +196,16 @@ func SlugEqualFold(v string) predicate.Organization {
 // SlugContainsFold applies the ContainsFold predicate on the "slug" field.
 func SlugContainsFold(v string) predicate.Organization {
 	return predicate.Organization(sql.FieldContainsFold(FieldSlug, v))
+}
+
+// IsPersonalEQ applies the EQ predicate on the "is_personal" field.
+func IsPersonalEQ(v bool) predicate.Organization {
+	return predicate.Organization(sql.FieldEQ(FieldIsPersonal, v))
+}
+
+// IsPersonalNEQ applies the NEQ predicate on the "is_personal" field.
+func IsPersonalNEQ(v bool) predicate.Organization {
+	return predicate.Organization(sql.FieldNEQ(FieldIsPersonal, v))
 }
 
 // HasRegistries applies the HasEdge predicate on the "registries" edge.

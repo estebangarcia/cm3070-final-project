@@ -4,6 +4,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 )
 
 // Registry holds the schema definition for the Registry entity.
@@ -19,9 +20,16 @@ func (Registry) Fields() []ent.Field {
 	}
 }
 
+func (Registry) Indexes() []ent.Index {
+	return []ent.Index{
+		index.Fields("slug").Edges("organization").Unique(),
+	}
+}
+
 // Edges of the Registry.
 func (Registry) Edges() []ent.Edge {
 	return []ent.Edge{
+		edge.To("repositories", Repository.Type),
 		edge.From("organization", Organization.Type).Ref("registries").Unique(),
 	}
 }

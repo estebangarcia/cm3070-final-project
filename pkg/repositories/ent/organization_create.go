@@ -33,6 +33,12 @@ func (oc *OrganizationCreate) SetSlug(s string) *OrganizationCreate {
 	return oc
 }
 
+// SetIsPersonal sets the "is_personal" field.
+func (oc *OrganizationCreate) SetIsPersonal(b bool) *OrganizationCreate {
+	oc.mutation.SetIsPersonal(b)
+	return oc
+}
+
 // AddRegistryIDs adds the "registries" edge to the Registry entity by IDs.
 func (oc *OrganizationCreate) AddRegistryIDs(ids ...int) *OrganizationCreate {
 	oc.mutation.AddRegistryIDs(ids...)
@@ -103,6 +109,9 @@ func (oc *OrganizationCreate) check() error {
 	if _, ok := oc.mutation.Slug(); !ok {
 		return &ValidationError{Name: "slug", err: errors.New(`ent: missing required field "Organization.slug"`)}
 	}
+	if _, ok := oc.mutation.IsPersonal(); !ok {
+		return &ValidationError{Name: "is_personal", err: errors.New(`ent: missing required field "Organization.is_personal"`)}
+	}
 	return nil
 }
 
@@ -136,6 +145,10 @@ func (oc *OrganizationCreate) createSpec() (*Organization, *sqlgraph.CreateSpec)
 	if value, ok := oc.mutation.Slug(); ok {
 		_spec.SetField(organization.FieldSlug, field.TypeString, value)
 		_node.Slug = value
+	}
+	if value, ok := oc.mutation.IsPersonal(); ok {
+		_spec.SetField(organization.FieldIsPersonal, field.TypeBool, value)
+		_node.IsPersonal = value
 	}
 	if nodes := oc.mutation.RegistriesIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

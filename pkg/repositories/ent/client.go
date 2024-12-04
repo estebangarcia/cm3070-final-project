@@ -1115,6 +1115,22 @@ func (c *RegistryClient) GetX(ctx context.Context, id int) *Registry {
 	return obj
 }
 
+// QueryRepositories queries the repositories edge of a Registry.
+func (c *RegistryClient) QueryRepositories(r *Registry) *RepositoryQuery {
+	query := (&RepositoryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := r.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(registry.Table, registry.FieldID, id),
+			sqlgraph.To(repository.Table, repository.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, registry.RepositoriesTable, registry.RepositoriesColumn),
+		)
+		fromV = sqlgraph.Neighbors(r.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryOrganization queries the organization edge of a Registry.
 func (c *RegistryClient) QueryOrganization(r *Registry) *OrganizationQuery {
 	query := (&OrganizationClient{config: c.config}).Query()
@@ -1273,6 +1289,22 @@ func (c *RepositoryClient) QueryManifests(r *Repository) *ManifestQuery {
 			sqlgraph.From(repository.Table, repository.FieldID, id),
 			sqlgraph.To(manifest.Table, manifest.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, repository.ManifestsTable, repository.ManifestsColumn),
+		)
+		fromV = sqlgraph.Neighbors(r.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRegistry queries the registry edge of a Repository.
+func (c *RepositoryClient) QueryRegistry(r *Repository) *RegistryQuery {
+	query := (&RegistryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := r.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(repository.Table, repository.FieldID, id),
+			sqlgraph.To(registry.Table, registry.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, repository.RegistryTable, repository.RegistryColumn),
 		)
 		fromV = sqlgraph.Neighbors(r.driver.Dialect(), step)
 		return fromV, nil

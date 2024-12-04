@@ -17,6 +17,7 @@ func (Organization) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("name"),
 		field.String("slug"),
+		field.Bool("is_personal"),
 	}
 }
 

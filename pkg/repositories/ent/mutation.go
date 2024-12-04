@@ -1671,6 +1671,7 @@ type OrganizationMutation struct {
 	id                *int
 	name              *string
 	slug              *string
+	is_personal       *bool
 	clearedFields     map[string]struct{}
 	registries        map[int]struct{}
 	removedregistries map[int]struct{}
@@ -1853,6 +1854,42 @@ func (m *OrganizationMutation) ResetSlug() {
 	m.slug = nil
 }
 
+// SetIsPersonal sets the "is_personal" field.
+func (m *OrganizationMutation) SetIsPersonal(b bool) {
+	m.is_personal = &b
+}
+
+// IsPersonal returns the value of the "is_personal" field in the mutation.
+func (m *OrganizationMutation) IsPersonal() (r bool, exists bool) {
+	v := m.is_personal
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsPersonal returns the old "is_personal" field's value of the Organization entity.
+// If the Organization object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationMutation) OldIsPersonal(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsPersonal is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsPersonal requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsPersonal: %w", err)
+	}
+	return oldValue.IsPersonal, nil
+}
+
+// ResetIsPersonal resets all changes to the "is_personal" field.
+func (m *OrganizationMutation) ResetIsPersonal() {
+	m.is_personal = nil
+}
+
 // AddRegistryIDs adds the "registries" edge to the Registry entity by ids.
 func (m *OrganizationMutation) AddRegistryIDs(ids ...int) {
 	if m.registries == nil {
@@ -1995,12 +2032,15 @@ func (m *OrganizationMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *OrganizationMutation) Fields() []string {
-	fields := make([]string, 0, 2)
+	fields := make([]string, 0, 3)
 	if m.name != nil {
 		fields = append(fields, organization.FieldName)
 	}
 	if m.slug != nil {
 		fields = append(fields, organization.FieldSlug)
+	}
+	if m.is_personal != nil {
+		fields = append(fields, organization.FieldIsPersonal)
 	}
 	return fields
 }
@@ -2014,6 +2054,8 @@ func (m *OrganizationMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case organization.FieldSlug:
 		return m.Slug()
+	case organization.FieldIsPersonal:
+		return m.IsPersonal()
 	}
 	return nil, false
 }
@@ -2027,6 +2069,8 @@ func (m *OrganizationMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldName(ctx)
 	case organization.FieldSlug:
 		return m.OldSlug(ctx)
+	case organization.FieldIsPersonal:
+		return m.OldIsPersonal(ctx)
 	}
 	return nil, fmt.Errorf("unknown Organization field %s", name)
 }
@@ -2049,6 +2093,13 @@ func (m *OrganizationMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetSlug(v)
+		return nil
+	case organization.FieldIsPersonal:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsPersonal(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Organization field %s", name)
@@ -2104,6 +2155,9 @@ func (m *OrganizationMutation) ResetField(name string) error {
 		return nil
 	case organization.FieldSlug:
 		m.ResetSlug()
+		return nil
+	case organization.FieldIsPersonal:
+		m.ResetIsPersonal()
 		return nil
 	}
 	return fmt.Errorf("unknown Organization field %s", name)
@@ -2678,6 +2732,9 @@ type RegistryMutation struct {
 	name                *string
 	slug                *string
 	clearedFields       map[string]struct{}
+	repositories        map[int]struct{}
+	removedrepositories map[int]struct{}
+	clearedrepositories bool
 	organization        *int
 	clearedorganization bool
 	done                bool
@@ -2853,6 +2910,60 @@ func (m *RegistryMutation) OldSlug(ctx context.Context) (v string, err error) {
 // ResetSlug resets all changes to the "slug" field.
 func (m *RegistryMutation) ResetSlug() {
 	m.slug = nil
+}
+
+// AddRepositoryIDs adds the "repositories" edge to the Repository entity by ids.
+func (m *RegistryMutation) AddRepositoryIDs(ids ...int) {
+	if m.repositories == nil {
+		m.repositories = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.repositories[ids[i]] = struct{}{}
+	}
+}
+
+// ClearRepositories clears the "repositories" edge to the Repository entity.
+func (m *RegistryMutation) ClearRepositories() {
+	m.clearedrepositories = true
+}
+
+// RepositoriesCleared reports if the "repositories" edge to the Repository entity was cleared.
+func (m *RegistryMutation) RepositoriesCleared() bool {
+	return m.clearedrepositories
+}
+
+// RemoveRepositoryIDs removes the "repositories" edge to the Repository entity by IDs.
+func (m *RegistryMutation) RemoveRepositoryIDs(ids ...int) {
+	if m.removedrepositories == nil {
+		m.removedrepositories = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.repositories, ids[i])
+		m.removedrepositories[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedRepositories returns the removed IDs of the "repositories" edge to the Repository entity.
+func (m *RegistryMutation) RemovedRepositoriesIDs() (ids []int) {
+	for id := range m.removedrepositories {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// RepositoriesIDs returns the "repositories" edge IDs in the mutation.
+func (m *RegistryMutation) RepositoriesIDs() (ids []int) {
+	for id := range m.repositories {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetRepositories resets all changes to the "repositories" edge.
+func (m *RegistryMutation) ResetRepositories() {
+	m.repositories = nil
+	m.clearedrepositories = false
+	m.removedrepositories = nil
 }
 
 // SetOrganizationID sets the "organization" edge to the Organization entity by id.
@@ -3044,7 +3155,10 @@ func (m *RegistryMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *RegistryMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
+	if m.repositories != nil {
+		edges = append(edges, registry.EdgeRepositories)
+	}
 	if m.organization != nil {
 		edges = append(edges, registry.EdgeOrganization)
 	}
@@ -3055,6 +3169,12 @@ func (m *RegistryMutation) AddedEdges() []string {
 // name in this mutation.
 func (m *RegistryMutation) AddedIDs(name string) []ent.Value {
 	switch name {
+	case registry.EdgeRepositories:
+		ids := make([]ent.Value, 0, len(m.repositories))
+		for id := range m.repositories {
+			ids = append(ids, id)
+		}
+		return ids
 	case registry.EdgeOrganization:
 		if id := m.organization; id != nil {
 			return []ent.Value{*id}
@@ -3065,19 +3185,33 @@ func (m *RegistryMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *RegistryMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
+	if m.removedrepositories != nil {
+		edges = append(edges, registry.EdgeRepositories)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *RegistryMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case registry.EdgeRepositories:
+		ids := make([]ent.Value, 0, len(m.removedrepositories))
+		for id := range m.removedrepositories {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *RegistryMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
+	if m.clearedrepositories {
+		edges = append(edges, registry.EdgeRepositories)
+	}
 	if m.clearedorganization {
 		edges = append(edges, registry.EdgeOrganization)
 	}
@@ -3088,6 +3222,8 @@ func (m *RegistryMutation) ClearedEdges() []string {
 // was cleared in this mutation.
 func (m *RegistryMutation) EdgeCleared(name string) bool {
 	switch name {
+	case registry.EdgeRepositories:
+		return m.clearedrepositories
 	case registry.EdgeOrganization:
 		return m.clearedorganization
 	}
@@ -3109,6 +3245,9 @@ func (m *RegistryMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *RegistryMutation) ResetEdge(name string) error {
 	switch name {
+	case registry.EdgeRepositories:
+		m.ResetRepositories()
+		return nil
 	case registry.EdgeOrganization:
 		m.ResetOrganization()
 		return nil
@@ -3127,6 +3266,8 @@ type RepositoryMutation struct {
 	manifests        map[int]struct{}
 	removedmanifests map[int]struct{}
 	clearedmanifests bool
+	registry         *int
+	clearedregistry  bool
 	done             bool
 	oldValue         func(context.Context) (*Repository, error)
 	predicates       []predicate.Repository
@@ -3320,6 +3461,45 @@ func (m *RepositoryMutation) ResetManifests() {
 	m.removedmanifests = nil
 }
 
+// SetRegistryID sets the "registry" edge to the Registry entity by id.
+func (m *RepositoryMutation) SetRegistryID(id int) {
+	m.registry = &id
+}
+
+// ClearRegistry clears the "registry" edge to the Registry entity.
+func (m *RepositoryMutation) ClearRegistry() {
+	m.clearedregistry = true
+}
+
+// RegistryCleared reports if the "registry" edge to the Registry entity was cleared.
+func (m *RepositoryMutation) RegistryCleared() bool {
+	return m.clearedregistry
+}
+
+// RegistryID returns the "registry" edge ID in the mutation.
+func (m *RepositoryMutation) RegistryID() (id int, exists bool) {
+	if m.registry != nil {
+		return *m.registry, true
+	}
+	return
+}
+
+// RegistryIDs returns the "registry" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// RegistryID instead. It exists only for internal usage by the builders.
+func (m *RepositoryMutation) RegistryIDs() (ids []int) {
+	if id := m.registry; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetRegistry resets all changes to the "registry" edge.
+func (m *RepositoryMutation) ResetRegistry() {
+	m.registry = nil
+	m.clearedregistry = false
+}
+
 // Where appends a list predicates to the RepositoryMutation builder.
 func (m *RepositoryMutation) Where(ps ...predicate.Repository) {
 	m.predicates = append(m.predicates, ps...)
@@ -3453,9 +3633,12 @@ func (m *RepositoryMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *RepositoryMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.manifests != nil {
 		edges = append(edges, repository.EdgeManifests)
+	}
+	if m.registry != nil {
+		edges = append(edges, repository.EdgeRegistry)
 	}
 	return edges
 }
@@ -3470,13 +3653,17 @@ func (m *RepositoryMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case repository.EdgeRegistry:
+		if id := m.registry; id != nil {
+			return []ent.Value{*id}
+		}
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *RepositoryMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.removedmanifests != nil {
 		edges = append(edges, repository.EdgeManifests)
 	}
@@ -3499,9 +3686,12 @@ func (m *RepositoryMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *RepositoryMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.clearedmanifests {
 		edges = append(edges, repository.EdgeManifests)
+	}
+	if m.clearedregistry {
+		edges = append(edges, repository.EdgeRegistry)
 	}
 	return edges
 }
@@ -3512,6 +3702,8 @@ func (m *RepositoryMutation) EdgeCleared(name string) bool {
 	switch name {
 	case repository.EdgeManifests:
 		return m.clearedmanifests
+	case repository.EdgeRegistry:
+		return m.clearedregistry
 	}
 	return false
 }
@@ -3520,6 +3712,9 @@ func (m *RepositoryMutation) EdgeCleared(name string) bool {
 // if that edge is not defined in the schema.
 func (m *RepositoryMutation) ClearEdge(name string) error {
 	switch name {
+	case repository.EdgeRegistry:
+		m.ClearRegistry()
+		return nil
 	}
 	return fmt.Errorf("unknown Repository unique edge %s", name)
 }
@@ -3530,6 +3725,9 @@ func (m *RepositoryMutation) ResetEdge(name string) error {
 	switch name {
 	case repository.EdgeManifests:
 		m.ResetManifests()
+		return nil
+	case repository.EdgeRegistry:
+		m.ResetRegistry()
 		return nil
 	}
 	return fmt.Errorf("unknown Repository edge %s", name)

@@ -87,6 +87,7 @@ var (
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "name", Type: field.TypeString},
 		{Name: "slug", Type: field.TypeString},
+		{Name: "is_personal", Type: field.TypeBool},
 	}
 	// OrganizationsTable holds the schema information for the "organizations" table.
 	OrganizationsTable = &schema.Table{
@@ -147,17 +148,40 @@ var (
 				OnDelete:   schema.SetNull,
 			},
 		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "registry_slug_organization_registries",
+				Unique:  true,
+				Columns: []*schema.Column{RegistriesColumns[2], RegistriesColumns[3]},
+			},
+		},
 	}
 	// RepositoriesColumns holds the columns for the "repositories" table.
 	RepositoriesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "name", Type: field.TypeString},
+		{Name: "registry_repositories", Type: field.TypeInt, Nullable: true},
 	}
 	// RepositoriesTable holds the schema information for the "repositories" table.
 	RepositoriesTable = &schema.Table{
 		Name:       "repositories",
 		Columns:    RepositoriesColumns,
 		PrimaryKey: []*schema.Column{RepositoriesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "repositories_registries_repositories",
+				Columns:    []*schema.Column{RepositoriesColumns[2]},
+				RefColumns: []*schema.Column{RegistriesColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "repository_name_registry_repositories",
+				Unique:  true,
+				Columns: []*schema.Column{RepositoriesColumns[1], RepositoriesColumns[2]},
+			},
+		},
 	}
 	// UsersColumns holds the columns for the "users" table.
 	UsersColumns = []*schema.Column{
@@ -204,4 +228,5 @@ func init() {
 	OrganizationMembershipsTable.ForeignKeys[0].RefTable = UsersTable
 	OrganizationMembershipsTable.ForeignKeys[1].RefTable = OrganizationsTable
 	RegistriesTable.ForeignKeys[0].RefTable = OrganizationsTable
+	RepositoriesTable.ForeignKeys[0].RefTable = RegistriesTable
 }

@@ -16,6 +16,8 @@ const (
 	FieldName = "name"
 	// EdgeManifests holds the string denoting the manifests edge name in mutations.
 	EdgeManifests = "manifests"
+	// EdgeRegistry holds the string denoting the registry edge name in mutations.
+	EdgeRegistry = "registry"
 	// Table holds the table name of the repository in the database.
 	Table = "repositories"
 	// ManifestsTable is the table that holds the manifests relation/edge.
@@ -25,6 +27,13 @@ const (
 	ManifestsInverseTable = "manifests"
 	// ManifestsColumn is the table column denoting the manifests relation/edge.
 	ManifestsColumn = "repository_manifests"
+	// RegistryTable is the table that holds the registry relation/edge.
+	RegistryTable = "repositories"
+	// RegistryInverseTable is the table name for the Registry entity.
+	// It exists in this package in order to avoid circular dependency with the "registry" package.
+	RegistryInverseTable = "registries"
+	// RegistryColumn is the table column denoting the registry relation/edge.
+	RegistryColumn = "registry_repositories"
 )
 
 // Columns holds all SQL columns for repository fields.
@@ -33,10 +42,21 @@ var Columns = []string{
 	FieldName,
 }
 
+// ForeignKeys holds the SQL foreign-keys that are owned by the "repositories"
+// table and are not defined as standalone fields in the schema.
+var ForeignKeys = []string{
+	"registry_repositories",
+}
+
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
 	for i := range Columns {
 		if column == Columns[i] {
+			return true
+		}
+	}
+	for i := range ForeignKeys {
+		if column == ForeignKeys[i] {
 			return true
 		}
 	}
@@ -69,10 +89,24 @@ func ByManifests(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newManifestsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByRegistryField orders the results by registry field.
+func ByRegistryField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRegistryStep(), sql.OrderByField(field, opts...))
+	}
+}
 func newManifestsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ManifestsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ManifestsTable, ManifestsColumn),
+	)
+}
+func newRegistryStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RegistryInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, RegistryTable, RegistryColumn),
 	)
 }

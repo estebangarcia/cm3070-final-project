@@ -20,6 +20,8 @@ type Organization struct {
 	Name string `json:"name,omitempty"`
 	// Slug holds the value of the "slug" field.
 	Slug string `json:"slug,omitempty"`
+	// IsPersonal holds the value of the "is_personal" field.
+	IsPersonal bool `json:"is_personal,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the OrganizationQuery when eager-loading is set.
 	Edges        OrganizationEdges `json:"edges"`
@@ -71,6 +73,8 @@ func (*Organization) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case organization.FieldIsPersonal:
+			values[i] = new(sql.NullBool)
 		case organization.FieldID:
 			values[i] = new(sql.NullInt64)
 		case organization.FieldName, organization.FieldSlug:
@@ -107,6 +111,12 @@ func (o *Organization) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field slug", values[i])
 			} else if value.Valid {
 				o.Slug = value.String
+			}
+		case organization.FieldIsPersonal:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field is_personal", values[i])
+			} else if value.Valid {
+				o.IsPersonal = value.Bool
 			}
 		default:
 			o.selectValues.Set(columns[i], values[i])
@@ -164,6 +174,9 @@ func (o *Organization) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("slug=")
 	builder.WriteString(o.Slug)
+	builder.WriteString(", ")
+	builder.WriteString("is_personal=")
+	builder.WriteString(fmt.Sprintf("%v", o.IsPersonal))
 	builder.WriteByte(')')
 	return builder.String()
 }

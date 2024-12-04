@@ -40,9 +40,9 @@ func (w *UserSignupWorker) Handle(ctx context.Context, message types.Message) er
 		return err
 	}
 
-	_, err = w.userRepository.CreateUser(ctx, userSignUpEvent.GivenName, userSignUpEvent.FamilyName, userSignUpEvent.Email, userSignUpEvent.Sub)
+	_, _, err = w.userRepository.CreateUserAndStartingOrg(ctx, userSignUpEvent.GivenName, userSignUpEvent.FamilyName, userSignUpEvent.Email, userSignUpEvent.Sub)
 	if err != nil {
-		log.Printf("error creating user in database %v", err)
+		log.Printf("error creating user and org in database %v", err)
 		return err
 	}
 

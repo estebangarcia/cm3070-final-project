@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
 )
 
 // RegistryQuery is the builder for querying Registry entities.
@@ -23,6 +25,7 @@ type RegistryQuery struct {
 	order            []registry.OrderOption
 	inters           []Interceptor
 	predicates       []predicate.Registry
+	withRepositories *RepositoryQuery
 	withOrganization *OrganizationQuery
 	withFKs          bool
 	// intermediate query (i.e. traversal path).
@@ -59,6 +62,28 @@ func (rq *RegistryQuery) Unique(unique bool) *RegistryQuery {
 func (rq *RegistryQuery) Order(o ...registry.OrderOption) *RegistryQuery {
 	rq.order = append(rq.order, o...)
 	return rq
+}
+
+// QueryRepositories chains the current query on the "repositories" edge.
+func (rq *RegistryQuery) QueryRepositories() *RepositoryQuery {
+	query := (&RepositoryClient{config: rq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := rq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := rq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(registry.Table, registry.FieldID, selector),
+			sqlgraph.To(repository.Table, repository.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, registry.RepositoriesTable, registry.RepositoriesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(rq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // QueryOrganization chains the current query on the "organization" edge.
@@ -275,11 +300,23 @@ func (rq *RegistryQuery) Clone() *RegistryQuery {
 		order:            append([]registry.OrderOption{}, rq.order...),
 		inters:           append([]Interceptor{}, rq.inters...),
 		predicates:       append([]predicate.Registry{}, rq.predicates...),
+		withRepositories: rq.withRepositories.Clone(),
 		withOrganization: rq.withOrganization.Clone(),
 		// clone intermediate query.
 		sql:  rq.sql.Clone(),
 		path: rq.path,
 	}
+}
+
+// WithRepositories tells the query-builder to eager-load the nodes that are connected to
+// the "repositories" edge. The optional arguments are used to configure the query builder of the edge.
+func (rq *RegistryQuery) WithRepositories(opts ...func(*RepositoryQuery)) *RegistryQuery {
+	query := (&RepositoryClient{config: rq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	rq.withRepositories = query
+	return rq
 }
 
 // WithOrganization tells the query-builder to eager-load the nodes that are connected to
@@ -372,7 +409,8 @@ func (rq *RegistryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Reg
 		nodes       = []*Registry{}
 		withFKs     = rq.withFKs
 		_spec       = rq.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
+			rq.withRepositories != nil,
 			rq.withOrganization != nil,
 		}
 	)
@@ -400,6 +438,13 @@ func (rq *RegistryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Reg
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := rq.withRepositories; query != nil {
+		if err := rq.loadRepositories(ctx, query, nodes,
+			func(n *Registry) { n.Edges.Repositories = []*Repository{} },
+			func(n *Registry, e *Repository) { n.Edges.Repositories = append(n.Edges.Repositories, e) }); err != nil {
+			return nil, err
+		}
+	}
 	if query := rq.withOrganization; query != nil {
 		if err := rq.loadOrganization(ctx, query, nodes, nil,
 			func(n *Registry, e *Organization) { n.Edges.Organization = e }); err != nil {
@@ -409,6 +454,37 @@ func (rq *RegistryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Reg
 	return nodes, nil
 }
 
+func (rq *RegistryQuery) loadRepositories(ctx context.Context, query *RepositoryQuery, nodes []*Registry, init func(*Registry), assign func(*Registry, *Repository)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Registry)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.Repository(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(registry.RepositoriesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.registry_repositories
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "registry_repositories" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "registry_repositories" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
 func (rq *RegistryQuery) loadOrganization(ctx context.Context, query *OrganizationQuery, nodes []*Registry, init func(*Registry), assign func(*Registry, *Organization)) error {
 	ids := make([]int, 0, len(nodes))
 	nodeids := make(map[int][]*Registry)

@@ -16,6 +16,8 @@ const (
 	FieldName = "name"
 	// FieldSlug holds the string denoting the slug field in the database.
 	FieldSlug = "slug"
+	// FieldIsPersonal holds the string denoting the is_personal field in the database.
+	FieldIsPersonal = "is_personal"
 	// EdgeRegistries holds the string denoting the registries edge name in mutations.
 	EdgeRegistries = "registries"
 	// EdgeMembers holds the string denoting the members edge name in mutations.
@@ -50,6 +52,7 @@ var Columns = []string{
 	FieldID,
 	FieldName,
 	FieldSlug,
+	FieldIsPersonal,
 }
 
 var (
@@ -84,6 +87,11 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // BySlug orders the results by the slug field.
 func BySlug(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSlug, opts...).ToFunc()
+}
+
+// ByIsPersonal orders the results by the is_personal field.
+func ByIsPersonal(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIsPersonal, opts...).ToFunc()
 }
 
 // ByRegistriesCount orders the results by registries count.

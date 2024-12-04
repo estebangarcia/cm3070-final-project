@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifest"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
 )
 
@@ -25,6 +26,8 @@ type RepositoryQuery struct {
 	inters        []Interceptor
 	predicates    []predicate.Repository
 	withManifests *ManifestQuery
+	withRegistry  *RegistryQuery
+	withFKs       bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -76,6 +79,28 @@ func (rq *RepositoryQuery) QueryManifests() *ManifestQuery {
 			sqlgraph.From(repository.Table, repository.FieldID, selector),
 			sqlgraph.To(manifest.Table, manifest.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, repository.ManifestsTable, repository.ManifestsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(rq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryRegistry chains the current query on the "registry" edge.
+func (rq *RepositoryQuery) QueryRegistry() *RegistryQuery {
+	query := (&RegistryClient{config: rq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := rq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := rq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(repository.Table, repository.FieldID, selector),
+			sqlgraph.To(registry.Table, registry.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, repository.RegistryTable, repository.RegistryColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(rq.driver.Dialect(), step)
 		return fromU, nil
@@ -276,6 +301,7 @@ func (rq *RepositoryQuery) Clone() *RepositoryQuery {
 		inters:        append([]Interceptor{}, rq.inters...),
 		predicates:    append([]predicate.Repository{}, rq.predicates...),
 		withManifests: rq.withManifests.Clone(),
+		withRegistry:  rq.withRegistry.Clone(),
 		// clone intermediate query.
 		sql:  rq.sql.Clone(),
 		path: rq.path,
@@ -290,6 +316,17 @@ func (rq *RepositoryQuery) WithManifests(opts ...func(*ManifestQuery)) *Reposito
 		opt(query)
 	}
 	rq.withManifests = query
+	return rq
+}
+
+// WithRegistry tells the query-builder to eager-load the nodes that are connected to
+// the "registry" edge. The optional arguments are used to configure the query builder of the edge.
+func (rq *RepositoryQuery) WithRegistry(opts ...func(*RegistryQuery)) *RepositoryQuery {
+	query := (&RegistryClient{config: rq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	rq.withRegistry = query
 	return rq
 }
 
@@ -370,11 +407,19 @@ func (rq *RepositoryQuery) prepareQuery(ctx context.Context) error {
 func (rq *RepositoryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Repository, error) {
 	var (
 		nodes       = []*Repository{}
+		withFKs     = rq.withFKs
 		_spec       = rq.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
 			rq.withManifests != nil,
+			rq.withRegistry != nil,
 		}
 	)
+	if rq.withRegistry != nil {
+		withFKs = true
+	}
+	if withFKs {
+		_spec.Node.Columns = append(_spec.Node.Columns, repository.ForeignKeys...)
+	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Repository).scanValues(nil, columns)
 	}
@@ -397,6 +442,12 @@ func (rq *RepositoryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*R
 		if err := rq.loadManifests(ctx, query, nodes,
 			func(n *Repository) { n.Edges.Manifests = []*Manifest{} },
 			func(n *Repository, e *Manifest) { n.Edges.Manifests = append(n.Edges.Manifests, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := rq.withRegistry; query != nil {
+		if err := rq.loadRegistry(ctx, query, nodes, nil,
+			func(n *Repository, e *Registry) { n.Edges.Registry = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -431,6 +482,38 @@ func (rq *RepositoryQuery) loadManifests(ctx context.Context, query *ManifestQue
 			return fmt.Errorf(`unexpected referenced foreign-key "repository_manifests" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
+	}
+	return nil
+}
+func (rq *RepositoryQuery) loadRegistry(ctx context.Context, query *RegistryQuery, nodes []*Repository, init func(*Repository), assign func(*Repository, *Registry)) error {
+	ids := make([]int, 0, len(nodes))
+	nodeids := make(map[int][]*Repository)
+	for i := range nodes {
+		if nodes[i].registry_repositories == nil {
+			continue
+		}
+		fk := *nodes[i].registry_repositories
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(registry.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "registry_repositories" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
 	}
 	return nil
 }

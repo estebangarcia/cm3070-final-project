@@ -57,6 +57,20 @@ func (ou *OrganizationUpdate) SetNillableSlug(s *string) *OrganizationUpdate {
 	return ou
 }
 
+// SetIsPersonal sets the "is_personal" field.
+func (ou *OrganizationUpdate) SetIsPersonal(b bool) *OrganizationUpdate {
+	ou.mutation.SetIsPersonal(b)
+	return ou
+}
+
+// SetNillableIsPersonal sets the "is_personal" field if the given value is not nil.
+func (ou *OrganizationUpdate) SetNillableIsPersonal(b *bool) *OrganizationUpdate {
+	if b != nil {
+		ou.SetIsPersonal(*b)
+	}
+	return ou
+}
+
 // AddRegistryIDs adds the "registries" edge to the Registry entity by IDs.
 func (ou *OrganizationUpdate) AddRegistryIDs(ids ...int) *OrganizationUpdate {
 	ou.mutation.AddRegistryIDs(ids...)
@@ -175,6 +189,9 @@ func (ou *OrganizationUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := ou.mutation.Slug(); ok {
 		_spec.SetField(organization.FieldSlug, field.TypeString, value)
+	}
+	if value, ok := ou.mutation.IsPersonal(); ok {
+		_spec.SetField(organization.FieldIsPersonal, field.TypeBool, value)
 	}
 	if ou.mutation.RegistriesCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -310,6 +327,20 @@ func (ouo *OrganizationUpdateOne) SetSlug(s string) *OrganizationUpdateOne {
 func (ouo *OrganizationUpdateOne) SetNillableSlug(s *string) *OrganizationUpdateOne {
 	if s != nil {
 		ouo.SetSlug(*s)
+	}
+	return ouo
+}
+
+// SetIsPersonal sets the "is_personal" field.
+func (ouo *OrganizationUpdateOne) SetIsPersonal(b bool) *OrganizationUpdateOne {
+	ouo.mutation.SetIsPersonal(b)
+	return ouo
+}
+
+// SetNillableIsPersonal sets the "is_personal" field if the given value is not nil.
+func (ouo *OrganizationUpdateOne) SetNillableIsPersonal(b *bool) *OrganizationUpdateOne {
+	if b != nil {
+		ouo.SetIsPersonal(*b)
 	}
 	return ouo
 }
@@ -462,6 +493,9 @@ func (ouo *OrganizationUpdateOne) sqlSave(ctx context.Context) (_node *Organizat
 	}
 	if value, ok := ouo.mutation.Slug(); ok {
 		_spec.SetField(organization.FieldSlug, field.TypeString, value)
+	}
+	if value, ok := ouo.mutation.IsPersonal(); ok {
+		_spec.SetField(organization.FieldIsPersonal, field.TypeBool, value)
 	}
 	if ouo.mutation.RegistriesCleared() {
 		edge := &sqlgraph.EdgeSpec{

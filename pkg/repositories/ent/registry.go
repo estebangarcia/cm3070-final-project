@@ -30,11 +30,22 @@ type Registry struct {
 
 // RegistryEdges holds the relations/edges for other nodes in the graph.
 type RegistryEdges struct {
+	// Repositories holds the value of the repositories edge.
+	Repositories []*Repository `json:"repositories,omitempty"`
 	// Organization holds the value of the organization edge.
 	Organization *Organization `json:"organization,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
+}
+
+// RepositoriesOrErr returns the Repositories value or an error if the edge
+// was not loaded in eager-loading.
+func (e RegistryEdges) RepositoriesOrErr() ([]*Repository, error) {
+	if e.loadedTypes[0] {
+		return e.Repositories, nil
+	}
+	return nil, &NotLoadedError{edge: "repositories"}
 }
 
 // OrganizationOrErr returns the Organization value or an error if the edge
@@ -42,7 +53,7 @@ type RegistryEdges struct {
 func (e RegistryEdges) OrganizationOrErr() (*Organization, error) {
 	if e.Organization != nil {
 		return e.Organization, nil
-	} else if e.loadedTypes[0] {
+	} else if e.loadedTypes[1] {
 		return nil, &NotFoundError{label: organization.Label}
 	}
 	return nil, &NotLoadedError{edge: "organization"}
@@ -110,6 +121,11 @@ func (r *Registry) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (r *Registry) Value(name string) (ent.Value, error) {
 	return r.selectValues.Get(name)
+}
+
+// QueryRepositories queries the "repositories" edge of the Registry entity.
+func (r *Registry) QueryRepositories() *RepositoryQuery {
+	return NewRegistryClient(r.config).QueryRepositories(r)
 }
 
 // QueryOrganization queries the "organization" edge of the Registry entity.

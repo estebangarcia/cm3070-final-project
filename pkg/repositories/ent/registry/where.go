@@ -193,6 +193,29 @@ func SlugContainsFold(v string) predicate.Registry {
 	return predicate.Registry(sql.FieldContainsFold(FieldSlug, v))
 }
 
+// HasRepositories applies the HasEdge predicate on the "repositories" edge.
+func HasRepositories() predicate.Registry {
+	return predicate.Registry(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, RepositoriesTable, RepositoriesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRepositoriesWith applies the HasEdge predicate on the "repositories" edge with a given conditions (other predicates).
+func HasRepositoriesWith(preds ...predicate.Repository) predicate.Registry {
+	return predicate.Registry(func(s *sql.Selector) {
+		step := newRepositoriesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasOrganization applies the HasEdge predicate on the "organization" edge.
 func HasOrganization() predicate.Registry {
 	return predicate.Registry(func(s *sql.Selector) {

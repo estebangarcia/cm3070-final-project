@@ -20,7 +20,7 @@ func NewManifestRepository(dbClient *ent.Client) *ManifestRepository {
 	}
 }
 
-func (mr *ManifestRepository) GetManifestsByReferenceAndMediaType(ctx context.Context, reference string, mediaTypes []string, repositoryName string) ([]*ent.Manifest, error) {
+func (mr *ManifestRepository) GetManifestsByReferenceAndMediaType(ctx context.Context, reference string, mediaTypes []string, repository *ent.Repository) ([]*ent.Manifest, error) {
 	manifestPredicate := ent_manifest.HasTagsWith(manifesttagreference.Tag(reference))
 	if helpers.IsSHA256Digest(reference) {
 		manifestPredicate = ent_manifest.Digest(reference)
@@ -29,14 +29,16 @@ func (mr *ManifestRepository) GetManifestsByReferenceAndMediaType(ctx context.Co
 	return mr.dbClient.Manifest.Query().Where(
 		ent_manifest.And(
 			manifestPredicate,
-			ent_manifest.HasRepositoryWith(ent_repository.Name(repositoryName)),
+			ent_manifest.HasRepositoryWith(ent_repository.ID(repository.ID)),
 			ent_manifest.MediaTypeIn(mediaTypes...),
 		),
 	).All(ctx)
 }
 
 func (mr *ManifestRepository) CreateManifest(ctx context.Context, digest string, mediaType string, s3Path string, repository *ent.Repository) (*ent.Manifest, error) {
-	return mr.dbClient.Manifest.
+	client := mr.getClient(ctx)
+
+	return client.Manifest.
 		Create().
 		SetDigest(digest).
 		SetMediaType(mediaType).
@@ -50,9 +52,11 @@ func (mr *ManifestRepository) UpsertManifestTagReference(ctx context.Context, re
 		return nil
 	}
 
+	client := mr.getClient(ctx)
+
 	var tagReference *ent.ManifestTagReference
 
-	tagReference, err := mr.dbClient.ManifestTagReference.Query().Where(
+	tagReference, err := client.ManifestTagReference.Query().Where(
 		manifesttagreference.And(
 			manifesttagreference.HasManifestsWith(
 				ent_manifest.HasRepositoryWith(ent_repository.ID(repository.ID)),
@@ -64,7 +68,7 @@ func (mr *ManifestRepository) UpsertManifestTagReference(ctx context.Context, re
 	tagReferenceNotFound := (err != nil && ent.IsNotFound(err))
 
 	if tagReferenceNotFound {
-		tagReference, err = mr.dbClient.ManifestTagReference.Create().
+		tagReference, err = client.ManifestTagReference.Create().
 			SetManifests(manifest).
 			SetTag(reference).
 			Save(ctx)
@@ -89,12 +93,14 @@ func (mr *ManifestRepository) CreateManifestAndUpsertTag(ctx context.Context, re
 	}
 	defer tx.Rollback()
 
-	mfst, err := mr.CreateManifest(ctx, digest, mediaType, s3Path, repository)
+	ctxV := context.WithValue(ctx, "tx", tx)
+
+	mfst, err := mr.CreateManifest(ctxV, digest, mediaType, s3Path, repository)
 	if err != nil {
 		return nil, err
 	}
 
-	err = mr.UpsertManifestTagReference(ctx, reference, mfst, repository)
+	err = mr.UpsertManifestTagReference(ctxV, reference, mfst, repository)
 	if err != nil {
 		return nil, err
 	}
@@ -104,4 +110,13 @@ func (mr *ManifestRepository) CreateManifestAndUpsertTag(ctx context.Context, re
 	}
 
 	return mfst, nil
+}
+
+func (mr *ManifestRepository) getClient(ctx context.Context) *ent.Client {
+	client := mr.dbClient
+	if ctx.Value("tx") != nil {
+		tx := ctx.Value("tx").(*ent.Tx)
+		client = tx.Client()
+	}
+	return client
 }

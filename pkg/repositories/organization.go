@@ -25,3 +25,23 @@ func (orgRepo *OrganizationRepository) GetForUser(ctx context.Context, sub strin
 		),
 	).All(ctx)
 }
+
+func (orgRepo *OrganizationRepository) GetForUserAndSlug(ctx context.Context, sub string, orgSlug string) (*ent.Organization, bool, error) {
+	org, err := orgRepo.dbClient.Organization.Query().Where(
+		organization.And(
+			organization.HasMembersWith(
+				user.Sub(sub),
+			),
+			organization.Slug(orgSlug),
+		),
+	).First(ctx)
+
+	if err != nil && ent.IsNotFound(err) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+
+	return org, true, nil
+}

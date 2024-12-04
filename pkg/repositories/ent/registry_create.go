@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
 )
 
 // RegistryCreate is the builder for creating a Registry entity.
@@ -30,6 +31,21 @@ func (rc *RegistryCreate) SetName(s string) *RegistryCreate {
 func (rc *RegistryCreate) SetSlug(s string) *RegistryCreate {
 	rc.mutation.SetSlug(s)
 	return rc
+}
+
+// AddRepositoryIDs adds the "repositories" edge to the Repository entity by IDs.
+func (rc *RegistryCreate) AddRepositoryIDs(ids ...int) *RegistryCreate {
+	rc.mutation.AddRepositoryIDs(ids...)
+	return rc
+}
+
+// AddRepositories adds the "repositories" edges to the Repository entity.
+func (rc *RegistryCreate) AddRepositories(r ...*Repository) *RegistryCreate {
+	ids := make([]int, len(r))
+	for i := range r {
+		ids[i] = r[i].ID
+	}
+	return rc.AddRepositoryIDs(ids...)
 }
 
 // SetOrganizationID sets the "organization" edge to the Organization entity by ID.
@@ -124,6 +140,22 @@ func (rc *RegistryCreate) createSpec() (*Registry, *sqlgraph.CreateSpec) {
 	if value, ok := rc.mutation.Slug(); ok {
 		_spec.SetField(registry.FieldSlug, field.TypeString, value)
 		_node.Slug = value
+	}
+	if nodes := rc.mutation.RepositoriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   registry.RepositoriesTable,
+			Columns: []string{registry.RepositoriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := rc.mutation.OrganizationIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
