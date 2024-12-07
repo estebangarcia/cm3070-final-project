@@ -31,7 +31,7 @@ type V2ManifestsHandler struct {
 }
 
 func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Request) {
-	imageName := r.Context().Value("imageName").(string)
+	imageName := r.Context().Value("repositoryName").(string)
 	reference := r.Context().Value("reference").(string)
 	org := r.Context().Value("organization").(*ent.Organization)
 	registry := r.Context().Value("registry").(*ent.Registry)
@@ -43,8 +43,6 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 		responses.OCIInternalServerError(w)
 		return
 	}
-
-	keyName := h.getKeyForManifestRef(manifestContentType, org.Slug, registry.Slug, imageName, reference)
 
 	defer r.Body.Close()
 
@@ -63,6 +61,10 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	digestWithPrefix := fmt.Sprintf("sha256:%s", digest)
+
+	keyName := h.getKeyForManifestRef(manifestContentType, org.Slug, registry.Slug, imageName, digestWithPrefix)
+
 	digestEnc := base64.StdEncoding.EncodeToString(checksumBytes)
 
 	_, err = h.S3Client.PutObject(r.Context(), &s3.PutObjectInput{
@@ -80,8 +82,6 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	digestWithPrefix := fmt.Sprintf("sha256:%s", digest)
-
 	m, err := h.ManifestRepository.CreateManifestAndUpsertTag(r.Context(), reference, digestWithPrefix, manifestContentType, keyName, repo)
 	if err != nil {
 		log.Println(err)
@@ -95,7 +95,7 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *V2ManifestsHandler) DownloadManifest(w http.ResponseWriter, r *http.Request) {
-	imageName := r.Context().Value("imageName").(string)
+	imageName := r.Context().Value("repositoryName").(string)
 	reference := r.Context().Value("reference").(string)
 	registry := r.Context().Value("registry").(*ent.Registry)
 	acceptedTypes := r.Header.Values("Accept")
@@ -136,7 +136,7 @@ func (h *V2ManifestsHandler) DownloadManifest(w http.ResponseWriter, r *http.Req
 }
 
 func (h *V2ManifestsHandler) HeadManifest(w http.ResponseWriter, r *http.Request) {
-	imageName := r.Context().Value("imageName").(string)
+	imageName := r.Context().Value("repositoryName").(string)
 	reference := r.Context().Value("reference").(string)
 	registry := r.Context().Value("registry").(*ent.Registry)
 	acceptedTypes := r.Header.Values("Accept")
@@ -176,12 +176,7 @@ func (h *V2ManifestsHandler) HeadManifest(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *V2ManifestsHandler) getKeyForManifestRef(contentType string, orgSlug string, registrySlug string, imageName string, reference string) string {
-	ref := reference
-	if helpers.IsSHA256Digest(reference) {
-		ref = helpers.GetDigestAsNestedFolder(reference)
-	}
-
+func (h *V2ManifestsHandler) getKeyForManifestRef(contentType string, orgSlug string, registrySlug string, imageName string, digest string) string {
 	contentTypeSubFolder := ""
 
 	if contentType != "" {
@@ -198,7 +193,7 @@ func (h *V2ManifestsHandler) getKeyForManifestRef(contentType string, orgSlug st
 		}
 	}
 
-	return fmt.Sprintf("%s/manifests/%s/%s/%s%s/manifest.json", orgSlug, registrySlug, imageName, ref, contentTypeSubFolder)
+	return fmt.Sprintf("%s/manifests/%s/%s/%s%s/manifest.json", orgSlug, registrySlug, imageName, digest, contentTypeSubFolder)
 }
 
 func (h *V2ManifestsHandler) getManifestDownloadUrl(orgSlug string, registrySlug string, imageName string, reference string) string {

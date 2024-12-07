@@ -41,7 +41,7 @@ type V2BlobsHandler struct {
 }
 
 func (h *V2BlobsHandler) InitiateUploadSession(w http.ResponseWriter, r *http.Request) {
-	imageName := r.Context().Value("imageName").(string)
+	imageName := r.Context().Value("repositoryName").(string)
 	org := r.Context().Value("organization").(*ent.Organization)
 	registry := r.Context().Value("registry").(*ent.Registry)
 	uploadId := ulid.Make().String()
@@ -157,7 +157,7 @@ func (h *V2BlobsHandler) DownloadBlob(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *V2BlobsHandler) UploadBlob(w http.ResponseWriter, r *http.Request) {
-	imageName := r.Context().Value("imageName").(string)
+	imageName := r.Context().Value("repositoryName").(string)
 	uploadId := r.Context().Value("uploadId").(string)
 	org := r.Context().Value("organization").(*ent.Organization)
 	registry := r.Context().Value("registry").(*ent.Registry)
@@ -229,7 +229,7 @@ func (h *V2BlobsHandler) UploadBlob(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *V2BlobsHandler) FinalizeBlobUploadSession(w http.ResponseWriter, r *http.Request) {
-	imageName := r.Context().Value("imageName").(string)
+	imageName := r.Context().Value("repositoryName").(string)
 	uploadId := r.Context().Value("uploadId").(string)
 	org := r.Context().Value("organization").(*ent.Organization)
 	registry := r.Context().Value("registry").(*ent.Registry)
@@ -282,7 +282,7 @@ func (h *V2BlobsHandler) FinalizeBlobUploadSession(w http.ResponseWriter, r *htt
 }
 
 func (h *V2BlobsHandler) GetBlobUploadSession(w http.ResponseWriter, r *http.Request) {
-	imageName := r.Context().Value("imageName").(string)
+	imageName := r.Context().Value("repositoryName").(string)
 	uploadId := r.Context().Value("uploadId").(string)
 	org := r.Context().Value("organization").(*ent.Organization)
 	registry := r.Context().Value("registry").(*ent.Registry)

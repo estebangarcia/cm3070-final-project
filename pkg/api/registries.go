@@ -16,6 +16,13 @@ type RegistriesHandler struct {
 	RegistryRepository *repositories.RegistryRepository
 }
 
+func (rh *RegistriesHandler) GetRegistry(w http.ResponseWriter, r *http.Request) {
+	registry := r.Context().Value("registry").(*ent.Registry)
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(registry)
+}
+
 func (rh *RegistriesHandler) GetRegistries(w http.ResponseWriter, r *http.Request) {
 	org := r.Context().Value("organization").(*ent.Organization)
 
