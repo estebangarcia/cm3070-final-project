@@ -39,6 +39,7 @@ func (w *SQSWorkerDispatcher) Start(ctx context.Context, worker SQSWorker) {
 			&sqs.ReceiveMessageInput{
 				QueueUrl:            &w.queueUrl,
 				MaxNumberOfMessages: 10,
+				WaitTimeSeconds:     20,
 			},
 		)
 

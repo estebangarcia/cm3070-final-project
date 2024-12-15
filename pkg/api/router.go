@@ -23,7 +23,8 @@ type Router struct {
 func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) (*Router, error) {
 	r := chi.NewRouter()
 
-	customMux := NewCustomMux()
+	apiCustomMux := NewCustomMux()
+	v2CustomMux := NewCustomMux()
 
 	r.Use(chiMiddleware.Logger)
 	r.Use(chiMiddleware.Recoverer)
@@ -117,8 +118,8 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 			repositoryScopedRoutes.Use(orgMiddleware.ValidateOrgAndRegistry)
 			repositoryScopedRoutes.Get("/", repositoriesHandler.GetRepositories)
 
-			customMux.Get(getRepositoryRegexRoute(), repositoriesHandler.GetRepository)
-			repositoryScopedRoutes.HandleFunc("/*", customMux.Handle)
+			apiCustomMux.Get(getRepositoryRegexRoute(), repositoriesHandler.GetRepository)
+			repositoryScopedRoutes.HandleFunc("/*", apiCustomMux.Handle)
 		})
 	})
 
@@ -129,18 +130,18 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 		authenticatedOciV2.Route("/{organizationSlug:[a-z-]+}/{registrySlug:[a-z-]+}", func(registryScopedOCIRoutes chi.Router) {
 			registryScopedOCIRoutes.Use(orgMiddleware.ValidateOrgAndRegistry)
 
-			customMux.Post(getRepositoryRegexRoute()+`\/blobs\/uploads`, v2BlobsHandler.InitiateUploadSession)
-			customMux.Patch(getRepositoryRegexRoute()+`\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.UploadBlob)
-			customMux.Put(getRepositoryRegexRoute()+`\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.FinalizeBlobUploadSession)
-			customMux.Get(getRepositoryRegexRoute()+`\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.GetBlobUploadSession)
-			customMux.Get(getRepositoryRegexRoute()+`\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.DownloadBlob)
-			customMux.Head(getRepositoryRegexRoute()+`\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.HeadBlob)
+			v2CustomMux.Post(getRepositoryRegexRoute()+`\/blobs\/uploads`, v2BlobsHandler.InitiateUploadSession)
+			v2CustomMux.Patch(getRepositoryRegexRoute()+`\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.UploadBlob)
+			v2CustomMux.Put(getRepositoryRegexRoute()+`\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.FinalizeBlobUploadSession)
+			v2CustomMux.Get(getRepositoryRegexRoute()+`\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.GetBlobUploadSession)
+			v2CustomMux.Get(getRepositoryRegexRoute()+`\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.DownloadBlob)
+			v2CustomMux.Head(getRepositoryRegexRoute()+`\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.HeadBlob)
 
-			customMux.Put(getRepositoryRegexRoute()+`\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.UploadManifest)
-			customMux.Get(getRepositoryRegexRoute()+`\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.DownloadManifest)
-			customMux.Head(getRepositoryRegexRoute()+`\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.HeadManifest)
+			v2CustomMux.Put(getRepositoryRegexRoute()+`\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.UploadManifest)
+			v2CustomMux.Get(getRepositoryRegexRoute()+`\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.DownloadManifest)
+			v2CustomMux.Head(getRepositoryRegexRoute()+`\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.HeadManifest)
 
-			registryScopedOCIRoutes.HandleFunc("/*", customMux.Handle)
+			registryScopedOCIRoutes.HandleFunc("/*", v2CustomMux.Handle)
 		})
 	})
 
