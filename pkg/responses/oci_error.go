@@ -53,3 +53,15 @@ func OCIBlobUploadInvalid(w http.ResponseWriter) {
 func OCIBlobUploadUnknown(w http.ResponseWriter) {
 	GenericOCIError(w, "BLOB_UPLOAD_UNKNOWN", http.StatusNotFound, "Blob upload session not found", nil)
 }
+
+func OCIRepositoryUnknown(w http.ResponseWriter, repositoryName string) {
+	GenericOCIError(w, "REPOSITORY_UNKNOWN", http.StatusNotFound, fmt.Sprintf("Repository with name '%s' not found", repositoryName), nil)
+}
+
+func OCIUnprocessableEntity(w http.ResponseWriter, message string) {
+	GenericOCIError(w, "UNPROCESSABLE_ENTITY", http.StatusUnprocessableEntity, message, nil)
+}
+
+func OCITagUnknown(w http.ResponseWriter, repositoryName string, tagName string) {
+	GenericOCIError(w, "TAG_UNKNOWN", http.StatusNotFound, fmt.Sprintf("Repository with name '%s' has no tag with name '%s'", repositoryName, tagName), nil)
+}
