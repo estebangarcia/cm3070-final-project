@@ -64,3 +64,7 @@ func (mr *ManifestTagRepository) GetTagByName(ctx context.Context, repository *e
 
 	return tag, true, nil
 }
+
+func (mr *ManifestTagRepository) DeleteTag(ctx context.Context, tag *ent.ManifestTagReference) error {
+	return mr.dbClient.ManifestTagReference.DeleteOne(tag).Exec(ctx)
+}

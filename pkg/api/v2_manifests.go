@@ -25,11 +25,12 @@ import (
 )
 
 type V2ManifestsHandler struct {
-	Config               *config.AppConfig
-	S3Client             *s3.Client
-	S3PresignClient      *s3.PresignClient
-	RepositoryRepository *repositories.RepositoryRepository
-	ManifestRepository   *repositories.ManifestRepository
+	Config                *config.AppConfig
+	S3Client              *s3.Client
+	S3PresignClient       *s3.PresignClient
+	RepositoryRepository  *repositories.RepositoryRepository
+	ManifestRepository    *repositories.ManifestRepository
+	ManifestTagRepository *repositories.ManifestTagRepository
 }
 
 func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Request) {
@@ -203,6 +204,49 @@ func (h *V2ManifestsHandler) HeadManifest(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Length", strconv.Itoa(int(*output.ContentLength)))
 	w.Header().Set("Docker-Content-Digest", manifest.Digest)
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *V2ManifestsHandler) DeleteManifestOrTag(w http.ResponseWriter, r *http.Request) {
+	imageName := r.Context().Value("repositoryName").(string)
+	reference := r.Context().Value("reference").(string)
+	registry := r.Context().Value("registry").(*ent.Registry)
+
+	repo, found, err := h.RepositoryRepository.GetForRegistryByName(r.Context(), registry.ID, imageName)
+	if err != nil {
+		log.Println(err)
+		responses.OCIInternalServerError(w)
+		return
+	}
+
+	if !found {
+		responses.OCIRepositoryUnknown(w, imageName, false)
+		return
+	}
+
+	if !helpers.IsSHA256Digest(reference) {
+		tag, found, err := h.ManifestTagRepository.GetTagByName(r.Context(), repo, reference)
+		if err != nil {
+			log.Println(err)
+			responses.OCIInternalServerError(w)
+			return
+		}
+
+		if !found {
+			responses.OCITagUnknown(w, imageName, reference)
+			return
+		}
+
+		if err := h.ManifestTagRepository.DeleteTag(r.Context(), tag); err != nil {
+			responses.OCIInternalServerError(w)
+			return
+		}
+
+		w.WriteHeader(http.StatusAccepted)
+		return
+	}
+
+	w.WriteHeader(http.StatusMethodNotAllowed)
+
 }
 
 func (h *V2ManifestsHandler) getKeyForManifestRef(contentType string, orgSlug string, registrySlug string, imageName string, digest string) string {
