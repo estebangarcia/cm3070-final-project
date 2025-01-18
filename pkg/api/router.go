@@ -80,11 +80,12 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 	}
 
 	v2ManifestsHandlers := V2ManifestsHandler{
-		Config:               &cfg,
-		S3Client:             s3Client,
-		S3PresignClient:      s3Presigner,
-		ManifestRepository:   manifestRepository,
-		RepositoryRepository: repositoryRepository,
+		Config:                &cfg,
+		S3Client:              s3Client,
+		S3PresignClient:       s3Presigner,
+		ManifestRepository:    manifestRepository,
+		RepositoryRepository:  repositoryRepository,
+		ManifestTagRepository: manifestTagRepository,
 	}
 
 	v2ReferrersHandlers := V2ReferrersHandler{
@@ -155,6 +156,7 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 			v2CustomMux.Put(getRepositoryRegexRoute()+`\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.UploadManifest)
 			v2CustomMux.Get(getRepositoryRegexRoute()+`\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.DownloadManifest)
 			v2CustomMux.Head(getRepositoryRegexRoute()+`\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.HeadManifest)
+			v2CustomMux.Delete(getRepositoryRegexRoute()+`\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.DeleteManifestOrTag)
 
 			v2CustomMux.Get(getRepositoryRegexRoute()+`\/referrers\/(?P<reference>[\w:._-]+)`, v2ReferrersHandlers.GetReferrersForDigest)
 
