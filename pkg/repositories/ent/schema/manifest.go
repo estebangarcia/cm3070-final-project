@@ -26,5 +26,7 @@ func (Manifest) Edges() []ent.Edge {
 		edge.From("tags", ManifestTagReference.Type).
 			Ref("manifests"),
 		edge.From("repository", Repository.Type).Ref("manifests").Unique(),
+		edge.To("subject", Manifest.Type),
+		edge.From("referer", Manifest.Type).Ref("subject"),
 	}
 }

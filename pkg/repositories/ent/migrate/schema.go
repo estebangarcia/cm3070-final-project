@@ -209,6 +209,31 @@ var (
 			},
 		},
 	}
+	// ManifestSubjectColumns holds the columns for the "manifest_subject" table.
+	ManifestSubjectColumns = []*schema.Column{
+		{Name: "manifest_id", Type: field.TypeInt},
+		{Name: "referer_id", Type: field.TypeInt},
+	}
+	// ManifestSubjectTable holds the schema information for the "manifest_subject" table.
+	ManifestSubjectTable = &schema.Table{
+		Name:       "manifest_subject",
+		Columns:    ManifestSubjectColumns,
+		PrimaryKey: []*schema.Column{ManifestSubjectColumns[0], ManifestSubjectColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "manifest_subject_manifest_id",
+				Columns:    []*schema.Column{ManifestSubjectColumns[0]},
+				RefColumns: []*schema.Column{ManifestsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "manifest_subject_referer_id",
+				Columns:    []*schema.Column{ManifestSubjectColumns[1]},
+				RefColumns: []*schema.Column{ManifestsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		BlobChunksTable,
@@ -219,6 +244,7 @@ var (
 		RegistriesTable,
 		RepositoriesTable,
 		UsersTable,
+		ManifestSubjectTable,
 	}
 )
 
@@ -229,4 +255,6 @@ func init() {
 	OrganizationMembershipsTable.ForeignKeys[1].RefTable = OrganizationsTable
 	RegistriesTable.ForeignKeys[0].RefTable = OrganizationsTable
 	RepositoriesTable.ForeignKeys[0].RefTable = RegistriesTable
+	ManifestSubjectTable.ForeignKeys[0].RefTable = ManifestsTable
+	ManifestSubjectTable.ForeignKeys[1].RefTable = ManifestsTable
 }

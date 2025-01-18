@@ -42,6 +42,10 @@ func OCIManifestUnknown(w http.ResponseWriter, reference string) {
 	GenericOCIError(w, "MANIFEST_UNKNOWN", http.StatusNotFound, fmt.Sprintf("Manifest with reference '%s' not found", reference), nil)
 }
 
+func OCIManifestBlobUnknown(w http.ResponseWriter, reference string) {
+	GenericOCIError(w, "MANIFEST_BLOB_UNKNOWN", http.StatusNotFound, fmt.Sprintf("Manifest references non-existant digest '%s'", reference), nil)
+}
+
 func OCIBlobUnknown(w http.ResponseWriter, digest string) {
 	GenericOCIError(w, "BLOB_UNKNOWN", http.StatusNotFound, fmt.Sprintf("Blob with digest '%s' not found", digest), nil)
 }
@@ -54,8 +58,13 @@ func OCIBlobUploadUnknown(w http.ResponseWriter) {
 	GenericOCIError(w, "BLOB_UPLOAD_UNKNOWN", http.StatusNotFound, "Blob upload session not found", nil)
 }
 
-func OCIRepositoryUnknown(w http.ResponseWriter, repositoryName string) {
-	GenericOCIError(w, "REPOSITORY_UNKNOWN", http.StatusNotFound, fmt.Sprintf("Repository with name '%s' not found", repositoryName), nil)
+func OCIRepositoryUnknown(w http.ResponseWriter, repositoryName string, asBadRequest bool) {
+	var statusCode = http.StatusNotFound
+	if asBadRequest {
+		statusCode = http.StatusBadRequest
+	}
+
+	GenericOCIError(w, "REPOSITORY_UNKNOWN", statusCode, fmt.Sprintf("Repository with name '%s' not found", repositoryName), nil)
 }
 
 func OCIUnprocessableEntity(w http.ResponseWriter, message string) {

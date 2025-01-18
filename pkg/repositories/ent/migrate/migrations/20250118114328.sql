@@ -1,0 +1,2 @@
+-- Create "manifest_subject" table
+CREATE TABLE "manifest_subject" ("manifest_id" bigint NOT NULL, "referer_id" bigint NOT NULL, PRIMARY KEY ("manifest_id", "referer_id"), CONSTRAINT "manifest_subject_manifest_id" FOREIGN KEY ("manifest_id") REFERENCES "manifests" ("id") ON UPDATE NO ACTION ON DELETE CASCADE, CONSTRAINT "manifest_subject_referer_id" FOREIGN KEY ("referer_id") REFERENCES "manifests" ("id") ON UPDATE NO ACTION ON DELETE CASCADE);

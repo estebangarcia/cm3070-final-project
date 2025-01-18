@@ -22,6 +22,10 @@ const (
 	EdgeTags = "tags"
 	// EdgeRepository holds the string denoting the repository edge name in mutations.
 	EdgeRepository = "repository"
+	// EdgeSubject holds the string denoting the subject edge name in mutations.
+	EdgeSubject = "subject"
+	// EdgeReferer holds the string denoting the referer edge name in mutations.
+	EdgeReferer = "referer"
 	// Table holds the table name of the manifest in the database.
 	Table = "manifests"
 	// TagsTable is the table that holds the tags relation/edge.
@@ -38,6 +42,10 @@ const (
 	RepositoryInverseTable = "repositories"
 	// RepositoryColumn is the table column denoting the repository relation/edge.
 	RepositoryColumn = "repository_manifests"
+	// SubjectTable is the table that holds the subject relation/edge. The primary key declared below.
+	SubjectTable = "manifest_subject"
+	// RefererTable is the table that holds the referer relation/edge. The primary key declared below.
+	RefererTable = "manifest_subject"
 )
 
 // Columns holds all SQL columns for manifest fields.
@@ -53,6 +61,15 @@ var Columns = []string{
 var ForeignKeys = []string{
 	"repository_manifests",
 }
+
+var (
+	// SubjectPrimaryKey and SubjectColumn2 are the table columns denoting the
+	// primary key for the subject relation (M2M).
+	SubjectPrimaryKey = []string{"manifest_id", "referer_id"}
+	// RefererPrimaryKey and RefererColumn2 are the table columns denoting the
+	// primary key for the referer relation (M2M).
+	RefererPrimaryKey = []string{"manifest_id", "referer_id"}
+)
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
@@ -112,6 +129,34 @@ func ByRepositoryField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newRepositoryStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// BySubjectCount orders the results by subject count.
+func BySubjectCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSubjectStep(), opts...)
+	}
+}
+
+// BySubject orders the results by subject terms.
+func BySubject(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSubjectStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByRefererCount orders the results by referer count.
+func ByRefererCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newRefererStep(), opts...)
+	}
+}
+
+// ByReferer orders the results by referer terms.
+func ByReferer(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRefererStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newTagsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -124,5 +169,19 @@ func newRepositoryStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(RepositoryInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, RepositoryTable, RepositoryColumn),
+	)
+}
+func newSubjectStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(Table, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, false, SubjectTable, SubjectPrimaryKey...),
+	)
+}
+func newRefererStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(Table, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, true, RefererTable, RefererPrimaryKey...),
 	)
 }

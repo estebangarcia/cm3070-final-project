@@ -73,6 +73,36 @@ func (mc *ManifestCreate) SetRepository(r *Repository) *ManifestCreate {
 	return mc.SetRepositoryID(r.ID)
 }
 
+// AddSubjectIDs adds the "subject" edge to the Manifest entity by IDs.
+func (mc *ManifestCreate) AddSubjectIDs(ids ...int) *ManifestCreate {
+	mc.mutation.AddSubjectIDs(ids...)
+	return mc
+}
+
+// AddSubject adds the "subject" edges to the Manifest entity.
+func (mc *ManifestCreate) AddSubject(m ...*Manifest) *ManifestCreate {
+	ids := make([]int, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return mc.AddSubjectIDs(ids...)
+}
+
+// AddRefererIDs adds the "referer" edge to the Manifest entity by IDs.
+func (mc *ManifestCreate) AddRefererIDs(ids ...int) *ManifestCreate {
+	mc.mutation.AddRefererIDs(ids...)
+	return mc
+}
+
+// AddReferer adds the "referer" edges to the Manifest entity.
+func (mc *ManifestCreate) AddReferer(m ...*Manifest) *ManifestCreate {
+	ids := make([]int, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return mc.AddRefererIDs(ids...)
+}
+
 // Mutation returns the ManifestMutation object of the builder.
 func (mc *ManifestCreate) Mutation() *ManifestMutation {
 	return mc.mutation
@@ -185,6 +215,38 @@ func (mc *ManifestCreate) createSpec() (*Manifest, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.repository_manifests = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := mc.mutation.SubjectIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   manifest.SubjectTable,
+			Columns: manifest.SubjectPrimaryKey,
+			Bidi:    true,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := mc.mutation.RefererIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   manifest.RefererTable,
+			Columns: manifest.RefererPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

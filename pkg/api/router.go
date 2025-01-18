@@ -87,6 +87,14 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 		RepositoryRepository: repositoryRepository,
 	}
 
+	v2ReferrersHandlers := V2ReferrersHandler{
+		Config:               &cfg,
+		S3Client:             s3Client,
+		S3PresignClient:      s3Presigner,
+		ManifestRepository:   manifestRepository,
+		RepositoryRepository: repositoryRepository,
+	}
+
 	v2TagsHandler := V2TagsHandler{
 		Config:                &cfg,
 		RepositoryRepository:  repositoryRepository,
@@ -147,6 +155,8 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 			v2CustomMux.Put(getRepositoryRegexRoute()+`\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.UploadManifest)
 			v2CustomMux.Get(getRepositoryRegexRoute()+`\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.DownloadManifest)
 			v2CustomMux.Head(getRepositoryRegexRoute()+`\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.HeadManifest)
+
+			v2CustomMux.Get(getRepositoryRegexRoute()+`\/referrers\/(?P<reference>[\w:._-]+)`, v2ReferrersHandlers.GetReferrersForDigest)
 
 			v2CustomMux.Get(getRepositoryRegexRoute()+`\/tags\/list`, v2TagsHandler.ListTags)
 

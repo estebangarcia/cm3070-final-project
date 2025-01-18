@@ -536,6 +536,38 @@ func (c *ManifestClient) QueryRepository(m *Manifest) *RepositoryQuery {
 	return query
 }
 
+// QuerySubject queries the subject edge of a Manifest.
+func (c *ManifestClient) QuerySubject(m *Manifest) *ManifestQuery {
+	query := (&ManifestClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(manifest.Table, manifest.FieldID, id),
+			sqlgraph.To(manifest.Table, manifest.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, manifest.SubjectTable, manifest.SubjectPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryReferer queries the referer edge of a Manifest.
+func (c *ManifestClient) QueryReferer(m *Manifest) *ManifestQuery {
+	query := (&ManifestClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(manifest.Table, manifest.FieldID, id),
+			sqlgraph.To(manifest.Table, manifest.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, manifest.RefererTable, manifest.RefererPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *ManifestClient) Hooks() []Hook {
 	return c.hooks.Manifest
