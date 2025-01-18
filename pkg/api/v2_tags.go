@@ -43,7 +43,7 @@ func (h *V2TagsHandler) ListTags(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !exists {
-		responses.OCIRepositoryUnknown(w, imageName)
+		responses.OCIRepositoryUnknown(w, imageName, false)
 		return
 	}
 

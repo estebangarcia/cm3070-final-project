@@ -17,8 +17,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
 	"github.com/estebangarcia/cm3070-final-project/pkg/helpers"
+	"github.com/estebangarcia/cm3070-final-project/pkg/oci_models"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent"
+	"github.com/estebangarcia/cm3070-final-project/pkg/requests"
 	"github.com/estebangarcia/cm3070-final-project/pkg/responses"
 )
 
@@ -43,7 +45,6 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 		responses.OCIInternalServerError(w)
 		return
 	}
-
 	defer r.Body.Close()
 
 	buffer, err := io.ReadAll(r.Body)
@@ -52,8 +53,13 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	contentLength := int64(len(buffer))
+	manifestRequest, err := requests.BindRequestFromBytes[oci_models.OCIV1Manifest](buffer)
+	if err != nil {
+		responses.OCIUnprocessableEntity(w, "the manifest is bad")
+		return
+	}
 
+	contentLength := int64(len(buffer))
 	digest, checksumBytes, err := h.getDigestFromReferenceOrBody(reference, buffer)
 	if err != nil {
 		log.Println(err)
@@ -82,7 +88,27 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	m, err := h.ManifestRepository.CreateManifestAndUpsertTag(r.Context(), reference, digestWithPrefix, manifestContentType, keyName, repo)
+	var subjectManifest *ent.Manifest = nil
+	var subjectManifestFound bool
+
+	// This manifest is trying to refer to another one, check if it exists if it doesn't then create a placeholder for a future manifest
+	if manifestRequest.Subject != nil {
+		subjectManifest, subjectManifestFound, err = h.ManifestRepository.GetManifestByReferenceAndMediaType(r.Context(), manifestRequest.Subject.Digest, manifestRequest.Subject.MediaType, repo)
+		if err != nil {
+			log.Println(err)
+			responses.OCIInternalServerError(w)
+			return
+		}
+
+		if !subjectManifestFound {
+			subjectManifest = &ent.Manifest{}
+			subjectManifest.Digest = manifestRequest.Subject.Digest
+			subjectManifest.MediaType = manifestRequest.Subject.MediaType
+		}
+
+	}
+
+	m, err := h.ManifestRepository.UpsertManifestWithSubjectAndTag(r.Context(), reference, digestWithPrefix, manifestContentType, keyName, subjectManifest, repo)
 	if err != nil {
 		log.Println(err)
 		responses.OCIInternalServerError(w)
@@ -91,6 +117,9 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 
 	w.Header().Set("Docker-Content-Digest", m.Digest)
 	w.Header().Set("Location", h.getManifestDownloadUrl(org.Slug, registry.Slug, imageName, reference))
+	if subjectManifest != nil {
+		w.Header().Set("OCI-Subject", subjectManifest.Digest)
+	}
 	w.WriteHeader(http.StatusCreated)
 }
 

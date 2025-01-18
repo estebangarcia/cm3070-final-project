@@ -105,6 +105,36 @@ func (mu *ManifestUpdate) SetRepository(r *Repository) *ManifestUpdate {
 	return mu.SetRepositoryID(r.ID)
 }
 
+// AddSubjectIDs adds the "subject" edge to the Manifest entity by IDs.
+func (mu *ManifestUpdate) AddSubjectIDs(ids ...int) *ManifestUpdate {
+	mu.mutation.AddSubjectIDs(ids...)
+	return mu
+}
+
+// AddSubject adds the "subject" edges to the Manifest entity.
+func (mu *ManifestUpdate) AddSubject(m ...*Manifest) *ManifestUpdate {
+	ids := make([]int, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return mu.AddSubjectIDs(ids...)
+}
+
+// AddRefererIDs adds the "referer" edge to the Manifest entity by IDs.
+func (mu *ManifestUpdate) AddRefererIDs(ids ...int) *ManifestUpdate {
+	mu.mutation.AddRefererIDs(ids...)
+	return mu
+}
+
+// AddReferer adds the "referer" edges to the Manifest entity.
+func (mu *ManifestUpdate) AddReferer(m ...*Manifest) *ManifestUpdate {
+	ids := make([]int, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return mu.AddRefererIDs(ids...)
+}
+
 // Mutation returns the ManifestMutation object of the builder.
 func (mu *ManifestUpdate) Mutation() *ManifestMutation {
 	return mu.mutation
@@ -135,6 +165,48 @@ func (mu *ManifestUpdate) RemoveTags(m ...*ManifestTagReference) *ManifestUpdate
 func (mu *ManifestUpdate) ClearRepository() *ManifestUpdate {
 	mu.mutation.ClearRepository()
 	return mu
+}
+
+// ClearSubject clears all "subject" edges to the Manifest entity.
+func (mu *ManifestUpdate) ClearSubject() *ManifestUpdate {
+	mu.mutation.ClearSubject()
+	return mu
+}
+
+// RemoveSubjectIDs removes the "subject" edge to Manifest entities by IDs.
+func (mu *ManifestUpdate) RemoveSubjectIDs(ids ...int) *ManifestUpdate {
+	mu.mutation.RemoveSubjectIDs(ids...)
+	return mu
+}
+
+// RemoveSubject removes "subject" edges to Manifest entities.
+func (mu *ManifestUpdate) RemoveSubject(m ...*Manifest) *ManifestUpdate {
+	ids := make([]int, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return mu.RemoveSubjectIDs(ids...)
+}
+
+// ClearReferer clears all "referer" edges to the Manifest entity.
+func (mu *ManifestUpdate) ClearReferer() *ManifestUpdate {
+	mu.mutation.ClearReferer()
+	return mu
+}
+
+// RemoveRefererIDs removes the "referer" edge to Manifest entities by IDs.
+func (mu *ManifestUpdate) RemoveRefererIDs(ids ...int) *ManifestUpdate {
+	mu.mutation.RemoveRefererIDs(ids...)
+	return mu
+}
+
+// RemoveReferer removes "referer" edges to Manifest entities.
+func (mu *ManifestUpdate) RemoveReferer(m ...*Manifest) *ManifestUpdate {
+	ids := make([]int, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return mu.RemoveRefererIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -256,6 +328,96 @@ func (mu *ManifestUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if mu.mutation.SubjectCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   manifest.SubjectTable,
+			Columns: manifest.SubjectPrimaryKey,
+			Bidi:    true,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mu.mutation.RemovedSubjectIDs(); len(nodes) > 0 && !mu.mutation.SubjectCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   manifest.SubjectTable,
+			Columns: manifest.SubjectPrimaryKey,
+			Bidi:    true,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mu.mutation.SubjectIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   manifest.SubjectTable,
+			Columns: manifest.SubjectPrimaryKey,
+			Bidi:    true,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if mu.mutation.RefererCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   manifest.RefererTable,
+			Columns: manifest.RefererPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mu.mutation.RemovedRefererIDs(); len(nodes) > 0 && !mu.mutation.RefererCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   manifest.RefererTable,
+			Columns: manifest.RefererPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mu.mutation.RefererIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   manifest.RefererTable,
+			Columns: manifest.RefererPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, mu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{manifest.Label}
@@ -352,6 +514,36 @@ func (muo *ManifestUpdateOne) SetRepository(r *Repository) *ManifestUpdateOne {
 	return muo.SetRepositoryID(r.ID)
 }
 
+// AddSubjectIDs adds the "subject" edge to the Manifest entity by IDs.
+func (muo *ManifestUpdateOne) AddSubjectIDs(ids ...int) *ManifestUpdateOne {
+	muo.mutation.AddSubjectIDs(ids...)
+	return muo
+}
+
+// AddSubject adds the "subject" edges to the Manifest entity.
+func (muo *ManifestUpdateOne) AddSubject(m ...*Manifest) *ManifestUpdateOne {
+	ids := make([]int, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return muo.AddSubjectIDs(ids...)
+}
+
+// AddRefererIDs adds the "referer" edge to the Manifest entity by IDs.
+func (muo *ManifestUpdateOne) AddRefererIDs(ids ...int) *ManifestUpdateOne {
+	muo.mutation.AddRefererIDs(ids...)
+	return muo
+}
+
+// AddReferer adds the "referer" edges to the Manifest entity.
+func (muo *ManifestUpdateOne) AddReferer(m ...*Manifest) *ManifestUpdateOne {
+	ids := make([]int, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return muo.AddRefererIDs(ids...)
+}
+
 // Mutation returns the ManifestMutation object of the builder.
 func (muo *ManifestUpdateOne) Mutation() *ManifestMutation {
 	return muo.mutation
@@ -382,6 +574,48 @@ func (muo *ManifestUpdateOne) RemoveTags(m ...*ManifestTagReference) *ManifestUp
 func (muo *ManifestUpdateOne) ClearRepository() *ManifestUpdateOne {
 	muo.mutation.ClearRepository()
 	return muo
+}
+
+// ClearSubject clears all "subject" edges to the Manifest entity.
+func (muo *ManifestUpdateOne) ClearSubject() *ManifestUpdateOne {
+	muo.mutation.ClearSubject()
+	return muo
+}
+
+// RemoveSubjectIDs removes the "subject" edge to Manifest entities by IDs.
+func (muo *ManifestUpdateOne) RemoveSubjectIDs(ids ...int) *ManifestUpdateOne {
+	muo.mutation.RemoveSubjectIDs(ids...)
+	return muo
+}
+
+// RemoveSubject removes "subject" edges to Manifest entities.
+func (muo *ManifestUpdateOne) RemoveSubject(m ...*Manifest) *ManifestUpdateOne {
+	ids := make([]int, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return muo.RemoveSubjectIDs(ids...)
+}
+
+// ClearReferer clears all "referer" edges to the Manifest entity.
+func (muo *ManifestUpdateOne) ClearReferer() *ManifestUpdateOne {
+	muo.mutation.ClearReferer()
+	return muo
+}
+
+// RemoveRefererIDs removes the "referer" edge to Manifest entities by IDs.
+func (muo *ManifestUpdateOne) RemoveRefererIDs(ids ...int) *ManifestUpdateOne {
+	muo.mutation.RemoveRefererIDs(ids...)
+	return muo
+}
+
+// RemoveReferer removes "referer" edges to Manifest entities.
+func (muo *ManifestUpdateOne) RemoveReferer(m ...*Manifest) *ManifestUpdateOne {
+	ids := make([]int, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return muo.RemoveRefererIDs(ids...)
 }
 
 // Where appends a list predicates to the ManifestUpdate builder.
@@ -526,6 +760,96 @@ func (muo *ManifestUpdateOne) sqlSave(ctx context.Context) (_node *Manifest, err
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if muo.mutation.SubjectCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   manifest.SubjectTable,
+			Columns: manifest.SubjectPrimaryKey,
+			Bidi:    true,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := muo.mutation.RemovedSubjectIDs(); len(nodes) > 0 && !muo.mutation.SubjectCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   manifest.SubjectTable,
+			Columns: manifest.SubjectPrimaryKey,
+			Bidi:    true,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := muo.mutation.SubjectIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   manifest.SubjectTable,
+			Columns: manifest.SubjectPrimaryKey,
+			Bidi:    true,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if muo.mutation.RefererCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   manifest.RefererTable,
+			Columns: manifest.RefererPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := muo.mutation.RemovedRefererIDs(); len(nodes) > 0 && !muo.mutation.RefererCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   manifest.RefererTable,
+			Columns: manifest.RefererPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := muo.mutation.RefererIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   manifest.RefererTable,
+			Columns: manifest.RefererPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

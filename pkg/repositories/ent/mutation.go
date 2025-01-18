@@ -699,6 +699,12 @@ type ManifestMutation struct {
 	clearedtags       bool
 	repository        *int
 	clearedrepository bool
+	subject           map[int]struct{}
+	removedsubject    map[int]struct{}
+	clearedsubject    bool
+	referer           map[int]struct{}
+	removedreferer    map[int]struct{}
+	clearedreferer    bool
 	done              bool
 	oldValue          func(context.Context) (*Manifest, error)
 	predicates        []predicate.Manifest
@@ -1003,6 +1009,114 @@ func (m *ManifestMutation) ResetRepository() {
 	m.clearedrepository = false
 }
 
+// AddSubjectIDs adds the "subject" edge to the Manifest entity by ids.
+func (m *ManifestMutation) AddSubjectIDs(ids ...int) {
+	if m.subject == nil {
+		m.subject = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.subject[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSubject clears the "subject" edge to the Manifest entity.
+func (m *ManifestMutation) ClearSubject() {
+	m.clearedsubject = true
+}
+
+// SubjectCleared reports if the "subject" edge to the Manifest entity was cleared.
+func (m *ManifestMutation) SubjectCleared() bool {
+	return m.clearedsubject
+}
+
+// RemoveSubjectIDs removes the "subject" edge to the Manifest entity by IDs.
+func (m *ManifestMutation) RemoveSubjectIDs(ids ...int) {
+	if m.removedsubject == nil {
+		m.removedsubject = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.subject, ids[i])
+		m.removedsubject[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSubject returns the removed IDs of the "subject" edge to the Manifest entity.
+func (m *ManifestMutation) RemovedSubjectIDs() (ids []int) {
+	for id := range m.removedsubject {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SubjectIDs returns the "subject" edge IDs in the mutation.
+func (m *ManifestMutation) SubjectIDs() (ids []int) {
+	for id := range m.subject {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSubject resets all changes to the "subject" edge.
+func (m *ManifestMutation) ResetSubject() {
+	m.subject = nil
+	m.clearedsubject = false
+	m.removedsubject = nil
+}
+
+// AddRefererIDs adds the "referer" edge to the Manifest entity by ids.
+func (m *ManifestMutation) AddRefererIDs(ids ...int) {
+	if m.referer == nil {
+		m.referer = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.referer[ids[i]] = struct{}{}
+	}
+}
+
+// ClearReferer clears the "referer" edge to the Manifest entity.
+func (m *ManifestMutation) ClearReferer() {
+	m.clearedreferer = true
+}
+
+// RefererCleared reports if the "referer" edge to the Manifest entity was cleared.
+func (m *ManifestMutation) RefererCleared() bool {
+	return m.clearedreferer
+}
+
+// RemoveRefererIDs removes the "referer" edge to the Manifest entity by IDs.
+func (m *ManifestMutation) RemoveRefererIDs(ids ...int) {
+	if m.removedreferer == nil {
+		m.removedreferer = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.referer, ids[i])
+		m.removedreferer[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedReferer returns the removed IDs of the "referer" edge to the Manifest entity.
+func (m *ManifestMutation) RemovedRefererIDs() (ids []int) {
+	for id := range m.removedreferer {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// RefererIDs returns the "referer" edge IDs in the mutation.
+func (m *ManifestMutation) RefererIDs() (ids []int) {
+	for id := range m.referer {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetReferer resets all changes to the "referer" edge.
+func (m *ManifestMutation) ResetReferer() {
+	m.referer = nil
+	m.clearedreferer = false
+	m.removedreferer = nil
+}
+
 // Where appends a list predicates to the ManifestMutation builder.
 func (m *ManifestMutation) Where(ps ...predicate.Manifest) {
 	m.predicates = append(m.predicates, ps...)
@@ -1170,12 +1284,18 @@ func (m *ManifestMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ManifestMutation) AddedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 4)
 	if m.tags != nil {
 		edges = append(edges, manifest.EdgeTags)
 	}
 	if m.repository != nil {
 		edges = append(edges, manifest.EdgeRepository)
+	}
+	if m.subject != nil {
+		edges = append(edges, manifest.EdgeSubject)
+	}
+	if m.referer != nil {
+		edges = append(edges, manifest.EdgeReferer)
 	}
 	return edges
 }
@@ -1194,15 +1314,33 @@ func (m *ManifestMutation) AddedIDs(name string) []ent.Value {
 		if id := m.repository; id != nil {
 			return []ent.Value{*id}
 		}
+	case manifest.EdgeSubject:
+		ids := make([]ent.Value, 0, len(m.subject))
+		for id := range m.subject {
+			ids = append(ids, id)
+		}
+		return ids
+	case manifest.EdgeReferer:
+		ids := make([]ent.Value, 0, len(m.referer))
+		for id := range m.referer {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ManifestMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 4)
 	if m.removedtags != nil {
 		edges = append(edges, manifest.EdgeTags)
+	}
+	if m.removedsubject != nil {
+		edges = append(edges, manifest.EdgeSubject)
+	}
+	if m.removedreferer != nil {
+		edges = append(edges, manifest.EdgeReferer)
 	}
 	return edges
 }
@@ -1217,18 +1355,36 @@ func (m *ManifestMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case manifest.EdgeSubject:
+		ids := make([]ent.Value, 0, len(m.removedsubject))
+		for id := range m.removedsubject {
+			ids = append(ids, id)
+		}
+		return ids
+	case manifest.EdgeReferer:
+		ids := make([]ent.Value, 0, len(m.removedreferer))
+		for id := range m.removedreferer {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ManifestMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 4)
 	if m.clearedtags {
 		edges = append(edges, manifest.EdgeTags)
 	}
 	if m.clearedrepository {
 		edges = append(edges, manifest.EdgeRepository)
+	}
+	if m.clearedsubject {
+		edges = append(edges, manifest.EdgeSubject)
+	}
+	if m.clearedreferer {
+		edges = append(edges, manifest.EdgeReferer)
 	}
 	return edges
 }
@@ -1241,6 +1397,10 @@ func (m *ManifestMutation) EdgeCleared(name string) bool {
 		return m.clearedtags
 	case manifest.EdgeRepository:
 		return m.clearedrepository
+	case manifest.EdgeSubject:
+		return m.clearedsubject
+	case manifest.EdgeReferer:
+		return m.clearedreferer
 	}
 	return false
 }
@@ -1265,6 +1425,12 @@ func (m *ManifestMutation) ResetEdge(name string) error {
 		return nil
 	case manifest.EdgeRepository:
 		m.ResetRepository()
+		return nil
+	case manifest.EdgeSubject:
+		m.ResetSubject()
+		return nil
+	case manifest.EdgeReferer:
+		m.ResetReferer()
 		return nil
 	}
 	return fmt.Errorf("unknown Manifest edge %s", name)

@@ -36,9 +36,13 @@ type ManifestEdges struct {
 	Tags []*ManifestTagReference `json:"tags,omitempty"`
 	// Repository holds the value of the repository edge.
 	Repository *Repository `json:"repository,omitempty"`
+	// Subject holds the value of the subject edge.
+	Subject []*Manifest `json:"subject,omitempty"`
+	// Referer holds the value of the referer edge.
+	Referer []*Manifest `json:"referer,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [4]bool
 }
 
 // TagsOrErr returns the Tags value or an error if the edge
@@ -59,6 +63,24 @@ func (e ManifestEdges) RepositoryOrErr() (*Repository, error) {
 		return nil, &NotFoundError{label: repository.Label}
 	}
 	return nil, &NotLoadedError{edge: "repository"}
+}
+
+// SubjectOrErr returns the Subject value or an error if the edge
+// was not loaded in eager-loading.
+func (e ManifestEdges) SubjectOrErr() ([]*Manifest, error) {
+	if e.loadedTypes[2] {
+		return e.Subject, nil
+	}
+	return nil, &NotLoadedError{edge: "subject"}
+}
+
+// RefererOrErr returns the Referer value or an error if the edge
+// was not loaded in eager-loading.
+func (e ManifestEdges) RefererOrErr() ([]*Manifest, error) {
+	if e.loadedTypes[3] {
+		return e.Referer, nil
+	}
+	return nil, &NotLoadedError{edge: "referer"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -139,6 +161,16 @@ func (m *Manifest) QueryTags() *ManifestTagReferenceQuery {
 // QueryRepository queries the "repository" edge of the Manifest entity.
 func (m *Manifest) QueryRepository() *RepositoryQuery {
 	return NewManifestClient(m.config).QueryRepository(m)
+}
+
+// QuerySubject queries the "subject" edge of the Manifest entity.
+func (m *Manifest) QuerySubject() *ManifestQuery {
+	return NewManifestClient(m.config).QuerySubject(m)
+}
+
+// QueryReferer queries the "referer" edge of the Manifest entity.
+func (m *Manifest) QueryReferer() *ManifestQuery {
+	return NewManifestClient(m.config).QueryReferer(m)
 }
 
 // Update returns a builder for updating this Manifest.

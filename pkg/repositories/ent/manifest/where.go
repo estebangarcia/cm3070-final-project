@@ -309,6 +309,52 @@ func HasRepositoryWith(preds ...predicate.Repository) predicate.Manifest {
 	})
 }
 
+// HasSubject applies the HasEdge predicate on the "subject" edge.
+func HasSubject() predicate.Manifest {
+	return predicate.Manifest(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, SubjectTable, SubjectPrimaryKey...),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSubjectWith applies the HasEdge predicate on the "subject" edge with a given conditions (other predicates).
+func HasSubjectWith(preds ...predicate.Manifest) predicate.Manifest {
+	return predicate.Manifest(func(s *sql.Selector) {
+		step := newSubjectStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasReferer applies the HasEdge predicate on the "referer" edge.
+func HasReferer() predicate.Manifest {
+	return predicate.Manifest(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, RefererTable, RefererPrimaryKey...),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRefererWith applies the HasEdge predicate on the "referer" edge with a given conditions (other predicates).
+func HasRefererWith(preds ...predicate.Manifest) predicate.Manifest {
+	return predicate.Manifest(func(s *sql.Selector) {
+		step := newRefererStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Manifest) predicate.Manifest {
 	return predicate.Manifest(sql.AndPredicates(predicates...))
