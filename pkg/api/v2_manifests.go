@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -228,29 +229,53 @@ func (h *V2ManifestsHandler) DeleteManifestOrTag(w http.ResponseWriter, r *http.
 	}
 
 	if !helpers.IsSHA256Digest(reference) {
-		tag, found, err := h.ManifestTagRepository.GetTagByName(r.Context(), repo, reference)
-		if err != nil {
-			log.Println(err)
-			responses.OCIInternalServerError(w)
-			return
-		}
-
-		if !found {
-			responses.OCITagUnknown(w, imageName, reference)
-			return
-		}
-
-		if err := h.ManifestTagRepository.DeleteTag(r.Context(), tag); err != nil {
-			responses.OCIInternalServerError(w)
-			return
-		}
-
-		w.WriteHeader(http.StatusAccepted)
+		h.deleteTag(r.Context(), w, repo, reference)
 		return
 	}
 
-	w.WriteHeader(http.StatusMethodNotAllowed)
+	h.deleteManifestByDigest(r.Context(), w, repo, reference)
+}
 
+func (h *V2ManifestsHandler) deleteTag(ctx context.Context, w http.ResponseWriter, repo *ent.Repository, tagRef string) {
+	tag, found, err := h.ManifestTagRepository.GetTagByName(ctx, repo, tagRef)
+	if err != nil {
+		log.Println(err)
+		responses.OCIInternalServerError(w)
+		return
+	}
+
+	if !found {
+		responses.OCITagUnknown(w, repo.Name, tagRef)
+		return
+	}
+
+	if err := h.ManifestTagRepository.DeleteTag(ctx, tag); err != nil {
+		responses.OCIInternalServerError(w)
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func (h *V2ManifestsHandler) deleteManifestByDigest(ctx context.Context, w http.ResponseWriter, repo *ent.Repository, digest string) {
+	manifest, found, err := h.ManifestRepository.GetManifestByReference(ctx, digest, repo)
+	if err != nil {
+		log.Println(err)
+		responses.OCIInternalServerError(w)
+		return
+	}
+
+	if !found {
+		responses.OCIManifestUnknown(w, digest)
+		return
+	}
+
+	if err := h.ManifestRepository.DeleteManifest(ctx, manifest); err != nil {
+		responses.OCIInternalServerError(w)
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
 }
 
 func (h *V2ManifestsHandler) getKeyForManifestRef(contentType string, orgSlug string, registrySlug string, imageName string, digest string) string {

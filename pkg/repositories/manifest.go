@@ -59,6 +59,23 @@ func (mr *ManifestRepository) GetManifestByReferenceAndMediaType(ctx context.Con
 	return manifest, true, nil
 }
 
+func (mr *ManifestRepository) GetManifestByReference(ctx context.Context, reference string, repository *ent.Repository) (*ent.Manifest, bool, error) {
+	manifest, err := mr.dbClient.Manifest.Query().Where(
+		ent_manifest.And(
+			mr.getTagOrReferencePredicate(reference),
+			ent_manifest.HasRepositoryWith(ent_repository.ID(repository.ID)),
+		),
+	).First(ctx)
+
+	if err != nil && ent.IsNotFound(err) {
+		return nil, false, nil
+	} else if err != nil {
+		return nil, false, err
+	}
+
+	return manifest, true, nil
+}
+
 func (mr *ManifestRepository) CreateManifest(ctx context.Context, digest string, mediaType string, artifactType *string, s3Path string, subjectManifest *ent.Manifest, repository *ent.Repository) (*ent.Manifest, error) {
 	client := mr.getClient(ctx)
 
@@ -181,6 +198,10 @@ func (mr *ManifestRepository) GetManifestReferrers(ctx context.Context, digest s
 			manifestPredicate...,
 		),
 	).All(ctx)
+}
+
+func (mr *ManifestRepository) DeleteManifest(ctx context.Context, manifest *ent.Manifest) error {
+	return mr.dbClient.Manifest.DeleteOne(manifest).Exec(ctx)
 }
 
 func (mr *ManifestRepository) getClient(ctx context.Context) *ent.Client {

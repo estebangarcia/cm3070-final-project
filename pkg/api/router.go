@@ -152,6 +152,7 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 			v2CustomMux.Get(getRepositoryRegexRoute()+`\/blobs\/uploads\/(?P<uploadId>[\w]+)`, v2BlobsHandler.GetBlobUploadSession)
 			v2CustomMux.Get(getRepositoryRegexRoute()+`\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.DownloadBlob)
 			v2CustomMux.Head(getRepositoryRegexRoute()+`\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.HeadBlob)
+			v2CustomMux.Delete(getRepositoryRegexRoute()+`\/blobs\/(?P<digest>[\/\w:]+)`, v2BlobsHandler.DeleteBlob)
 
 			v2CustomMux.Put(getRepositoryRegexRoute()+`\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.UploadManifest)
 			v2CustomMux.Get(getRepositoryRegexRoute()+`\/manifests\/(?P<reference>[\w:._-]+)`, v2ManifestsHandlers.DownloadManifest)

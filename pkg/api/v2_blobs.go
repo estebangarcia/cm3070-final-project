@@ -117,6 +117,10 @@ func (h *V2BlobsHandler) mountBlob(ctx context.Context, orgSlug string, digest s
 	return nil
 }
 
+func (h *V2BlobsHandler) DeleteBlob(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusMethodNotAllowed)
+}
+
 func (h *V2BlobsHandler) HeadBlob(w http.ResponseWriter, r *http.Request) {
 	blobDigest := r.Context().Value("digest").(string)
 	org := r.Context().Value("organization").(*ent.Organization)
