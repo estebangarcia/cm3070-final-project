@@ -25,6 +25,7 @@ func (h *V2ReferrersHandler) GetReferrersForDigest(w http.ResponseWriter, r *htt
 	imageName := r.Context().Value("repositoryName").(string)
 	reference := r.Context().Value("reference").(string)
 	registry := r.Context().Value("registry").(*ent.Registry)
+	artifactType := r.URL.Query().Get("artifactType")
 
 	repo, found, err := h.RepositoryRepository.GetForRegistryByName(r.Context(), registry.ID, imageName)
 	if err != nil {
@@ -37,7 +38,7 @@ func (h *V2ReferrersHandler) GetReferrersForDigest(w http.ResponseWriter, r *htt
 		return
 	}
 
-	referrers, err := h.ManifestRepository.GetManifestReferrers(r.Context(), reference, repo)
+	referrers, err := h.ManifestRepository.GetManifestReferrers(r.Context(), reference, artifactType, repo)
 	if err != nil {
 		responses.OCIInternalServerError(w)
 		return
@@ -67,6 +68,9 @@ func (h *V2ReferrersHandler) GetReferrersForDigest(w http.ResponseWriter, r *htt
 
 	index := oci_models.NewOCIV1ManifestIndex(manifests)
 
+	if artifactType != "" {
+		w.Header().Set("OCI-Filters-Applied", "artifactType")
+	}
 	w.Header().Set("Content-Type", index.MediaType)
 	json.NewEncoder(w).Encode(index)
 }

@@ -43,6 +43,26 @@ func (mu *ManifestUpdate) SetNillableMediaType(s *string) *ManifestUpdate {
 	return mu
 }
 
+// SetArtifactType sets the "artifact_type" field.
+func (mu *ManifestUpdate) SetArtifactType(s string) *ManifestUpdate {
+	mu.mutation.SetArtifactType(s)
+	return mu
+}
+
+// SetNillableArtifactType sets the "artifact_type" field if the given value is not nil.
+func (mu *ManifestUpdate) SetNillableArtifactType(s *string) *ManifestUpdate {
+	if s != nil {
+		mu.SetArtifactType(*s)
+	}
+	return mu
+}
+
+// ClearArtifactType clears the value of the "artifact_type" field.
+func (mu *ManifestUpdate) ClearArtifactType() *ManifestUpdate {
+	mu.mutation.ClearArtifactType()
+	return mu
+}
+
 // SetS3Path sets the "s3_path" field.
 func (mu *ManifestUpdate) SetS3Path(s string) *ManifestUpdate {
 	mu.mutation.SetS3Path(s)
@@ -248,6 +268,12 @@ func (mu *ManifestUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := mu.mutation.MediaType(); ok {
 		_spec.SetField(manifest.FieldMediaType, field.TypeString, value)
 	}
+	if value, ok := mu.mutation.ArtifactType(); ok {
+		_spec.SetField(manifest.FieldArtifactType, field.TypeString, value)
+	}
+	if mu.mutation.ArtifactTypeCleared() {
+		_spec.ClearField(manifest.FieldArtifactType, field.TypeString)
+	}
 	if value, ok := mu.mutation.S3Path(); ok {
 		_spec.SetField(manifest.FieldS3Path, field.TypeString, value)
 	}
@@ -449,6 +475,26 @@ func (muo *ManifestUpdateOne) SetNillableMediaType(s *string) *ManifestUpdateOne
 	if s != nil {
 		muo.SetMediaType(*s)
 	}
+	return muo
+}
+
+// SetArtifactType sets the "artifact_type" field.
+func (muo *ManifestUpdateOne) SetArtifactType(s string) *ManifestUpdateOne {
+	muo.mutation.SetArtifactType(s)
+	return muo
+}
+
+// SetNillableArtifactType sets the "artifact_type" field if the given value is not nil.
+func (muo *ManifestUpdateOne) SetNillableArtifactType(s *string) *ManifestUpdateOne {
+	if s != nil {
+		muo.SetArtifactType(*s)
+	}
+	return muo
+}
+
+// ClearArtifactType clears the value of the "artifact_type" field.
+func (muo *ManifestUpdateOne) ClearArtifactType() *ManifestUpdateOne {
+	muo.mutation.ClearArtifactType()
 	return muo
 }
 
@@ -686,6 +732,12 @@ func (muo *ManifestUpdateOne) sqlSave(ctx context.Context) (_node *Manifest, err
 	}
 	if value, ok := muo.mutation.MediaType(); ok {
 		_spec.SetField(manifest.FieldMediaType, field.TypeString, value)
+	}
+	if value, ok := muo.mutation.ArtifactType(); ok {
+		_spec.SetField(manifest.FieldArtifactType, field.TypeString, value)
+	}
+	if muo.mutation.ArtifactTypeCleared() {
+		_spec.ClearField(manifest.FieldArtifactType, field.TypeString)
 	}
 	if value, ok := muo.mutation.S3Path(); ok {
 		_spec.SetField(manifest.FieldS3Path, field.TypeString, value)

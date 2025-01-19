@@ -44,6 +44,7 @@ var (
 	ManifestsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "media_type", Type: field.TypeString},
+		{Name: "artifact_type", Type: field.TypeString, Nullable: true},
 		{Name: "s3_path", Type: field.TypeString},
 		{Name: "digest", Type: field.TypeString},
 		{Name: "repository_manifests", Type: field.TypeInt, Nullable: true},
@@ -56,7 +57,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "manifests_repositories_manifests",
-				Columns:    []*schema.Column{ManifestsColumns[4]},
+				Columns:    []*schema.Column{ManifestsColumns[5]},
 				RefColumns: []*schema.Column{RepositoriesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},

@@ -106,10 +106,14 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 			subjectManifest.Digest = manifestRequest.Subject.Digest
 			subjectManifest.MediaType = manifestRequest.Subject.MediaType
 		}
-
 	}
 
-	m, err := h.ManifestRepository.UpsertManifestWithSubjectAndTag(r.Context(), reference, digestWithPrefix, manifestContentType, keyName, subjectManifest, repo)
+	artifactType := manifestRequest.ArtifactType
+	if artifactType == nil {
+		artifactType = &manifestRequest.Config.MediaType
+	}
+
+	m, err := h.ManifestRepository.UpsertManifestWithSubjectAndTag(r.Context(), reference, digestWithPrefix, manifestRequest.MediaType, artifactType, keyName, subjectManifest, repo)
 	if err != nil {
 		log.Println(err)
 		responses.OCIInternalServerError(w)

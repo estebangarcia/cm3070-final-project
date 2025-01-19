@@ -59,7 +59,7 @@ func (mr *ManifestRepository) GetManifestByReferenceAndMediaType(ctx context.Con
 	return manifest, true, nil
 }
 
-func (mr *ManifestRepository) CreateManifest(ctx context.Context, digest string, mediaType string, s3Path string, subjectManifest *ent.Manifest, repository *ent.Repository) (*ent.Manifest, error) {
+func (mr *ManifestRepository) CreateManifest(ctx context.Context, digest string, mediaType string, artifactType *string, s3Path string, subjectManifest *ent.Manifest, repository *ent.Repository) (*ent.Manifest, error) {
 	client := mr.getClient(ctx)
 
 	manifest := client.Manifest.
@@ -67,6 +67,7 @@ func (mr *ManifestRepository) CreateManifest(ctx context.Context, digest string,
 		SetDigest(digest).
 		SetMediaType(mediaType).
 		SetS3Path(s3Path).
+		SetNillableArtifactType(artifactType).
 		SetRepository(repository)
 
 	if subjectManifest != nil {
@@ -116,7 +117,7 @@ func (mr *ManifestRepository) UpsertManifestTagReference(ctx context.Context, re
 	return nil
 }
 
-func (mr *ManifestRepository) UpsertManifestWithSubjectAndTag(ctx context.Context, reference string, digest string, mediaType string, s3Path string, manifestSubject *ent.Manifest, repository *ent.Repository) (*ent.Manifest, error) {
+func (mr *ManifestRepository) UpsertManifestWithSubjectAndTag(ctx context.Context, reference string, digest string, mediaType string, artifactType *string, s3Path string, manifestSubject *ent.Manifest, repository *ent.Repository) (*ent.Manifest, error) {
 	tx, err := mr.dbClient.Tx(ctx)
 	if err != nil {
 		return nil, err
@@ -126,7 +127,7 @@ func (mr *ManifestRepository) UpsertManifestWithSubjectAndTag(ctx context.Contex
 	ctxV := context.WithValue(ctx, "tx", tx)
 
 	if manifestSubject != nil && manifestSubject.ID == 0 {
-		manifestSubject, err = mr.CreateManifest(ctxV, manifestSubject.Digest, manifestSubject.MediaType, manifestSubject.S3Path, nil, repository)
+		manifestSubject, err = mr.CreateManifest(ctxV, manifestSubject.Digest, manifestSubject.MediaType, nil, manifestSubject.S3Path, nil, repository)
 		if err != nil {
 			return nil, err
 		}
@@ -145,7 +146,7 @@ func (mr *ManifestRepository) UpsertManifestWithSubjectAndTag(ctx context.Contex
 		}
 		mfst, err = manifestUpdate.Save(ctxV)
 	} else {
-		mfst, err = mr.CreateManifest(ctxV, digest, mediaType, s3Path, manifestSubject, repository)
+		mfst, err = mr.CreateManifest(ctxV, digest, mediaType, artifactType, s3Path, manifestSubject, repository)
 	}
 
 	if err != nil {
@@ -164,13 +165,20 @@ func (mr *ManifestRepository) UpsertManifestWithSubjectAndTag(ctx context.Contex
 	return mfst, nil
 }
 
-func (mr *ManifestRepository) GetManifestReferrers(ctx context.Context, digest string, repository *ent.Repository) ([]*ent.Manifest, error) {
+func (mr *ManifestRepository) GetManifestReferrers(ctx context.Context, digest string, artifactType string, repository *ent.Repository) ([]*ent.Manifest, error) {
+	manifestPredicate := []predicate.Manifest{
+		manifest.HasRepositoryWith(ent_repository.ID(repository.ID)),
+		manifest.HasRefererWith(
+			manifest.Digest(digest),
+		),
+	}
+	if artifactType != "" {
+		manifestPredicate = append(manifestPredicate, manifest.ArtifactType(artifactType))
+	}
+
 	return mr.dbClient.Manifest.Query().Where(
 		manifest.And(
-			manifest.HasRepositoryWith(ent_repository.ID(repository.ID)),
-			manifest.HasRefererWith(
-				manifest.Digest(digest),
-			),
+			manifestPredicate...,
 		),
 	).All(ctx)
 }

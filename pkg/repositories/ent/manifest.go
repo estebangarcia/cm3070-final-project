@@ -19,6 +19,8 @@ type Manifest struct {
 	ID int `json:"id,omitempty"`
 	// MediaType holds the value of the "media_type" field.
 	MediaType string `json:"media_type,omitempty"`
+	// ArtifactType holds the value of the "artifact_type" field.
+	ArtifactType string `json:"artifact_type,omitempty"`
 	// S3Path holds the value of the "s3_path" field.
 	S3Path string `json:"s3_path,omitempty"`
 	// Digest holds the value of the "digest" field.
@@ -90,7 +92,7 @@ func (*Manifest) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case manifest.FieldID:
 			values[i] = new(sql.NullInt64)
-		case manifest.FieldMediaType, manifest.FieldS3Path, manifest.FieldDigest:
+		case manifest.FieldMediaType, manifest.FieldArtifactType, manifest.FieldS3Path, manifest.FieldDigest:
 			values[i] = new(sql.NullString)
 		case manifest.ForeignKeys[0]: // repository_manifests
 			values[i] = new(sql.NullInt64)
@@ -120,6 +122,12 @@ func (m *Manifest) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field media_type", values[i])
 			} else if value.Valid {
 				m.MediaType = value.String
+			}
+		case manifest.FieldArtifactType:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field artifact_type", values[i])
+			} else if value.Valid {
+				m.ArtifactType = value.String
 			}
 		case manifest.FieldS3Path:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -198,6 +206,9 @@ func (m *Manifest) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", m.ID))
 	builder.WriteString("media_type=")
 	builder.WriteString(m.MediaType)
+	builder.WriteString(", ")
+	builder.WriteString("artifact_type=")
+	builder.WriteString(m.ArtifactType)
 	builder.WriteString(", ")
 	builder.WriteString("s3_path=")
 	builder.WriteString(m.S3Path)
