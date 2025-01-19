@@ -14,6 +14,8 @@ const (
 	FieldID = "id"
 	// FieldMediaType holds the string denoting the media_type field in the database.
 	FieldMediaType = "media_type"
+	// FieldArtifactType holds the string denoting the artifact_type field in the database.
+	FieldArtifactType = "artifact_type"
 	// FieldS3Path holds the string denoting the s3_path field in the database.
 	FieldS3Path = "s3_path"
 	// FieldDigest holds the string denoting the digest field in the database.
@@ -52,6 +54,7 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldMediaType,
+	FieldArtifactType,
 	FieldS3Path,
 	FieldDigest,
 }
@@ -97,6 +100,11 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // ByMediaType orders the results by the media_type field.
 func ByMediaType(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldMediaType, opts...).ToFunc()
+}
+
+// ByArtifactType orders the results by the artifact_type field.
+func ByArtifactType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldArtifactType, opts...).ToFunc()
 }
 
 // ByS3Path orders the results by the s3_path field.

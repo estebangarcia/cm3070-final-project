@@ -15,6 +15,7 @@ type Manifest struct {
 func (Manifest) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("media_type"),
+		field.String("artifact_type").Optional(),
 		field.String("s3_path"),
 		field.String("digest"),
 	}

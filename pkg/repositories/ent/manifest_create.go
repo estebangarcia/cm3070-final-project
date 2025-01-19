@@ -27,6 +27,20 @@ func (mc *ManifestCreate) SetMediaType(s string) *ManifestCreate {
 	return mc
 }
 
+// SetArtifactType sets the "artifact_type" field.
+func (mc *ManifestCreate) SetArtifactType(s string) *ManifestCreate {
+	mc.mutation.SetArtifactType(s)
+	return mc
+}
+
+// SetNillableArtifactType sets the "artifact_type" field if the given value is not nil.
+func (mc *ManifestCreate) SetNillableArtifactType(s *string) *ManifestCreate {
+	if s != nil {
+		mc.SetArtifactType(*s)
+	}
+	return mc
+}
+
 // SetS3Path sets the "s3_path" field.
 func (mc *ManifestCreate) SetS3Path(s string) *ManifestCreate {
 	mc.mutation.SetS3Path(s)
@@ -175,6 +189,10 @@ func (mc *ManifestCreate) createSpec() (*Manifest, *sqlgraph.CreateSpec) {
 	if value, ok := mc.mutation.MediaType(); ok {
 		_spec.SetField(manifest.FieldMediaType, field.TypeString, value)
 		_node.MediaType = value
+	}
+	if value, ok := mc.mutation.ArtifactType(); ok {
+		_spec.SetField(manifest.FieldArtifactType, field.TypeString, value)
+		_node.ArtifactType = value
 	}
 	if value, ok := mc.mutation.S3Path(); ok {
 		_spec.SetField(manifest.FieldS3Path, field.TypeString, value)

@@ -58,6 +58,11 @@ func MediaType(v string) predicate.Manifest {
 	return predicate.Manifest(sql.FieldEQ(FieldMediaType, v))
 }
 
+// ArtifactType applies equality check predicate on the "artifact_type" field. It's identical to ArtifactTypeEQ.
+func ArtifactType(v string) predicate.Manifest {
+	return predicate.Manifest(sql.FieldEQ(FieldArtifactType, v))
+}
+
 // S3Path applies equality check predicate on the "s3_path" field. It's identical to S3PathEQ.
 func S3Path(v string) predicate.Manifest {
 	return predicate.Manifest(sql.FieldEQ(FieldS3Path, v))
@@ -131,6 +136,81 @@ func MediaTypeEqualFold(v string) predicate.Manifest {
 // MediaTypeContainsFold applies the ContainsFold predicate on the "media_type" field.
 func MediaTypeContainsFold(v string) predicate.Manifest {
 	return predicate.Manifest(sql.FieldContainsFold(FieldMediaType, v))
+}
+
+// ArtifactTypeEQ applies the EQ predicate on the "artifact_type" field.
+func ArtifactTypeEQ(v string) predicate.Manifest {
+	return predicate.Manifest(sql.FieldEQ(FieldArtifactType, v))
+}
+
+// ArtifactTypeNEQ applies the NEQ predicate on the "artifact_type" field.
+func ArtifactTypeNEQ(v string) predicate.Manifest {
+	return predicate.Manifest(sql.FieldNEQ(FieldArtifactType, v))
+}
+
+// ArtifactTypeIn applies the In predicate on the "artifact_type" field.
+func ArtifactTypeIn(vs ...string) predicate.Manifest {
+	return predicate.Manifest(sql.FieldIn(FieldArtifactType, vs...))
+}
+
+// ArtifactTypeNotIn applies the NotIn predicate on the "artifact_type" field.
+func ArtifactTypeNotIn(vs ...string) predicate.Manifest {
+	return predicate.Manifest(sql.FieldNotIn(FieldArtifactType, vs...))
+}
+
+// ArtifactTypeGT applies the GT predicate on the "artifact_type" field.
+func ArtifactTypeGT(v string) predicate.Manifest {
+	return predicate.Manifest(sql.FieldGT(FieldArtifactType, v))
+}
+
+// ArtifactTypeGTE applies the GTE predicate on the "artifact_type" field.
+func ArtifactTypeGTE(v string) predicate.Manifest {
+	return predicate.Manifest(sql.FieldGTE(FieldArtifactType, v))
+}
+
+// ArtifactTypeLT applies the LT predicate on the "artifact_type" field.
+func ArtifactTypeLT(v string) predicate.Manifest {
+	return predicate.Manifest(sql.FieldLT(FieldArtifactType, v))
+}
+
+// ArtifactTypeLTE applies the LTE predicate on the "artifact_type" field.
+func ArtifactTypeLTE(v string) predicate.Manifest {
+	return predicate.Manifest(sql.FieldLTE(FieldArtifactType, v))
+}
+
+// ArtifactTypeContains applies the Contains predicate on the "artifact_type" field.
+func ArtifactTypeContains(v string) predicate.Manifest {
+	return predicate.Manifest(sql.FieldContains(FieldArtifactType, v))
+}
+
+// ArtifactTypeHasPrefix applies the HasPrefix predicate on the "artifact_type" field.
+func ArtifactTypeHasPrefix(v string) predicate.Manifest {
+	return predicate.Manifest(sql.FieldHasPrefix(FieldArtifactType, v))
+}
+
+// ArtifactTypeHasSuffix applies the HasSuffix predicate on the "artifact_type" field.
+func ArtifactTypeHasSuffix(v string) predicate.Manifest {
+	return predicate.Manifest(sql.FieldHasSuffix(FieldArtifactType, v))
+}
+
+// ArtifactTypeIsNil applies the IsNil predicate on the "artifact_type" field.
+func ArtifactTypeIsNil() predicate.Manifest {
+	return predicate.Manifest(sql.FieldIsNull(FieldArtifactType))
+}
+
+// ArtifactTypeNotNil applies the NotNil predicate on the "artifact_type" field.
+func ArtifactTypeNotNil() predicate.Manifest {
+	return predicate.Manifest(sql.FieldNotNull(FieldArtifactType))
+}
+
+// ArtifactTypeEqualFold applies the EqualFold predicate on the "artifact_type" field.
+func ArtifactTypeEqualFold(v string) predicate.Manifest {
+	return predicate.Manifest(sql.FieldEqualFold(FieldArtifactType, v))
+}
+
+// ArtifactTypeContainsFold applies the ContainsFold predicate on the "artifact_type" field.
+func ArtifactTypeContainsFold(v string) predicate.Manifest {
+	return predicate.Manifest(sql.FieldContainsFold(FieldArtifactType, v))
 }
 
 // S3PathEQ applies the EQ predicate on the "s3_path" field.
