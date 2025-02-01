@@ -26,6 +26,7 @@ func (a *ExtractBasicCredentialsMiddleware) Validate(next http.Handler) http.Han
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		header := r.Header.Get("Authorization")
 		if header == "" {
+			w.Header().Set(wwwAuthenticateHeader, "Basic")
 			responses.OCIUnauthorizedError(w)
 			return
 		}
@@ -36,6 +37,7 @@ func (a *ExtractBasicCredentialsMiddleware) Validate(next http.Handler) http.Han
 		}
 
 		if !strings.HasPrefix(header, basicSchema) {
+			w.Header().Set(wwwAuthenticateHeader, "Basic")
 			responses.OCIUnauthorizedError(w)
 			return
 		}

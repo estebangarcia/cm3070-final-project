@@ -116,7 +116,7 @@ func (mr *ManifestRepository) CreateManifest(ctx context.Context, digest string,
 func (mr *ManifestRepository) CreateManifestLayers(ctx context.Context, layers []*ent.ManifestLayer, manifest *ent.Manifest) ([]*ent.ManifestLayer, error) {
 	client := mr.getClient(ctx)
 
-	return client.Debug().ManifestLayer.MapCreateBulk(layers, func(mlc *ent.ManifestLayerCreate, i int) {
+	return client.ManifestLayer.MapCreateBulk(layers, func(mlc *ent.ManifestLayerCreate, i int) {
 		mlc.
 			SetMediaType(layers[i].MediaType).
 			SetDigest(layers[i].Digest).
