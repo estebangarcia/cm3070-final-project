@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    {{ range . }}
+    <a href="{{ .DownloadURL }}?digest={{ .Digest }}#sha256={{ .Digest }}">{{ .FileName }}</a>
+    <br/>
+    {{ end }}
+  </body>
+</html>

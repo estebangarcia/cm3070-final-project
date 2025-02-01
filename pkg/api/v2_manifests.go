@@ -114,7 +114,17 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 		artifactType = &manifestRequest.Config.MediaType
 	}
 
-	m, err := h.ManifestRepository.UpsertManifestWithSubjectAndTag(r.Context(), reference, digestWithPrefix, manifestRequest.MediaType, artifactType, keyName, subjectManifest, repo)
+	var layers []*ent.ManifestLayer
+	for _, layer := range manifestRequest.Layers {
+		layers = append(layers, &ent.ManifestLayer{
+			MediaType:   layer.MediaType,
+			Digest:      layer.Digest,
+			Annotations: layer.Annotations,
+			Size:        int32(layer.Size),
+		})
+	}
+
+	m, err := h.ManifestRepository.UpsertManifestWithSubjectAndTag(r.Context(), layers, reference, digestWithPrefix, manifestRequest.MediaType, artifactType, keyName, subjectManifest, repo)
 	if err != nil {
 		log.Println(err)
 		responses.OCIInternalServerError(w)
@@ -134,6 +144,8 @@ func (h *V2ManifestsHandler) DownloadManifest(w http.ResponseWriter, r *http.Req
 	reference := r.Context().Value("reference").(string)
 	registry := r.Context().Value("registry").(*ent.Registry)
 	acceptedTypes := r.Header.Values("Accept")
+
+	log.Println(imageName)
 
 	repo, err := h.RepositoryRepository.GetOrCreateRepository(r.Context(), registry.ID, imageName)
 	if err != nil {

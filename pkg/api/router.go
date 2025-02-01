@@ -28,6 +28,7 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 
 	r.Use(chiMiddleware.Logger)
 	r.Use(chiMiddleware.Recoverer)
+	r.Use(chiMiddleware.StripSlashes)
 
 	/* DB Repositories */
 	blobChunkRepository := repositories.NewBlobChunkRepository(dbClient)
@@ -60,15 +61,15 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 		OrganizationRepository: organizationsRepository,
 		RegistryRepository:     registryRepository,
 	}
-	extractBasicAuthMiddleware := middleware.ExtractBasicCredentialsMiddleware{}
+	extractBasicAuthMiddleware := middleware.ExtractBasicCredentialsMiddleware{
+		Config:        &cfg,
+		CognitoClient: helpers.GetCognitoClient(ctx, cfg),
+	}
 
 	/* HTTP Handlers */
 	healthHandler := HealthHandler{}
 
-	v2LoginHandler := V2LoginHandler{
-		Config:        &cfg,
-		CognitoClient: helpers.GetCognitoClient(ctx, cfg),
-	}
+	v2LoginHandler := V2LoginHandler{}
 
 	v2PingHandler := V2PingHandler{}
 
@@ -112,9 +113,16 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 		RepositoryRepository: repositoryRepository,
 	}
 
+	pythonHandler := PythonHandler{
+		Config:               &cfg,
+		ManifestRepository:   manifestRepository,
+		RepositoryRepository: repositoryRepository,
+	}
+
 	r.Get("/api/v1/health", healthHandler.GetHealth)
 
 	r.Route("/api/v1", func(authenticatedApiV1 chi.Router) {
+		authenticatedApiV1.Use(extractBasicAuthMiddleware.Validate)
 		authenticatedApiV1.Use(jwtAuthMiddleware.Validate)
 		authenticatedApiV1.Get("/organizations", organizationsHandlers.GetOrganizationsForUser)
 
@@ -137,10 +145,20 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 			apiCustomMux.Get(getRepositoryRegexRoute(), repositoriesHandler.GetRepository)
 			repositoryScopedRoutes.HandleFunc("/*", apiCustomMux.Handle)
 		})
+
+		authenticatedApiV1.Route("/{organizationSlug:[a-z0-9-]+}/{registrySlug:[a-z0-9-]+}", func(registryScoped chi.Router) {
+			registryScoped.Use(orgMiddleware.ValidateOrgAndRegistry)
+			registryScoped.Route("/python", func(pythonRoutes chi.Router) {
+				pythonRoutes.Post("/", pythonHandler.UploadPythonPackage)
+				pythonRoutes.Get("/simple/{packageName}", pythonHandler.SimpleRepositoryIndex)
+				pythonRoutes.Get("/simple/{packageName}/{fileName}", pythonHandler.DownloadPackage)
+			})
+		})
 	})
 
 	r.With(extractBasicAuthMiddleware.Validate).Get("/v2/login", v2LoginHandler.Login)
 	r.Route("/v2", func(authenticatedOciV2 chi.Router) {
+		authenticatedOciV2.Use(extractBasicAuthMiddleware.Validate)
 		authenticatedOciV2.Use(jwtAuthMiddleware.Validate)
 		authenticatedOciV2.Get("/", v2PingHandler.Ping)
 		authenticatedOciV2.Route("/{organizationSlug:[a-z-]+}/{registrySlug:[a-z-]+}", func(registryScopedOCIRoutes chi.Router) {

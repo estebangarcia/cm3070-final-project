@@ -22,21 +22,18 @@ type JWTAuthMiddleware struct {
 
 func (a *JWTAuthMiddleware) Validate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		header := r.Header.Get("Authorization")
-		if header == "" || !strings.HasPrefix(header, bearerSchema) {
-			w.Header().Set(wwwAuthenticateHeader, a.getAuthenticationUrl())
-			responses.OCIUnauthorizedError(w)
-			return
+		jwtToken, ok := r.Context().Value("token").(string)
+		if jwtToken == "" || !ok {
+			header := r.Header.Get("Authorization")
+			if header == "" || !strings.HasPrefix(header, bearerSchema) {
+				w.Header().Set(wwwAuthenticateHeader, a.getAuthenticationUrl())
+				responses.OCIUnauthorizedError(w)
+				return
+			}
+			jwtToken = header[len(bearerSchema):]
 		}
 
-		jwkSet, err := a.JwkCache.Lookup(r.Context(), a.Config.GetCognitoJWKUrl())
-		if err != nil {
-			responses.OCIInternalServerError(w)
-			return
-		}
-
-		jwtToken := header[len(bearerSchema):]
-		token, err := jwt.Parse([]byte(jwtToken), jwt.WithKeySet(jwkSet))
+		token, err := parseJWT(r.Context(), jwtToken, a.JwkCache, a.Config.GetCognitoJWKUrl())
 		if err != nil {
 			w.Header().Set(wwwAuthenticateHeader, a.getAuthenticationUrl())
 			responses.OCIUnauthorizedError(w)
@@ -53,4 +50,12 @@ func (a *JWTAuthMiddleware) Validate(next http.Handler) http.Handler {
 
 func (a *JWTAuthMiddleware) getAuthenticationUrl() string {
 	return fmt.Sprintf(`Bearer realm="%s/v2/login",service="registry.io"`, a.Config.BaseURL)
+}
+
+func parseJWT(ctx context.Context, jwtToken string, jwkCache *jwk.Cache, cognitoJWKUrl string) (jwt.Token, error) {
+	jwkSet, err := jwkCache.Lookup(ctx, cognitoJWKUrl)
+	if err != nil {
+		return nil, err
+	}
+	return jwt.Parse([]byte(jwtToken), jwt.WithKeySet(jwkSet))
 }

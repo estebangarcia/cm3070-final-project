@@ -29,5 +29,6 @@ func (Manifest) Edges() []ent.Edge {
 		edge.From("repository", Repository.Type).Ref("manifests").Unique(),
 		edge.To("subject", Manifest.Type),
 		edge.From("referer", Manifest.Type).Ref("subject"),
+		edge.To("manifest_layers", ManifestLayer.Type),
 	}
 }

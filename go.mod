@@ -20,8 +20,10 @@ require (
 	github.com/lestrrat-go/jwx/v3 v3.0.0-alpha1
 	github.com/lib/pq v1.10.9
 	github.com/oklog/ulid/v2 v2.1.0
+	github.com/opencontainers/image-spec v1.1.0
 	github.com/spf13/cobra v1.8.1
 	golang.org/x/sync v0.8.0
+	oras.land/oras-go/v2 v2.5.0
 )
 
 require (
@@ -59,6 +61,7 @@ require (
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/mitchellh/go-wordwrap v0.0.0-20150314170334-ad45545899c7 // indirect
+	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/zclconf/go-cty v1.8.0 // indirect

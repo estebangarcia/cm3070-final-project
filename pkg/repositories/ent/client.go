@@ -17,6 +17,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/blobchunk"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifest"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifestlayer"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organizationmembership"
@@ -34,6 +35,8 @@ type Client struct {
 	BlobChunk *BlobChunkClient
 	// Manifest is the client for interacting with the Manifest builders.
 	Manifest *ManifestClient
+	// ManifestLayer is the client for interacting with the ManifestLayer builders.
+	ManifestLayer *ManifestLayerClient
 	// ManifestTagReference is the client for interacting with the ManifestTagReference builders.
 	ManifestTagReference *ManifestTagReferenceClient
 	// Organization is the client for interacting with the Organization builders.
@@ -59,6 +62,7 @@ func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.BlobChunk = NewBlobChunkClient(c.config)
 	c.Manifest = NewManifestClient(c.config)
+	c.ManifestLayer = NewManifestLayerClient(c.config)
 	c.ManifestTagReference = NewManifestTagReferenceClient(c.config)
 	c.Organization = NewOrganizationClient(c.config)
 	c.OrganizationMembership = NewOrganizationMembershipClient(c.config)
@@ -159,6 +163,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		config:                 cfg,
 		BlobChunk:              NewBlobChunkClient(cfg),
 		Manifest:               NewManifestClient(cfg),
+		ManifestLayer:          NewManifestLayerClient(cfg),
 		ManifestTagReference:   NewManifestTagReferenceClient(cfg),
 		Organization:           NewOrganizationClient(cfg),
 		OrganizationMembership: NewOrganizationMembershipClient(cfg),
@@ -186,6 +191,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		config:                 cfg,
 		BlobChunk:              NewBlobChunkClient(cfg),
 		Manifest:               NewManifestClient(cfg),
+		ManifestLayer:          NewManifestLayerClient(cfg),
 		ManifestTagReference:   NewManifestTagReferenceClient(cfg),
 		Organization:           NewOrganizationClient(cfg),
 		OrganizationMembership: NewOrganizationMembershipClient(cfg),
@@ -221,8 +227,8 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.BlobChunk, c.Manifest, c.ManifestTagReference, c.Organization,
-		c.OrganizationMembership, c.Registry, c.Repository, c.User,
+		c.BlobChunk, c.Manifest, c.ManifestLayer, c.ManifestTagReference,
+		c.Organization, c.OrganizationMembership, c.Registry, c.Repository, c.User,
 	} {
 		n.Use(hooks...)
 	}
@@ -232,8 +238,8 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.BlobChunk, c.Manifest, c.ManifestTagReference, c.Organization,
-		c.OrganizationMembership, c.Registry, c.Repository, c.User,
+		c.BlobChunk, c.Manifest, c.ManifestLayer, c.ManifestTagReference,
+		c.Organization, c.OrganizationMembership, c.Registry, c.Repository, c.User,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -246,6 +252,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.BlobChunk.mutate(ctx, m)
 	case *ManifestMutation:
 		return c.Manifest.mutate(ctx, m)
+	case *ManifestLayerMutation:
+		return c.ManifestLayer.mutate(ctx, m)
 	case *ManifestTagReferenceMutation:
 		return c.ManifestTagReference.mutate(ctx, m)
 	case *OrganizationMutation:
@@ -568,6 +576,22 @@ func (c *ManifestClient) QueryReferer(m *Manifest) *ManifestQuery {
 	return query
 }
 
+// QueryManifestLayers queries the manifest_layers edge of a Manifest.
+func (c *ManifestClient) QueryManifestLayers(m *Manifest) *ManifestLayerQuery {
+	query := (&ManifestLayerClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(manifest.Table, manifest.FieldID, id),
+			sqlgraph.To(manifestlayer.Table, manifestlayer.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, manifest.ManifestLayersTable, manifest.ManifestLayersColumn),
+		)
+		fromV = sqlgraph.Neighbors(m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *ManifestClient) Hooks() []Hook {
 	return c.hooks.Manifest
@@ -590,6 +614,155 @@ func (c *ManifestClient) mutate(ctx context.Context, m *ManifestMutation) (Value
 		return (&ManifestDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Manifest mutation op: %q", m.Op())
+	}
+}
+
+// ManifestLayerClient is a client for the ManifestLayer schema.
+type ManifestLayerClient struct {
+	config
+}
+
+// NewManifestLayerClient returns a client for the ManifestLayer from the given config.
+func NewManifestLayerClient(c config) *ManifestLayerClient {
+	return &ManifestLayerClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `manifestlayer.Hooks(f(g(h())))`.
+func (c *ManifestLayerClient) Use(hooks ...Hook) {
+	c.hooks.ManifestLayer = append(c.hooks.ManifestLayer, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `manifestlayer.Intercept(f(g(h())))`.
+func (c *ManifestLayerClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ManifestLayer = append(c.inters.ManifestLayer, interceptors...)
+}
+
+// Create returns a builder for creating a ManifestLayer entity.
+func (c *ManifestLayerClient) Create() *ManifestLayerCreate {
+	mutation := newManifestLayerMutation(c.config, OpCreate)
+	return &ManifestLayerCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ManifestLayer entities.
+func (c *ManifestLayerClient) CreateBulk(builders ...*ManifestLayerCreate) *ManifestLayerCreateBulk {
+	return &ManifestLayerCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ManifestLayerClient) MapCreateBulk(slice any, setFunc func(*ManifestLayerCreate, int)) *ManifestLayerCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ManifestLayerCreateBulk{err: fmt.Errorf("calling to ManifestLayerClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ManifestLayerCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ManifestLayerCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ManifestLayer.
+func (c *ManifestLayerClient) Update() *ManifestLayerUpdate {
+	mutation := newManifestLayerMutation(c.config, OpUpdate)
+	return &ManifestLayerUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ManifestLayerClient) UpdateOne(ml *ManifestLayer) *ManifestLayerUpdateOne {
+	mutation := newManifestLayerMutation(c.config, OpUpdateOne, withManifestLayer(ml))
+	return &ManifestLayerUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ManifestLayerClient) UpdateOneID(id int) *ManifestLayerUpdateOne {
+	mutation := newManifestLayerMutation(c.config, OpUpdateOne, withManifestLayerID(id))
+	return &ManifestLayerUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ManifestLayer.
+func (c *ManifestLayerClient) Delete() *ManifestLayerDelete {
+	mutation := newManifestLayerMutation(c.config, OpDelete)
+	return &ManifestLayerDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ManifestLayerClient) DeleteOne(ml *ManifestLayer) *ManifestLayerDeleteOne {
+	return c.DeleteOneID(ml.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ManifestLayerClient) DeleteOneID(id int) *ManifestLayerDeleteOne {
+	builder := c.Delete().Where(manifestlayer.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ManifestLayerDeleteOne{builder}
+}
+
+// Query returns a query builder for ManifestLayer.
+func (c *ManifestLayerClient) Query() *ManifestLayerQuery {
+	return &ManifestLayerQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeManifestLayer},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ManifestLayer entity by its id.
+func (c *ManifestLayerClient) Get(ctx context.Context, id int) (*ManifestLayer, error) {
+	return c.Query().Where(manifestlayer.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ManifestLayerClient) GetX(ctx context.Context, id int) *ManifestLayer {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryManifest queries the manifest edge of a ManifestLayer.
+func (c *ManifestLayerClient) QueryManifest(ml *ManifestLayer) *ManifestQuery {
+	query := (&ManifestClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := ml.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(manifestlayer.Table, manifestlayer.FieldID, id),
+			sqlgraph.To(manifest.Table, manifest.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, manifestlayer.ManifestTable, manifestlayer.ManifestColumn),
+		)
+		fromV = sqlgraph.Neighbors(ml.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ManifestLayerClient) Hooks() []Hook {
+	return c.hooks.ManifestLayer
+}
+
+// Interceptors returns the client interceptors.
+func (c *ManifestLayerClient) Interceptors() []Interceptor {
+	return c.inters.ManifestLayer
+}
+
+func (c *ManifestLayerClient) mutate(ctx context.Context, m *ManifestLayerMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ManifestLayerCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ManifestLayerUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ManifestLayerUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ManifestLayerDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ManifestLayer mutation op: %q", m.Op())
 	}
 }
 
@@ -1537,11 +1710,11 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		BlobChunk, Manifest, ManifestTagReference, Organization, OrganizationMembership,
-		Registry, Repository, User []ent.Hook
+		BlobChunk, Manifest, ManifestLayer, ManifestTagReference, Organization,
+		OrganizationMembership, Registry, Repository, User []ent.Hook
 	}
 	inters struct {
-		BlobChunk, Manifest, ManifestTagReference, Organization, OrganizationMembership,
-		Registry, Repository, User []ent.Interceptor
+		BlobChunk, Manifest, ManifestLayer, ManifestTagReference, Organization,
+		OrganizationMembership, Registry, Repository, User []ent.Interceptor
 	}
 )
