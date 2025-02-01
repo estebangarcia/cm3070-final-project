@@ -60,6 +60,7 @@ func (a *ExtractBasicCredentialsMiddleware) Validate(next http.Handler) http.Han
 		password := usernamePassword[1]
 
 		if username == "" || password == "" {
+			w.Header().Set(wwwAuthenticateHeader, "Basic")
 			responses.OCIUnauthorizedError(w)
 			return
 		}
