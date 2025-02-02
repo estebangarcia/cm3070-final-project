@@ -113,7 +113,7 @@ func (mr *ManifestRepository) CreateManifest(ctx context.Context, digest string,
 	return manifest.Save(ctx)
 }
 
-func (mr *ManifestRepository) CreateManifestLayers(ctx context.Context, layers []*ent.ManifestLayer, manifest *ent.Manifest) ([]*ent.ManifestLayer, error) {
+func (mr *ManifestRepository) CreateManifestLayers(ctx context.Context, layers []*ent.ManifestLayer, manifest *ent.Manifest) error {
 	client := mr.getClient(ctx)
 
 	return client.ManifestLayer.MapCreateBulk(layers, func(mlc *ent.ManifestLayerCreate, i int) {
@@ -122,10 +122,8 @@ func (mr *ManifestRepository) CreateManifestLayers(ctx context.Context, layers [
 			SetDigest(layers[i].Digest).
 			SetSize(layers[i].Size).
 			SetAnnotations(layers[i].Annotations).
-			SetManifestID(manifest.ID).
-			OnConflict().
-			UpdateNewValues()
-	}).Save(ctx)
+			SetManifestID(manifest.ID)
+	}).OnConflictColumns("digest", "manifest_manifest_layers").UpdateNewValues().Exec(ctx)
 }
 
 func (mr *ManifestRepository) UpsertManifestTagReference(ctx context.Context, reference string, manifest *ent.Manifest, repository *ent.Repository) error {
@@ -204,7 +202,7 @@ func (mr *ManifestRepository) UpsertManifestWithSubjectAndTag(ctx context.Contex
 		return nil, err
 	}
 
-	_, err = mr.CreateManifestLayers(ctxV, layers, mfst)
+	err = mr.CreateManifestLayers(ctxV, layers, mfst)
 	if err != nil {
 		return nil, err
 	}

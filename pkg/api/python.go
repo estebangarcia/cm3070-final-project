@@ -1,12 +1,16 @@
 package api
 
 import (
+	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
 	"log"
+	"maps"
 	"net/http"
+	"net/mail"
 	"os"
 	"strings"
 
@@ -134,6 +138,13 @@ func (rh *PythonHandler) UploadPythonPackage(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	whlMetadata, err := parseWheelMetadata(f.Name())
+	if err != nil {
+		log.Println(err)
+		responses.OCIInternalServerError(w)
+		return
+	}
+
 	store, err := oras_file.New("/tmp")
 	if err != nil {
 		log.Println(err)
@@ -150,7 +161,12 @@ func (rh *PythonHandler) UploadPythonPackage(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	maps.Copy(layerDescriptor.Annotations, whlMetadata)
+
 	opts := oras.PackManifestOptions{
+		ManifestAnnotations: map[string]string{
+			"org.opencontainers.image.created": "2000-01-01T00:00:00Z",
+		},
 		Layers: []v1.Descriptor{
 			layerDescriptor,
 		},
@@ -216,4 +232,70 @@ func (rh *PythonHandler) renderTemplate(packages []PythonPackage) ([]byte, error
 
 func downloadPythonPackageURL(baseURL string, orgSlug string, registrySlug string, packageName string, fileName string) string {
 	return fmt.Sprintf("%s/api/v1/%s/%s/python/simple/%s/%s", baseURL, orgSlug, registrySlug, packageName, fileName)
+}
+
+func parseWheelMetadata(whlPath string) (map[string]string, error) {
+	// Open the .whl (ZIP) file
+	r, err := zip.OpenReader(whlPath)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	// Find the METADATA file inside the .whl archive
+	var metadataFile *zip.File
+	for _, file := range r.File {
+		if strings.HasSuffix(file.Name, "METADATA") {
+			metadataFile = file
+			break
+		}
+	}
+
+	if metadataFile == nil {
+		return nil, fmt.Errorf("METADATA file not found in %s", whlPath)
+	}
+
+	// Read the METADATA file
+	rc, err := metadataFile.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+
+	var buffer bytes.Buffer
+	_, err = io.Copy(&buffer, rc)
+	if err != nil {
+		return nil, err
+	}
+
+	msg, err := mail.ReadMessage(&buffer)
+	if err != nil {
+		return nil, err
+	}
+
+	metadata := map[string]string{}
+
+	for k, h := range msg.Header {
+		if len(h) > 1 {
+			jsonValue, err := json.Marshal(h)
+			if err != nil {
+				return nil, err
+			}
+			metadata[k] = string(jsonValue)
+		} else {
+			metadata[k] = h[0]
+		}
+	}
+
+	msgBytes, err := io.ReadAll(msg.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	msgString := string(msgBytes)
+	if len(msgString) > 0 {
+		metadata["Description"] = msgString
+	}
+
+	return metadata, nil
 }
