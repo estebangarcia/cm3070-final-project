@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/blobchunk"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifest"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifestlayer"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organizationmembership"
@@ -82,6 +83,7 @@ func checkColumn(table, column string) error {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			blobchunk.Table:              blobchunk.ValidColumn,
 			manifest.Table:               manifest.ValidColumn,
+			manifestlayer.Table:          manifestlayer.ValidColumn,
 			manifesttagreference.Table:   manifesttagreference.ValidColumn,
 			organization.Table:           organization.ValidColumn,
 			organizationmembership.Table: organizationmembership.ValidColumn,

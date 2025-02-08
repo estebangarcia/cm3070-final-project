@@ -49,7 +49,7 @@ func (h *V2BlobsHandler) InitiateUploadSession(w http.ResponseWriter, r *http.Re
 	mount := r.URL.Query().Get("mount")
 
 	if err := h.mountBlob(r.Context(), org.Slug, mount); err == nil {
-		w.Header().Set("Location", h.getBlobDownloadUrl(org.Slug, registry.Slug, imageName, mount))
+		w.Header().Set("Location", getBlobDownloadUrl(h.Config.BaseURL, org.Slug, registry.Slug, imageName, mount))
 		w.Header().Set("Docker-Content-Digest", mount)
 		w.WriteHeader(http.StatusCreated)
 		return
@@ -91,7 +91,7 @@ func (h *V2BlobsHandler) InitiateUploadSession(w http.ResponseWriter, r *http.Re
 
 	if fullBytesRead > 0 {
 		w.Header().Set("Range", fmt.Sprintf("0-%d", fullBytesRead))
-		w.Header().Set("Location", h.getBlobDownloadUrl(org.Slug, registry.Slug, imageName, blobDigest))
+		w.Header().Set("Location", getBlobDownloadUrl(h.Config.BaseURL, org.Slug, registry.Slug, imageName, blobDigest))
 		status = http.StatusCreated
 	} else {
 		w.Header().Set("Location", h.getUploadUrl(org.Slug, registry.Slug, imageName, uploadId, sessionId))
@@ -146,10 +146,18 @@ func (h *V2BlobsHandler) DownloadBlob(w http.ResponseWriter, r *http.Request) {
 	org := r.Context().Value("organization").(*ent.Organization)
 	keyName := h.getKeyForBlob(org.Slug, blobDigest)
 
-	req, err := h.S3PresignClient.PresignGetObject(r.Context(), &s3.GetObjectInput{
+	withFileName := r.URL.Query().Get("filename")
+
+	getObjectInput := &s3.GetObjectInput{
 		Bucket: &h.Config.S3.BlobsBucketName,
 		Key:    &keyName,
-	}, s3.WithPresignExpires(*aws.Duration(time.Minute * 10)))
+	}
+
+	if withFileName != "" {
+		getObjectInput.ResponseContentDisposition = aws.String(fmt.Sprintf("attachment; filename=\"%s\"", withFileName))
+	}
+
+	req, err := h.S3PresignClient.PresignGetObject(r.Context(), getObjectInput, s3.WithPresignExpires(*aws.Duration(time.Minute * 10)))
 	if err != nil {
 		responses.OCIInternalServerError(w)
 		log.Println(err)
@@ -281,7 +289,7 @@ func (h *V2BlobsHandler) FinalizeBlobUploadSession(w http.ResponseWriter, r *htt
 	if fullBytesRead > 0 {
 		w.Header().Set("Range", fmt.Sprintf("0-%d", fullBytesRead))
 	}
-	w.Header().Set("Location", h.getBlobDownloadUrl(org.Slug, registry.Slug, imageName, blobDigest))
+	w.Header().Set("Location", getBlobDownloadUrl(h.Config.BaseURL, org.Slug, registry.Slug, imageName, blobDigest))
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -463,8 +471,8 @@ func (h *V2BlobsHandler) getUploadUrl(orgSlug string, registrySlug string, image
 	return fmt.Sprintf("%s/v2/%s/%s/%s/blobs/uploads/%s?session=%s", h.Config.BaseURL, orgSlug, registrySlug, imageName, uploadId, s3UploadId)
 }
 
-func (h *V2BlobsHandler) getBlobDownloadUrl(orgSlug string, registrySlug string, imageName string, digest string) string {
-	return fmt.Sprintf("%s/v2/%s/%s/%s/blobs/%s", h.Config.BaseURL, orgSlug, registrySlug, imageName, digest)
+func getBlobDownloadUrl(baseURL string, orgSlug string, registrySlug string, imageName string, digest string) string {
+	return fmt.Sprintf("%s/v2/%s/%s/%s/blobs/%s", baseURL, orgSlug, registrySlug, imageName, digest)
 }
 
 func (h *V2BlobsHandler) isMonolithicUpload(contentLength int64, contentType string) bool {

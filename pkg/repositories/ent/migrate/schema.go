@@ -63,6 +63,36 @@ var (
 			},
 		},
 	}
+	// ManifestLayersColumns holds the columns for the "manifest_layers" table.
+	ManifestLayersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "media_type", Type: field.TypeString},
+		{Name: "digest", Type: field.TypeString},
+		{Name: "size", Type: field.TypeInt32},
+		{Name: "annotations", Type: field.TypeJSON},
+		{Name: "manifest_manifest_layers", Type: field.TypeInt, Nullable: true},
+	}
+	// ManifestLayersTable holds the schema information for the "manifest_layers" table.
+	ManifestLayersTable = &schema.Table{
+		Name:       "manifest_layers",
+		Columns:    ManifestLayersColumns,
+		PrimaryKey: []*schema.Column{ManifestLayersColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "manifest_layers_manifests_manifest_layers",
+				Columns:    []*schema.Column{ManifestLayersColumns[5]},
+				RefColumns: []*schema.Column{ManifestsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "manifestlayer_digest_manifest_manifest_layers",
+				Unique:  true,
+				Columns: []*schema.Column{ManifestLayersColumns[2], ManifestLayersColumns[5]},
+			},
+		},
+	}
 	// ManifestTagReferencesColumns holds the columns for the "manifest_tag_references" table.
 	ManifestTagReferencesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -239,6 +269,7 @@ var (
 	Tables = []*schema.Table{
 		BlobChunksTable,
 		ManifestsTable,
+		ManifestLayersTable,
 		ManifestTagReferencesTable,
 		OrganizationsTable,
 		OrganizationMembershipsTable,
@@ -251,6 +282,7 @@ var (
 
 func init() {
 	ManifestsTable.ForeignKeys[0].RefTable = RepositoriesTable
+	ManifestLayersTable.ForeignKeys[0].RefTable = ManifestsTable
 	ManifestTagReferencesTable.ForeignKeys[0].RefTable = ManifestsTable
 	OrganizationMembershipsTable.ForeignKeys[0].RefTable = UsersTable
 	OrganizationMembershipsTable.ForeignKeys[1].RefTable = OrganizationsTable

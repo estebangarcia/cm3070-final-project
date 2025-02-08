@@ -76,6 +76,25 @@ func (mr *ManifestRepository) GetManifestByReference(ctx context.Context, refere
 	return manifest, true, nil
 }
 
+func (mr *ManifestRepository) GetAllByTypeWithTags(ctx context.Context, artifactType string, repository *ent.Repository) ([]*ent.Manifest, error) {
+	manifests, err := mr.dbClient.Manifest.Query().Where(
+		ent_manifest.And(
+			ent_manifest.Or(
+				ent_manifest.ArtifactType(artifactType),
+				ent_manifest.MediaType(artifactType),
+			),
+			ent_manifest.HasRepositoryWith(ent_repository.ID(repository.ID)),
+			ent_manifest.HasTags(),
+		),
+	).WithTags().WithManifestLayers().All(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return manifests, nil
+}
+
 func (mr *ManifestRepository) CreateManifest(ctx context.Context, digest string, mediaType string, artifactType *string, s3Path string, subjectManifest *ent.Manifest, repository *ent.Repository) (*ent.Manifest, error) {
 	client := mr.getClient(ctx)
 
@@ -92,6 +111,19 @@ func (mr *ManifestRepository) CreateManifest(ctx context.Context, digest string,
 	}
 
 	return manifest.Save(ctx)
+}
+
+func (mr *ManifestRepository) CreateManifestLayers(ctx context.Context, layers []*ent.ManifestLayer, manifest *ent.Manifest) error {
+	client := mr.getClient(ctx)
+
+	return client.ManifestLayer.MapCreateBulk(layers, func(mlc *ent.ManifestLayerCreate, i int) {
+		mlc.
+			SetMediaType(layers[i].MediaType).
+			SetDigest(layers[i].Digest).
+			SetSize(layers[i].Size).
+			SetAnnotations(layers[i].Annotations).
+			SetManifestID(manifest.ID)
+	}).OnConflictColumns("digest", "manifest_manifest_layers").UpdateNewValues().Exec(ctx)
 }
 
 func (mr *ManifestRepository) UpsertManifestTagReference(ctx context.Context, reference string, manifest *ent.Manifest, repository *ent.Repository) error {
@@ -134,7 +166,7 @@ func (mr *ManifestRepository) UpsertManifestTagReference(ctx context.Context, re
 	return nil
 }
 
-func (mr *ManifestRepository) UpsertManifestWithSubjectAndTag(ctx context.Context, reference string, digest string, mediaType string, artifactType *string, s3Path string, manifestSubject *ent.Manifest, repository *ent.Repository) (*ent.Manifest, error) {
+func (mr *ManifestRepository) UpsertManifestWithSubjectAndTag(ctx context.Context, layers []*ent.ManifestLayer, reference string, digest string, mediaType string, artifactType *string, s3Path string, manifestSubject *ent.Manifest, repository *ent.Repository) (*ent.Manifest, error) {
 	tx, err := mr.dbClient.Tx(ctx)
 	if err != nil {
 		return nil, err
@@ -166,6 +198,11 @@ func (mr *ManifestRepository) UpsertManifestWithSubjectAndTag(ctx context.Contex
 		mfst, err = mr.CreateManifest(ctxV, digest, mediaType, artifactType, s3Path, manifestSubject, repository)
 	}
 
+	if err != nil {
+		return nil, err
+	}
+
+	err = mr.CreateManifestLayers(ctxV, layers, mfst)
 	if err != nil {
 		return nil, err
 	}

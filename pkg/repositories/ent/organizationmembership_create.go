@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
@@ -19,6 +20,7 @@ type OrganizationMembershipCreate struct {
 	config
 	mutation *OrganizationMembershipMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetUserID sets the "user_id" field.
@@ -120,6 +122,7 @@ func (omc *OrganizationMembershipCreate) createSpec() (*OrganizationMembership, 
 		_node = &OrganizationMembership{config: omc.config}
 		_spec = sqlgraph.NewCreateSpec(organizationmembership.Table, nil)
 	)
+	_spec.OnConflict = omc.conflict
 	if value, ok := omc.mutation.Role(); ok {
 		_spec.SetField(organizationmembership.FieldRole, field.TypeInt, value)
 		_node.Role = value
@@ -161,11 +164,207 @@ func (omc *OrganizationMembershipCreate) createSpec() (*OrganizationMembership, 
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.OrganizationMembership.Create().
+//		SetUserID(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.OrganizationMembershipUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (omc *OrganizationMembershipCreate) OnConflict(opts ...sql.ConflictOption) *OrganizationMembershipUpsertOne {
+	omc.conflict = opts
+	return &OrganizationMembershipUpsertOne{
+		create: omc,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.OrganizationMembership.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (omc *OrganizationMembershipCreate) OnConflictColumns(columns ...string) *OrganizationMembershipUpsertOne {
+	omc.conflict = append(omc.conflict, sql.ConflictColumns(columns...))
+	return &OrganizationMembershipUpsertOne{
+		create: omc,
+	}
+}
+
+type (
+	// OrganizationMembershipUpsertOne is the builder for "upsert"-ing
+	//  one OrganizationMembership node.
+	OrganizationMembershipUpsertOne struct {
+		create *OrganizationMembershipCreate
+	}
+
+	// OrganizationMembershipUpsert is the "OnConflict" setter.
+	OrganizationMembershipUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetUserID sets the "user_id" field.
+func (u *OrganizationMembershipUpsert) SetUserID(v int) *OrganizationMembershipUpsert {
+	u.Set(organizationmembership.FieldUserID, v)
+	return u
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *OrganizationMembershipUpsert) UpdateUserID() *OrganizationMembershipUpsert {
+	u.SetExcluded(organizationmembership.FieldUserID)
+	return u
+}
+
+// SetOrganizationID sets the "organization_id" field.
+func (u *OrganizationMembershipUpsert) SetOrganizationID(v int) *OrganizationMembershipUpsert {
+	u.Set(organizationmembership.FieldOrganizationID, v)
+	return u
+}
+
+// UpdateOrganizationID sets the "organization_id" field to the value that was provided on create.
+func (u *OrganizationMembershipUpsert) UpdateOrganizationID() *OrganizationMembershipUpsert {
+	u.SetExcluded(organizationmembership.FieldOrganizationID)
+	return u
+}
+
+// SetRole sets the "role" field.
+func (u *OrganizationMembershipUpsert) SetRole(v int) *OrganizationMembershipUpsert {
+	u.Set(organizationmembership.FieldRole, v)
+	return u
+}
+
+// UpdateRole sets the "role" field to the value that was provided on create.
+func (u *OrganizationMembershipUpsert) UpdateRole() *OrganizationMembershipUpsert {
+	u.SetExcluded(organizationmembership.FieldRole)
+	return u
+}
+
+// AddRole adds v to the "role" field.
+func (u *OrganizationMembershipUpsert) AddRole(v int) *OrganizationMembershipUpsert {
+	u.Add(organizationmembership.FieldRole, v)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create.
+// Using this option is equivalent to using:
+//
+//	client.OrganizationMembership.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//		).
+//		Exec(ctx)
+func (u *OrganizationMembershipUpsertOne) UpdateNewValues() *OrganizationMembershipUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.OrganizationMembership.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *OrganizationMembershipUpsertOne) Ignore() *OrganizationMembershipUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *OrganizationMembershipUpsertOne) DoNothing() *OrganizationMembershipUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the OrganizationMembershipCreate.OnConflict
+// documentation for more info.
+func (u *OrganizationMembershipUpsertOne) Update(set func(*OrganizationMembershipUpsert)) *OrganizationMembershipUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&OrganizationMembershipUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *OrganizationMembershipUpsertOne) SetUserID(v int) *OrganizationMembershipUpsertOne {
+	return u.Update(func(s *OrganizationMembershipUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *OrganizationMembershipUpsertOne) UpdateUserID() *OrganizationMembershipUpsertOne {
+	return u.Update(func(s *OrganizationMembershipUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetOrganizationID sets the "organization_id" field.
+func (u *OrganizationMembershipUpsertOne) SetOrganizationID(v int) *OrganizationMembershipUpsertOne {
+	return u.Update(func(s *OrganizationMembershipUpsert) {
+		s.SetOrganizationID(v)
+	})
+}
+
+// UpdateOrganizationID sets the "organization_id" field to the value that was provided on create.
+func (u *OrganizationMembershipUpsertOne) UpdateOrganizationID() *OrganizationMembershipUpsertOne {
+	return u.Update(func(s *OrganizationMembershipUpsert) {
+		s.UpdateOrganizationID()
+	})
+}
+
+// SetRole sets the "role" field.
+func (u *OrganizationMembershipUpsertOne) SetRole(v int) *OrganizationMembershipUpsertOne {
+	return u.Update(func(s *OrganizationMembershipUpsert) {
+		s.SetRole(v)
+	})
+}
+
+// AddRole adds v to the "role" field.
+func (u *OrganizationMembershipUpsertOne) AddRole(v int) *OrganizationMembershipUpsertOne {
+	return u.Update(func(s *OrganizationMembershipUpsert) {
+		s.AddRole(v)
+	})
+}
+
+// UpdateRole sets the "role" field to the value that was provided on create.
+func (u *OrganizationMembershipUpsertOne) UpdateRole() *OrganizationMembershipUpsertOne {
+	return u.Update(func(s *OrganizationMembershipUpsert) {
+		s.UpdateRole()
+	})
+}
+
+// Exec executes the query.
+func (u *OrganizationMembershipUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for OrganizationMembershipCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *OrganizationMembershipUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
 // OrganizationMembershipCreateBulk is the builder for creating many OrganizationMembership entities in bulk.
 type OrganizationMembershipCreateBulk struct {
 	config
 	err      error
 	builders []*OrganizationMembershipCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the OrganizationMembership entities in the database.
@@ -194,6 +393,7 @@ func (omcb *OrganizationMembershipCreateBulk) Save(ctx context.Context) ([]*Orga
 					_, err = mutators[i+1].Mutate(root, omcb.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = omcb.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, omcb.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -239,6 +439,159 @@ func (omcb *OrganizationMembershipCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (omcb *OrganizationMembershipCreateBulk) ExecX(ctx context.Context) {
 	if err := omcb.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.OrganizationMembership.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.OrganizationMembershipUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (omcb *OrganizationMembershipCreateBulk) OnConflict(opts ...sql.ConflictOption) *OrganizationMembershipUpsertBulk {
+	omcb.conflict = opts
+	return &OrganizationMembershipUpsertBulk{
+		create: omcb,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.OrganizationMembership.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (omcb *OrganizationMembershipCreateBulk) OnConflictColumns(columns ...string) *OrganizationMembershipUpsertBulk {
+	omcb.conflict = append(omcb.conflict, sql.ConflictColumns(columns...))
+	return &OrganizationMembershipUpsertBulk{
+		create: omcb,
+	}
+}
+
+// OrganizationMembershipUpsertBulk is the builder for "upsert"-ing
+// a bulk of OrganizationMembership nodes.
+type OrganizationMembershipUpsertBulk struct {
+	create *OrganizationMembershipCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.OrganizationMembership.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//		).
+//		Exec(ctx)
+func (u *OrganizationMembershipUpsertBulk) UpdateNewValues() *OrganizationMembershipUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.OrganizationMembership.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *OrganizationMembershipUpsertBulk) Ignore() *OrganizationMembershipUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *OrganizationMembershipUpsertBulk) DoNothing() *OrganizationMembershipUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the OrganizationMembershipCreateBulk.OnConflict
+// documentation for more info.
+func (u *OrganizationMembershipUpsertBulk) Update(set func(*OrganizationMembershipUpsert)) *OrganizationMembershipUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&OrganizationMembershipUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *OrganizationMembershipUpsertBulk) SetUserID(v int) *OrganizationMembershipUpsertBulk {
+	return u.Update(func(s *OrganizationMembershipUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *OrganizationMembershipUpsertBulk) UpdateUserID() *OrganizationMembershipUpsertBulk {
+	return u.Update(func(s *OrganizationMembershipUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetOrganizationID sets the "organization_id" field.
+func (u *OrganizationMembershipUpsertBulk) SetOrganizationID(v int) *OrganizationMembershipUpsertBulk {
+	return u.Update(func(s *OrganizationMembershipUpsert) {
+		s.SetOrganizationID(v)
+	})
+}
+
+// UpdateOrganizationID sets the "organization_id" field to the value that was provided on create.
+func (u *OrganizationMembershipUpsertBulk) UpdateOrganizationID() *OrganizationMembershipUpsertBulk {
+	return u.Update(func(s *OrganizationMembershipUpsert) {
+		s.UpdateOrganizationID()
+	})
+}
+
+// SetRole sets the "role" field.
+func (u *OrganizationMembershipUpsertBulk) SetRole(v int) *OrganizationMembershipUpsertBulk {
+	return u.Update(func(s *OrganizationMembershipUpsert) {
+		s.SetRole(v)
+	})
+}
+
+// AddRole adds v to the "role" field.
+func (u *OrganizationMembershipUpsertBulk) AddRole(v int) *OrganizationMembershipUpsertBulk {
+	return u.Update(func(s *OrganizationMembershipUpsert) {
+		s.AddRole(v)
+	})
+}
+
+// UpdateRole sets the "role" field to the value that was provided on create.
+func (u *OrganizationMembershipUpsertBulk) UpdateRole() *OrganizationMembershipUpsertBulk {
+	return u.Update(func(s *OrganizationMembershipUpsert) {
+		s.UpdateRole()
+	})
+}
+
+// Exec executes the query.
+func (u *OrganizationMembershipUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the OrganizationMembershipCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for OrganizationMembershipCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *OrganizationMembershipUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

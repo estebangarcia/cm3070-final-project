@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/blobchunk"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifest"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifestlayer"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organizationmembership"
@@ -32,6 +33,7 @@ const (
 	// Node types.
 	TypeBlobChunk              = "BlobChunk"
 	TypeManifest               = "Manifest"
+	TypeManifestLayer          = "ManifestLayer"
 	TypeManifestTagReference   = "ManifestTagReference"
 	TypeOrganization           = "Organization"
 	TypeOrganizationMembership = "OrganizationMembership"
@@ -687,28 +689,31 @@ func (m *BlobChunkMutation) ResetEdge(name string) error {
 // ManifestMutation represents an operation that mutates the Manifest nodes in the graph.
 type ManifestMutation struct {
 	config
-	op                Op
-	typ               string
-	id                *int
-	media_type        *string
-	artifact_type     *string
-	s3_path           *string
-	digest            *string
-	clearedFields     map[string]struct{}
-	tags              map[int]struct{}
-	removedtags       map[int]struct{}
-	clearedtags       bool
-	repository        *int
-	clearedrepository bool
-	subject           map[int]struct{}
-	removedsubject    map[int]struct{}
-	clearedsubject    bool
-	referer           map[int]struct{}
-	removedreferer    map[int]struct{}
-	clearedreferer    bool
-	done              bool
-	oldValue          func(context.Context) (*Manifest, error)
-	predicates        []predicate.Manifest
+	op                     Op
+	typ                    string
+	id                     *int
+	media_type             *string
+	artifact_type          *string
+	s3_path                *string
+	digest                 *string
+	clearedFields          map[string]struct{}
+	tags                   map[int]struct{}
+	removedtags            map[int]struct{}
+	clearedtags            bool
+	repository             *int
+	clearedrepository      bool
+	subject                map[int]struct{}
+	removedsubject         map[int]struct{}
+	clearedsubject         bool
+	referer                map[int]struct{}
+	removedreferer         map[int]struct{}
+	clearedreferer         bool
+	manifest_layers        map[int]struct{}
+	removedmanifest_layers map[int]struct{}
+	clearedmanifest_layers bool
+	done                   bool
+	oldValue               func(context.Context) (*Manifest, error)
+	predicates             []predicate.Manifest
 }
 
 var _ ent.Mutation = (*ManifestMutation)(nil)
@@ -1167,6 +1172,60 @@ func (m *ManifestMutation) ResetReferer() {
 	m.removedreferer = nil
 }
 
+// AddManifestLayerIDs adds the "manifest_layers" edge to the ManifestLayer entity by ids.
+func (m *ManifestMutation) AddManifestLayerIDs(ids ...int) {
+	if m.manifest_layers == nil {
+		m.manifest_layers = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.manifest_layers[ids[i]] = struct{}{}
+	}
+}
+
+// ClearManifestLayers clears the "manifest_layers" edge to the ManifestLayer entity.
+func (m *ManifestMutation) ClearManifestLayers() {
+	m.clearedmanifest_layers = true
+}
+
+// ManifestLayersCleared reports if the "manifest_layers" edge to the ManifestLayer entity was cleared.
+func (m *ManifestMutation) ManifestLayersCleared() bool {
+	return m.clearedmanifest_layers
+}
+
+// RemoveManifestLayerIDs removes the "manifest_layers" edge to the ManifestLayer entity by IDs.
+func (m *ManifestMutation) RemoveManifestLayerIDs(ids ...int) {
+	if m.removedmanifest_layers == nil {
+		m.removedmanifest_layers = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.manifest_layers, ids[i])
+		m.removedmanifest_layers[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedManifestLayers returns the removed IDs of the "manifest_layers" edge to the ManifestLayer entity.
+func (m *ManifestMutation) RemovedManifestLayersIDs() (ids []int) {
+	for id := range m.removedmanifest_layers {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ManifestLayersIDs returns the "manifest_layers" edge IDs in the mutation.
+func (m *ManifestMutation) ManifestLayersIDs() (ids []int) {
+	for id := range m.manifest_layers {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetManifestLayers resets all changes to the "manifest_layers" edge.
+func (m *ManifestMutation) ResetManifestLayers() {
+	m.manifest_layers = nil
+	m.clearedmanifest_layers = false
+	m.removedmanifest_layers = nil
+}
+
 // Where appends a list predicates to the ManifestMutation builder.
 func (m *ManifestMutation) Where(ps ...predicate.Manifest) {
 	m.predicates = append(m.predicates, ps...)
@@ -1360,7 +1419,7 @@ func (m *ManifestMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ManifestMutation) AddedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.tags != nil {
 		edges = append(edges, manifest.EdgeTags)
 	}
@@ -1372,6 +1431,9 @@ func (m *ManifestMutation) AddedEdges() []string {
 	}
 	if m.referer != nil {
 		edges = append(edges, manifest.EdgeReferer)
+	}
+	if m.manifest_layers != nil {
+		edges = append(edges, manifest.EdgeManifestLayers)
 	}
 	return edges
 }
@@ -1402,13 +1464,19 @@ func (m *ManifestMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case manifest.EdgeManifestLayers:
+		ids := make([]ent.Value, 0, len(m.manifest_layers))
+		for id := range m.manifest_layers {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ManifestMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.removedtags != nil {
 		edges = append(edges, manifest.EdgeTags)
 	}
@@ -1417,6 +1485,9 @@ func (m *ManifestMutation) RemovedEdges() []string {
 	}
 	if m.removedreferer != nil {
 		edges = append(edges, manifest.EdgeReferer)
+	}
+	if m.removedmanifest_layers != nil {
+		edges = append(edges, manifest.EdgeManifestLayers)
 	}
 	return edges
 }
@@ -1443,13 +1514,19 @@ func (m *ManifestMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case manifest.EdgeManifestLayers:
+		ids := make([]ent.Value, 0, len(m.removedmanifest_layers))
+		for id := range m.removedmanifest_layers {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ManifestMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.clearedtags {
 		edges = append(edges, manifest.EdgeTags)
 	}
@@ -1461,6 +1538,9 @@ func (m *ManifestMutation) ClearedEdges() []string {
 	}
 	if m.clearedreferer {
 		edges = append(edges, manifest.EdgeReferer)
+	}
+	if m.clearedmanifest_layers {
+		edges = append(edges, manifest.EdgeManifestLayers)
 	}
 	return edges
 }
@@ -1477,6 +1557,8 @@ func (m *ManifestMutation) EdgeCleared(name string) bool {
 		return m.clearedsubject
 	case manifest.EdgeReferer:
 		return m.clearedreferer
+	case manifest.EdgeManifestLayers:
+		return m.clearedmanifest_layers
 	}
 	return false
 }
@@ -1508,8 +1590,602 @@ func (m *ManifestMutation) ResetEdge(name string) error {
 	case manifest.EdgeReferer:
 		m.ResetReferer()
 		return nil
+	case manifest.EdgeManifestLayers:
+		m.ResetManifestLayers()
+		return nil
 	}
 	return fmt.Errorf("unknown Manifest edge %s", name)
+}
+
+// ManifestLayerMutation represents an operation that mutates the ManifestLayer nodes in the graph.
+type ManifestLayerMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *int
+	media_type      *string
+	digest          *string
+	size            *int32
+	addsize         *int32
+	annotations     *map[string]string
+	clearedFields   map[string]struct{}
+	manifest        *int
+	clearedmanifest bool
+	done            bool
+	oldValue        func(context.Context) (*ManifestLayer, error)
+	predicates      []predicate.ManifestLayer
+}
+
+var _ ent.Mutation = (*ManifestLayerMutation)(nil)
+
+// manifestlayerOption allows management of the mutation configuration using functional options.
+type manifestlayerOption func(*ManifestLayerMutation)
+
+// newManifestLayerMutation creates new mutation for the ManifestLayer entity.
+func newManifestLayerMutation(c config, op Op, opts ...manifestlayerOption) *ManifestLayerMutation {
+	m := &ManifestLayerMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeManifestLayer,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withManifestLayerID sets the ID field of the mutation.
+func withManifestLayerID(id int) manifestlayerOption {
+	return func(m *ManifestLayerMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ManifestLayer
+		)
+		m.oldValue = func(ctx context.Context) (*ManifestLayer, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ManifestLayer.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withManifestLayer sets the old ManifestLayer of the mutation.
+func withManifestLayer(node *ManifestLayer) manifestlayerOption {
+	return func(m *ManifestLayerMutation) {
+		m.oldValue = func(context.Context) (*ManifestLayer, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ManifestLayerMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ManifestLayerMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ManifestLayerMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ManifestLayerMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ManifestLayer.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetMediaType sets the "media_type" field.
+func (m *ManifestLayerMutation) SetMediaType(s string) {
+	m.media_type = &s
+}
+
+// MediaType returns the value of the "media_type" field in the mutation.
+func (m *ManifestLayerMutation) MediaType() (r string, exists bool) {
+	v := m.media_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMediaType returns the old "media_type" field's value of the ManifestLayer entity.
+// If the ManifestLayer object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ManifestLayerMutation) OldMediaType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMediaType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMediaType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMediaType: %w", err)
+	}
+	return oldValue.MediaType, nil
+}
+
+// ResetMediaType resets all changes to the "media_type" field.
+func (m *ManifestLayerMutation) ResetMediaType() {
+	m.media_type = nil
+}
+
+// SetDigest sets the "digest" field.
+func (m *ManifestLayerMutation) SetDigest(s string) {
+	m.digest = &s
+}
+
+// Digest returns the value of the "digest" field in the mutation.
+func (m *ManifestLayerMutation) Digest() (r string, exists bool) {
+	v := m.digest
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDigest returns the old "digest" field's value of the ManifestLayer entity.
+// If the ManifestLayer object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ManifestLayerMutation) OldDigest(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDigest is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDigest requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDigest: %w", err)
+	}
+	return oldValue.Digest, nil
+}
+
+// ResetDigest resets all changes to the "digest" field.
+func (m *ManifestLayerMutation) ResetDigest() {
+	m.digest = nil
+}
+
+// SetSize sets the "size" field.
+func (m *ManifestLayerMutation) SetSize(i int32) {
+	m.size = &i
+	m.addsize = nil
+}
+
+// Size returns the value of the "size" field in the mutation.
+func (m *ManifestLayerMutation) Size() (r int32, exists bool) {
+	v := m.size
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSize returns the old "size" field's value of the ManifestLayer entity.
+// If the ManifestLayer object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ManifestLayerMutation) OldSize(ctx context.Context) (v int32, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSize is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSize requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSize: %w", err)
+	}
+	return oldValue.Size, nil
+}
+
+// AddSize adds i to the "size" field.
+func (m *ManifestLayerMutation) AddSize(i int32) {
+	if m.addsize != nil {
+		*m.addsize += i
+	} else {
+		m.addsize = &i
+	}
+}
+
+// AddedSize returns the value that was added to the "size" field in this mutation.
+func (m *ManifestLayerMutation) AddedSize() (r int32, exists bool) {
+	v := m.addsize
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSize resets all changes to the "size" field.
+func (m *ManifestLayerMutation) ResetSize() {
+	m.size = nil
+	m.addsize = nil
+}
+
+// SetAnnotations sets the "annotations" field.
+func (m *ManifestLayerMutation) SetAnnotations(value map[string]string) {
+	m.annotations = &value
+}
+
+// Annotations returns the value of the "annotations" field in the mutation.
+func (m *ManifestLayerMutation) Annotations() (r map[string]string, exists bool) {
+	v := m.annotations
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAnnotations returns the old "annotations" field's value of the ManifestLayer entity.
+// If the ManifestLayer object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ManifestLayerMutation) OldAnnotations(ctx context.Context) (v map[string]string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAnnotations is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAnnotations requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAnnotations: %w", err)
+	}
+	return oldValue.Annotations, nil
+}
+
+// ResetAnnotations resets all changes to the "annotations" field.
+func (m *ManifestLayerMutation) ResetAnnotations() {
+	m.annotations = nil
+}
+
+// SetManifestID sets the "manifest" edge to the Manifest entity by id.
+func (m *ManifestLayerMutation) SetManifestID(id int) {
+	m.manifest = &id
+}
+
+// ClearManifest clears the "manifest" edge to the Manifest entity.
+func (m *ManifestLayerMutation) ClearManifest() {
+	m.clearedmanifest = true
+}
+
+// ManifestCleared reports if the "manifest" edge to the Manifest entity was cleared.
+func (m *ManifestLayerMutation) ManifestCleared() bool {
+	return m.clearedmanifest
+}
+
+// ManifestID returns the "manifest" edge ID in the mutation.
+func (m *ManifestLayerMutation) ManifestID() (id int, exists bool) {
+	if m.manifest != nil {
+		return *m.manifest, true
+	}
+	return
+}
+
+// ManifestIDs returns the "manifest" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ManifestID instead. It exists only for internal usage by the builders.
+func (m *ManifestLayerMutation) ManifestIDs() (ids []int) {
+	if id := m.manifest; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetManifest resets all changes to the "manifest" edge.
+func (m *ManifestLayerMutation) ResetManifest() {
+	m.manifest = nil
+	m.clearedmanifest = false
+}
+
+// Where appends a list predicates to the ManifestLayerMutation builder.
+func (m *ManifestLayerMutation) Where(ps ...predicate.ManifestLayer) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ManifestLayerMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ManifestLayerMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ManifestLayer, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ManifestLayerMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ManifestLayerMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ManifestLayer).
+func (m *ManifestLayerMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ManifestLayerMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.media_type != nil {
+		fields = append(fields, manifestlayer.FieldMediaType)
+	}
+	if m.digest != nil {
+		fields = append(fields, manifestlayer.FieldDigest)
+	}
+	if m.size != nil {
+		fields = append(fields, manifestlayer.FieldSize)
+	}
+	if m.annotations != nil {
+		fields = append(fields, manifestlayer.FieldAnnotations)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ManifestLayerMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case manifestlayer.FieldMediaType:
+		return m.MediaType()
+	case manifestlayer.FieldDigest:
+		return m.Digest()
+	case manifestlayer.FieldSize:
+		return m.Size()
+	case manifestlayer.FieldAnnotations:
+		return m.Annotations()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ManifestLayerMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case manifestlayer.FieldMediaType:
+		return m.OldMediaType(ctx)
+	case manifestlayer.FieldDigest:
+		return m.OldDigest(ctx)
+	case manifestlayer.FieldSize:
+		return m.OldSize(ctx)
+	case manifestlayer.FieldAnnotations:
+		return m.OldAnnotations(ctx)
+	}
+	return nil, fmt.Errorf("unknown ManifestLayer field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ManifestLayerMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case manifestlayer.FieldMediaType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMediaType(v)
+		return nil
+	case manifestlayer.FieldDigest:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDigest(v)
+		return nil
+	case manifestlayer.FieldSize:
+		v, ok := value.(int32)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSize(v)
+		return nil
+	case manifestlayer.FieldAnnotations:
+		v, ok := value.(map[string]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAnnotations(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ManifestLayer field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ManifestLayerMutation) AddedFields() []string {
+	var fields []string
+	if m.addsize != nil {
+		fields = append(fields, manifestlayer.FieldSize)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ManifestLayerMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case manifestlayer.FieldSize:
+		return m.AddedSize()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ManifestLayerMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case manifestlayer.FieldSize:
+		v, ok := value.(int32)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSize(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ManifestLayer numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ManifestLayerMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ManifestLayerMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ManifestLayerMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown ManifestLayer nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ManifestLayerMutation) ResetField(name string) error {
+	switch name {
+	case manifestlayer.FieldMediaType:
+		m.ResetMediaType()
+		return nil
+	case manifestlayer.FieldDigest:
+		m.ResetDigest()
+		return nil
+	case manifestlayer.FieldSize:
+		m.ResetSize()
+		return nil
+	case manifestlayer.FieldAnnotations:
+		m.ResetAnnotations()
+		return nil
+	}
+	return fmt.Errorf("unknown ManifestLayer field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ManifestLayerMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.manifest != nil {
+		edges = append(edges, manifestlayer.EdgeManifest)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ManifestLayerMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case manifestlayer.EdgeManifest:
+		if id := m.manifest; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ManifestLayerMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ManifestLayerMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ManifestLayerMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedmanifest {
+		edges = append(edges, manifestlayer.EdgeManifest)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ManifestLayerMutation) EdgeCleared(name string) bool {
+	switch name {
+	case manifestlayer.EdgeManifest:
+		return m.clearedmanifest
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ManifestLayerMutation) ClearEdge(name string) error {
+	switch name {
+	case manifestlayer.EdgeManifest:
+		m.ClearManifest()
+		return nil
+	}
+	return fmt.Errorf("unknown ManifestLayer unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ManifestLayerMutation) ResetEdge(name string) error {
+	switch name {
+	case manifestlayer.EdgeManifest:
+		m.ResetManifest()
+		return nil
+	}
+	return fmt.Errorf("unknown ManifestLayer edge %s", name)
 }
 
 // ManifestTagReferenceMutation represents an operation that mutates the ManifestTagReference nodes in the graph.

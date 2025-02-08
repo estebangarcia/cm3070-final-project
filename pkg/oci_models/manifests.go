@@ -3,11 +3,12 @@ package oci_models
 type OCIV1Annotations map[string]string
 
 type OCIV1ManifestBlobRef struct {
-	MediaType           string  `json:"mediaType"`
-	Digest              string  `json:"digest"`
-	Size                int     `json:"size"`
-	Data                *string `json:"data,omitempty"`
-	NewUnspecifiedField *string `json:"newUnspecifiedField,omitempty"`
+	MediaType           string           `json:"mediaType"`
+	Digest              string           `json:"digest"`
+	Size                int              `json:"size"`
+	Data                *string          `json:"data,omitempty"`
+	Annotations         OCIV1Annotations `json:"annotations,omitempty"`
+	NewUnspecifiedField *string          `json:"newUnspecifiedField,omitempty"`
 }
 
 type OCIV1Manifest struct {

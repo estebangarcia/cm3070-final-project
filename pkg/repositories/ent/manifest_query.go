@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifest"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifestlayer"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
@@ -21,15 +22,16 @@ import (
 // ManifestQuery is the builder for querying Manifest entities.
 type ManifestQuery struct {
 	config
-	ctx            *QueryContext
-	order          []manifest.OrderOption
-	inters         []Interceptor
-	predicates     []predicate.Manifest
-	withTags       *ManifestTagReferenceQuery
-	withRepository *RepositoryQuery
-	withSubject    *ManifestQuery
-	withReferer    *ManifestQuery
-	withFKs        bool
+	ctx                *QueryContext
+	order              []manifest.OrderOption
+	inters             []Interceptor
+	predicates         []predicate.Manifest
+	withTags           *ManifestTagReferenceQuery
+	withRepository     *RepositoryQuery
+	withSubject        *ManifestQuery
+	withReferer        *ManifestQuery
+	withManifestLayers *ManifestLayerQuery
+	withFKs            bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -147,6 +149,28 @@ func (mq *ManifestQuery) QueryReferer() *ManifestQuery {
 			sqlgraph.From(manifest.Table, manifest.FieldID, selector),
 			sqlgraph.To(manifest.Table, manifest.FieldID),
 			sqlgraph.Edge(sqlgraph.M2M, true, manifest.RefererTable, manifest.RefererPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(mq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryManifestLayers chains the current query on the "manifest_layers" edge.
+func (mq *ManifestQuery) QueryManifestLayers() *ManifestLayerQuery {
+	query := (&ManifestLayerClient{config: mq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := mq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := mq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(manifest.Table, manifest.FieldID, selector),
+			sqlgraph.To(manifestlayer.Table, manifestlayer.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, manifest.ManifestLayersTable, manifest.ManifestLayersColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(mq.driver.Dialect(), step)
 		return fromU, nil
@@ -341,15 +365,16 @@ func (mq *ManifestQuery) Clone() *ManifestQuery {
 		return nil
 	}
 	return &ManifestQuery{
-		config:         mq.config,
-		ctx:            mq.ctx.Clone(),
-		order:          append([]manifest.OrderOption{}, mq.order...),
-		inters:         append([]Interceptor{}, mq.inters...),
-		predicates:     append([]predicate.Manifest{}, mq.predicates...),
-		withTags:       mq.withTags.Clone(),
-		withRepository: mq.withRepository.Clone(),
-		withSubject:    mq.withSubject.Clone(),
-		withReferer:    mq.withReferer.Clone(),
+		config:             mq.config,
+		ctx:                mq.ctx.Clone(),
+		order:              append([]manifest.OrderOption{}, mq.order...),
+		inters:             append([]Interceptor{}, mq.inters...),
+		predicates:         append([]predicate.Manifest{}, mq.predicates...),
+		withTags:           mq.withTags.Clone(),
+		withRepository:     mq.withRepository.Clone(),
+		withSubject:        mq.withSubject.Clone(),
+		withReferer:        mq.withReferer.Clone(),
+		withManifestLayers: mq.withManifestLayers.Clone(),
 		// clone intermediate query.
 		sql:  mq.sql.Clone(),
 		path: mq.path,
@@ -397,6 +422,17 @@ func (mq *ManifestQuery) WithReferer(opts ...func(*ManifestQuery)) *ManifestQuer
 		opt(query)
 	}
 	mq.withReferer = query
+	return mq
+}
+
+// WithManifestLayers tells the query-builder to eager-load the nodes that are connected to
+// the "manifest_layers" edge. The optional arguments are used to configure the query builder of the edge.
+func (mq *ManifestQuery) WithManifestLayers(opts ...func(*ManifestLayerQuery)) *ManifestQuery {
+	query := (&ManifestLayerClient{config: mq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	mq.withManifestLayers = query
 	return mq
 }
 
@@ -479,11 +515,12 @@ func (mq *ManifestQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Man
 		nodes       = []*Manifest{}
 		withFKs     = mq.withFKs
 		_spec       = mq.querySpec()
-		loadedTypes = [4]bool{
+		loadedTypes = [5]bool{
 			mq.withTags != nil,
 			mq.withRepository != nil,
 			mq.withSubject != nil,
 			mq.withReferer != nil,
+			mq.withManifestLayers != nil,
 		}
 	)
 	if mq.withRepository != nil {
@@ -534,6 +571,13 @@ func (mq *ManifestQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Man
 		if err := mq.loadReferer(ctx, query, nodes,
 			func(n *Manifest) { n.Edges.Referer = []*Manifest{} },
 			func(n *Manifest, e *Manifest) { n.Edges.Referer = append(n.Edges.Referer, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := mq.withManifestLayers; query != nil {
+		if err := mq.loadManifestLayers(ctx, query, nodes,
+			func(n *Manifest) { n.Edges.ManifestLayers = []*ManifestLayer{} },
+			func(n *Manifest, e *ManifestLayer) { n.Edges.ManifestLayers = append(n.Edges.ManifestLayers, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -722,6 +766,37 @@ func (mq *ManifestQuery) loadReferer(ctx context.Context, query *ManifestQuery, 
 		for kn := range nodes {
 			assign(kn, n)
 		}
+	}
+	return nil
+}
+func (mq *ManifestQuery) loadManifestLayers(ctx context.Context, query *ManifestLayerQuery, nodes []*Manifest, init func(*Manifest), assign func(*Manifest, *ManifestLayer)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Manifest)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.ManifestLayer(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(manifest.ManifestLayersColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.manifest_manifest_layers
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "manifest_manifest_layers" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "manifest_manifest_layers" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

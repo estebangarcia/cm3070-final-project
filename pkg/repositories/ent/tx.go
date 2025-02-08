@@ -16,6 +16,8 @@ type Tx struct {
 	BlobChunk *BlobChunkClient
 	// Manifest is the client for interacting with the Manifest builders.
 	Manifest *ManifestClient
+	// ManifestLayer is the client for interacting with the ManifestLayer builders.
+	ManifestLayer *ManifestLayerClient
 	// ManifestTagReference is the client for interacting with the ManifestTagReference builders.
 	ManifestTagReference *ManifestTagReferenceClient
 	// Organization is the client for interacting with the Organization builders.
@@ -161,6 +163,7 @@ func (tx *Tx) Client() *Client {
 func (tx *Tx) init() {
 	tx.BlobChunk = NewBlobChunkClient(tx.config)
 	tx.Manifest = NewManifestClient(tx.config)
+	tx.ManifestLayer = NewManifestLayerClient(tx.config)
 	tx.ManifestTagReference = NewManifestTagReferenceClient(tx.config)
 	tx.Organization = NewOrganizationClient(tx.config)
 	tx.OrganizationMembership = NewOrganizationMembershipClient(tx.config)

@@ -42,9 +42,11 @@ type ManifestEdges struct {
 	Subject []*Manifest `json:"subject,omitempty"`
 	// Referer holds the value of the referer edge.
 	Referer []*Manifest `json:"referer,omitempty"`
+	// ManifestLayers holds the value of the manifest_layers edge.
+	ManifestLayers []*ManifestLayer `json:"manifest_layers,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [5]bool
 }
 
 // TagsOrErr returns the Tags value or an error if the edge
@@ -83,6 +85,15 @@ func (e ManifestEdges) RefererOrErr() ([]*Manifest, error) {
 		return e.Referer, nil
 	}
 	return nil, &NotLoadedError{edge: "referer"}
+}
+
+// ManifestLayersOrErr returns the ManifestLayers value or an error if the edge
+// was not loaded in eager-loading.
+func (e ManifestEdges) ManifestLayersOrErr() ([]*ManifestLayer, error) {
+	if e.loadedTypes[4] {
+		return e.ManifestLayers, nil
+	}
+	return nil, &NotLoadedError{edge: "manifest_layers"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -179,6 +190,11 @@ func (m *Manifest) QuerySubject() *ManifestQuery {
 // QueryReferer queries the "referer" edge of the Manifest entity.
 func (m *Manifest) QueryReferer() *ManifestQuery {
 	return NewManifestClient(m.config).QueryReferer(m)
+}
+
+// QueryManifestLayers queries the "manifest_layers" edge of the Manifest entity.
+func (m *Manifest) QueryManifestLayers() *ManifestLayerQuery {
+	return NewManifestClient(m.config).QueryManifestLayers(m)
 }
 
 // Update returns a builder for updating this Manifest.

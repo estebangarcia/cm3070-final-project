@@ -7,9 +7,11 @@ import (
 	"errors"
 	"fmt"
 
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifest"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifestlayer"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
 )
@@ -19,6 +21,7 @@ type ManifestCreate struct {
 	config
 	mutation *ManifestMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetMediaType sets the "media_type" field.
@@ -117,6 +120,21 @@ func (mc *ManifestCreate) AddReferer(m ...*Manifest) *ManifestCreate {
 	return mc.AddRefererIDs(ids...)
 }
 
+// AddManifestLayerIDs adds the "manifest_layers" edge to the ManifestLayer entity by IDs.
+func (mc *ManifestCreate) AddManifestLayerIDs(ids ...int) *ManifestCreate {
+	mc.mutation.AddManifestLayerIDs(ids...)
+	return mc
+}
+
+// AddManifestLayers adds the "manifest_layers" edges to the ManifestLayer entity.
+func (mc *ManifestCreate) AddManifestLayers(m ...*ManifestLayer) *ManifestCreate {
+	ids := make([]int, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return mc.AddManifestLayerIDs(ids...)
+}
+
 // Mutation returns the ManifestMutation object of the builder.
 func (mc *ManifestCreate) Mutation() *ManifestMutation {
 	return mc.mutation
@@ -186,6 +204,7 @@ func (mc *ManifestCreate) createSpec() (*Manifest, *sqlgraph.CreateSpec) {
 		_node = &Manifest{config: mc.config}
 		_spec = sqlgraph.NewCreateSpec(manifest.Table, sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt))
 	)
+	_spec.OnConflict = mc.conflict
 	if value, ok := mc.mutation.MediaType(); ok {
 		_spec.SetField(manifest.FieldMediaType, field.TypeString, value)
 		_node.MediaType = value
@@ -267,7 +286,262 @@ func (mc *ManifestCreate) createSpec() (*Manifest, *sqlgraph.CreateSpec) {
 		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
+	if nodes := mc.mutation.ManifestLayersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   manifest.ManifestLayersTable,
+			Columns: []string{manifest.ManifestLayersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifestlayer.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	return _node, _spec
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.Manifest.Create().
+//		SetMediaType(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.ManifestUpsert) {
+//			SetMediaType(v+v).
+//		}).
+//		Exec(ctx)
+func (mc *ManifestCreate) OnConflict(opts ...sql.ConflictOption) *ManifestUpsertOne {
+	mc.conflict = opts
+	return &ManifestUpsertOne{
+		create: mc,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.Manifest.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (mc *ManifestCreate) OnConflictColumns(columns ...string) *ManifestUpsertOne {
+	mc.conflict = append(mc.conflict, sql.ConflictColumns(columns...))
+	return &ManifestUpsertOne{
+		create: mc,
+	}
+}
+
+type (
+	// ManifestUpsertOne is the builder for "upsert"-ing
+	//  one Manifest node.
+	ManifestUpsertOne struct {
+		create *ManifestCreate
+	}
+
+	// ManifestUpsert is the "OnConflict" setter.
+	ManifestUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetMediaType sets the "media_type" field.
+func (u *ManifestUpsert) SetMediaType(v string) *ManifestUpsert {
+	u.Set(manifest.FieldMediaType, v)
+	return u
+}
+
+// UpdateMediaType sets the "media_type" field to the value that was provided on create.
+func (u *ManifestUpsert) UpdateMediaType() *ManifestUpsert {
+	u.SetExcluded(manifest.FieldMediaType)
+	return u
+}
+
+// SetArtifactType sets the "artifact_type" field.
+func (u *ManifestUpsert) SetArtifactType(v string) *ManifestUpsert {
+	u.Set(manifest.FieldArtifactType, v)
+	return u
+}
+
+// UpdateArtifactType sets the "artifact_type" field to the value that was provided on create.
+func (u *ManifestUpsert) UpdateArtifactType() *ManifestUpsert {
+	u.SetExcluded(manifest.FieldArtifactType)
+	return u
+}
+
+// ClearArtifactType clears the value of the "artifact_type" field.
+func (u *ManifestUpsert) ClearArtifactType() *ManifestUpsert {
+	u.SetNull(manifest.FieldArtifactType)
+	return u
+}
+
+// SetS3Path sets the "s3_path" field.
+func (u *ManifestUpsert) SetS3Path(v string) *ManifestUpsert {
+	u.Set(manifest.FieldS3Path, v)
+	return u
+}
+
+// UpdateS3Path sets the "s3_path" field to the value that was provided on create.
+func (u *ManifestUpsert) UpdateS3Path() *ManifestUpsert {
+	u.SetExcluded(manifest.FieldS3Path)
+	return u
+}
+
+// SetDigest sets the "digest" field.
+func (u *ManifestUpsert) SetDigest(v string) *ManifestUpsert {
+	u.Set(manifest.FieldDigest, v)
+	return u
+}
+
+// UpdateDigest sets the "digest" field to the value that was provided on create.
+func (u *ManifestUpsert) UpdateDigest() *ManifestUpsert {
+	u.SetExcluded(manifest.FieldDigest)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create.
+// Using this option is equivalent to using:
+//
+//	client.Manifest.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//		).
+//		Exec(ctx)
+func (u *ManifestUpsertOne) UpdateNewValues() *ManifestUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.Manifest.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *ManifestUpsertOne) Ignore() *ManifestUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *ManifestUpsertOne) DoNothing() *ManifestUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the ManifestCreate.OnConflict
+// documentation for more info.
+func (u *ManifestUpsertOne) Update(set func(*ManifestUpsert)) *ManifestUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&ManifestUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetMediaType sets the "media_type" field.
+func (u *ManifestUpsertOne) SetMediaType(v string) *ManifestUpsertOne {
+	return u.Update(func(s *ManifestUpsert) {
+		s.SetMediaType(v)
+	})
+}
+
+// UpdateMediaType sets the "media_type" field to the value that was provided on create.
+func (u *ManifestUpsertOne) UpdateMediaType() *ManifestUpsertOne {
+	return u.Update(func(s *ManifestUpsert) {
+		s.UpdateMediaType()
+	})
+}
+
+// SetArtifactType sets the "artifact_type" field.
+func (u *ManifestUpsertOne) SetArtifactType(v string) *ManifestUpsertOne {
+	return u.Update(func(s *ManifestUpsert) {
+		s.SetArtifactType(v)
+	})
+}
+
+// UpdateArtifactType sets the "artifact_type" field to the value that was provided on create.
+func (u *ManifestUpsertOne) UpdateArtifactType() *ManifestUpsertOne {
+	return u.Update(func(s *ManifestUpsert) {
+		s.UpdateArtifactType()
+	})
+}
+
+// ClearArtifactType clears the value of the "artifact_type" field.
+func (u *ManifestUpsertOne) ClearArtifactType() *ManifestUpsertOne {
+	return u.Update(func(s *ManifestUpsert) {
+		s.ClearArtifactType()
+	})
+}
+
+// SetS3Path sets the "s3_path" field.
+func (u *ManifestUpsertOne) SetS3Path(v string) *ManifestUpsertOne {
+	return u.Update(func(s *ManifestUpsert) {
+		s.SetS3Path(v)
+	})
+}
+
+// UpdateS3Path sets the "s3_path" field to the value that was provided on create.
+func (u *ManifestUpsertOne) UpdateS3Path() *ManifestUpsertOne {
+	return u.Update(func(s *ManifestUpsert) {
+		s.UpdateS3Path()
+	})
+}
+
+// SetDigest sets the "digest" field.
+func (u *ManifestUpsertOne) SetDigest(v string) *ManifestUpsertOne {
+	return u.Update(func(s *ManifestUpsert) {
+		s.SetDigest(v)
+	})
+}
+
+// UpdateDigest sets the "digest" field to the value that was provided on create.
+func (u *ManifestUpsertOne) UpdateDigest() *ManifestUpsertOne {
+	return u.Update(func(s *ManifestUpsert) {
+		s.UpdateDigest()
+	})
+}
+
+// Exec executes the query.
+func (u *ManifestUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for ManifestCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *ManifestUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *ManifestUpsertOne) ID(ctx context.Context) (id int, err error) {
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *ManifestUpsertOne) IDX(ctx context.Context) int {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
 }
 
 // ManifestCreateBulk is the builder for creating many Manifest entities in bulk.
@@ -275,6 +549,7 @@ type ManifestCreateBulk struct {
 	config
 	err      error
 	builders []*ManifestCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the Manifest entities in the database.
@@ -303,6 +578,7 @@ func (mcb *ManifestCreateBulk) Save(ctx context.Context) ([]*Manifest, error) {
 					_, err = mutators[i+1].Mutate(root, mcb.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = mcb.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, mcb.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -353,6 +629,173 @@ func (mcb *ManifestCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (mcb *ManifestCreateBulk) ExecX(ctx context.Context) {
 	if err := mcb.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.Manifest.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.ManifestUpsert) {
+//			SetMediaType(v+v).
+//		}).
+//		Exec(ctx)
+func (mcb *ManifestCreateBulk) OnConflict(opts ...sql.ConflictOption) *ManifestUpsertBulk {
+	mcb.conflict = opts
+	return &ManifestUpsertBulk{
+		create: mcb,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.Manifest.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (mcb *ManifestCreateBulk) OnConflictColumns(columns ...string) *ManifestUpsertBulk {
+	mcb.conflict = append(mcb.conflict, sql.ConflictColumns(columns...))
+	return &ManifestUpsertBulk{
+		create: mcb,
+	}
+}
+
+// ManifestUpsertBulk is the builder for "upsert"-ing
+// a bulk of Manifest nodes.
+type ManifestUpsertBulk struct {
+	create *ManifestCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.Manifest.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//		).
+//		Exec(ctx)
+func (u *ManifestUpsertBulk) UpdateNewValues() *ManifestUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.Manifest.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *ManifestUpsertBulk) Ignore() *ManifestUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *ManifestUpsertBulk) DoNothing() *ManifestUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the ManifestCreateBulk.OnConflict
+// documentation for more info.
+func (u *ManifestUpsertBulk) Update(set func(*ManifestUpsert)) *ManifestUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&ManifestUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetMediaType sets the "media_type" field.
+func (u *ManifestUpsertBulk) SetMediaType(v string) *ManifestUpsertBulk {
+	return u.Update(func(s *ManifestUpsert) {
+		s.SetMediaType(v)
+	})
+}
+
+// UpdateMediaType sets the "media_type" field to the value that was provided on create.
+func (u *ManifestUpsertBulk) UpdateMediaType() *ManifestUpsertBulk {
+	return u.Update(func(s *ManifestUpsert) {
+		s.UpdateMediaType()
+	})
+}
+
+// SetArtifactType sets the "artifact_type" field.
+func (u *ManifestUpsertBulk) SetArtifactType(v string) *ManifestUpsertBulk {
+	return u.Update(func(s *ManifestUpsert) {
+		s.SetArtifactType(v)
+	})
+}
+
+// UpdateArtifactType sets the "artifact_type" field to the value that was provided on create.
+func (u *ManifestUpsertBulk) UpdateArtifactType() *ManifestUpsertBulk {
+	return u.Update(func(s *ManifestUpsert) {
+		s.UpdateArtifactType()
+	})
+}
+
+// ClearArtifactType clears the value of the "artifact_type" field.
+func (u *ManifestUpsertBulk) ClearArtifactType() *ManifestUpsertBulk {
+	return u.Update(func(s *ManifestUpsert) {
+		s.ClearArtifactType()
+	})
+}
+
+// SetS3Path sets the "s3_path" field.
+func (u *ManifestUpsertBulk) SetS3Path(v string) *ManifestUpsertBulk {
+	return u.Update(func(s *ManifestUpsert) {
+		s.SetS3Path(v)
+	})
+}
+
+// UpdateS3Path sets the "s3_path" field to the value that was provided on create.
+func (u *ManifestUpsertBulk) UpdateS3Path() *ManifestUpsertBulk {
+	return u.Update(func(s *ManifestUpsert) {
+		s.UpdateS3Path()
+	})
+}
+
+// SetDigest sets the "digest" field.
+func (u *ManifestUpsertBulk) SetDigest(v string) *ManifestUpsertBulk {
+	return u.Update(func(s *ManifestUpsert) {
+		s.SetDigest(v)
+	})
+}
+
+// UpdateDigest sets the "digest" field to the value that was provided on create.
+func (u *ManifestUpsertBulk) UpdateDigest() *ManifestUpsertBulk {
+	return u.Update(func(s *ManifestUpsert) {
+		s.UpdateDigest()
+	})
+}
+
+// Exec executes the query.
+func (u *ManifestUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the ManifestCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for ManifestCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *ManifestUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

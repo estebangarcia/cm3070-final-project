@@ -28,6 +28,8 @@ const (
 	EdgeSubject = "subject"
 	// EdgeReferer holds the string denoting the referer edge name in mutations.
 	EdgeReferer = "referer"
+	// EdgeManifestLayers holds the string denoting the manifest_layers edge name in mutations.
+	EdgeManifestLayers = "manifest_layers"
 	// Table holds the table name of the manifest in the database.
 	Table = "manifests"
 	// TagsTable is the table that holds the tags relation/edge.
@@ -48,6 +50,13 @@ const (
 	SubjectTable = "manifest_subject"
 	// RefererTable is the table that holds the referer relation/edge. The primary key declared below.
 	RefererTable = "manifest_subject"
+	// ManifestLayersTable is the table that holds the manifest_layers relation/edge.
+	ManifestLayersTable = "manifest_layers"
+	// ManifestLayersInverseTable is the table name for the ManifestLayer entity.
+	// It exists in this package in order to avoid circular dependency with the "manifestlayer" package.
+	ManifestLayersInverseTable = "manifest_layers"
+	// ManifestLayersColumn is the table column denoting the manifest_layers relation/edge.
+	ManifestLayersColumn = "manifest_manifest_layers"
 )
 
 // Columns holds all SQL columns for manifest fields.
@@ -165,6 +174,20 @@ func ByReferer(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newRefererStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByManifestLayersCount orders the results by manifest_layers count.
+func ByManifestLayersCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newManifestLayersStep(), opts...)
+	}
+}
+
+// ByManifestLayers orders the results by manifest_layers terms.
+func ByManifestLayers(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newManifestLayersStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newTagsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -191,5 +214,12 @@ func newRefererStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(Table, FieldID),
 		sqlgraph.Edge(sqlgraph.M2M, true, RefererTable, RefererPrimaryKey...),
+	)
+}
+func newManifestLayersStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ManifestLayersInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ManifestLayersTable, ManifestLayersColumn),
 	)
 }

@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifest"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifestlayer"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
@@ -155,6 +156,21 @@ func (mu *ManifestUpdate) AddReferer(m ...*Manifest) *ManifestUpdate {
 	return mu.AddRefererIDs(ids...)
 }
 
+// AddManifestLayerIDs adds the "manifest_layers" edge to the ManifestLayer entity by IDs.
+func (mu *ManifestUpdate) AddManifestLayerIDs(ids ...int) *ManifestUpdate {
+	mu.mutation.AddManifestLayerIDs(ids...)
+	return mu
+}
+
+// AddManifestLayers adds the "manifest_layers" edges to the ManifestLayer entity.
+func (mu *ManifestUpdate) AddManifestLayers(m ...*ManifestLayer) *ManifestUpdate {
+	ids := make([]int, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return mu.AddManifestLayerIDs(ids...)
+}
+
 // Mutation returns the ManifestMutation object of the builder.
 func (mu *ManifestUpdate) Mutation() *ManifestMutation {
 	return mu.mutation
@@ -227,6 +243,27 @@ func (mu *ManifestUpdate) RemoveReferer(m ...*Manifest) *ManifestUpdate {
 		ids[i] = m[i].ID
 	}
 	return mu.RemoveRefererIDs(ids...)
+}
+
+// ClearManifestLayers clears all "manifest_layers" edges to the ManifestLayer entity.
+func (mu *ManifestUpdate) ClearManifestLayers() *ManifestUpdate {
+	mu.mutation.ClearManifestLayers()
+	return mu
+}
+
+// RemoveManifestLayerIDs removes the "manifest_layers" edge to ManifestLayer entities by IDs.
+func (mu *ManifestUpdate) RemoveManifestLayerIDs(ids ...int) *ManifestUpdate {
+	mu.mutation.RemoveManifestLayerIDs(ids...)
+	return mu
+}
+
+// RemoveManifestLayers removes "manifest_layers" edges to ManifestLayer entities.
+func (mu *ManifestUpdate) RemoveManifestLayers(m ...*ManifestLayer) *ManifestUpdate {
+	ids := make([]int, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return mu.RemoveManifestLayerIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -444,6 +481,51 @@ func (mu *ManifestUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if mu.mutation.ManifestLayersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   manifest.ManifestLayersTable,
+			Columns: []string{manifest.ManifestLayersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifestlayer.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mu.mutation.RemovedManifestLayersIDs(); len(nodes) > 0 && !mu.mutation.ManifestLayersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   manifest.ManifestLayersTable,
+			Columns: []string{manifest.ManifestLayersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifestlayer.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mu.mutation.ManifestLayersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   manifest.ManifestLayersTable,
+			Columns: []string{manifest.ManifestLayersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifestlayer.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, mu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{manifest.Label}
@@ -590,6 +672,21 @@ func (muo *ManifestUpdateOne) AddReferer(m ...*Manifest) *ManifestUpdateOne {
 	return muo.AddRefererIDs(ids...)
 }
 
+// AddManifestLayerIDs adds the "manifest_layers" edge to the ManifestLayer entity by IDs.
+func (muo *ManifestUpdateOne) AddManifestLayerIDs(ids ...int) *ManifestUpdateOne {
+	muo.mutation.AddManifestLayerIDs(ids...)
+	return muo
+}
+
+// AddManifestLayers adds the "manifest_layers" edges to the ManifestLayer entity.
+func (muo *ManifestUpdateOne) AddManifestLayers(m ...*ManifestLayer) *ManifestUpdateOne {
+	ids := make([]int, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return muo.AddManifestLayerIDs(ids...)
+}
+
 // Mutation returns the ManifestMutation object of the builder.
 func (muo *ManifestUpdateOne) Mutation() *ManifestMutation {
 	return muo.mutation
@@ -662,6 +759,27 @@ func (muo *ManifestUpdateOne) RemoveReferer(m ...*Manifest) *ManifestUpdateOne {
 		ids[i] = m[i].ID
 	}
 	return muo.RemoveRefererIDs(ids...)
+}
+
+// ClearManifestLayers clears all "manifest_layers" edges to the ManifestLayer entity.
+func (muo *ManifestUpdateOne) ClearManifestLayers() *ManifestUpdateOne {
+	muo.mutation.ClearManifestLayers()
+	return muo
+}
+
+// RemoveManifestLayerIDs removes the "manifest_layers" edge to ManifestLayer entities by IDs.
+func (muo *ManifestUpdateOne) RemoveManifestLayerIDs(ids ...int) *ManifestUpdateOne {
+	muo.mutation.RemoveManifestLayerIDs(ids...)
+	return muo
+}
+
+// RemoveManifestLayers removes "manifest_layers" edges to ManifestLayer entities.
+func (muo *ManifestUpdateOne) RemoveManifestLayers(m ...*ManifestLayer) *ManifestUpdateOne {
+	ids := make([]int, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return muo.RemoveManifestLayerIDs(ids...)
 }
 
 // Where appends a list predicates to the ManifestUpdate builder.
@@ -902,6 +1020,51 @@ func (muo *ManifestUpdateOne) sqlSave(ctx context.Context) (_node *Manifest, err
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(manifest.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if muo.mutation.ManifestLayersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   manifest.ManifestLayersTable,
+			Columns: []string{manifest.ManifestLayersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifestlayer.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := muo.mutation.RemovedManifestLayersIDs(); len(nodes) > 0 && !muo.mutation.ManifestLayersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   manifest.ManifestLayersTable,
+			Columns: []string{manifest.ManifestLayersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifestlayer.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := muo.mutation.ManifestLayersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   manifest.ManifestLayersTable,
+			Columns: []string{manifest.ManifestLayersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(manifestlayer.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

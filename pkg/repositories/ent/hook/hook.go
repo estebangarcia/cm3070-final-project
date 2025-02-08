@@ -33,6 +33,18 @@ func (f ManifestFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, er
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ManifestMutation", m)
 }
 
+// The ManifestLayerFunc type is an adapter to allow the use of ordinary
+// function as ManifestLayer mutator.
+type ManifestLayerFunc func(context.Context, *ent.ManifestLayerMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ManifestLayerFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ManifestLayerMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ManifestLayerMutation", m)
+}
+
 // The ManifestTagReferenceFunc type is an adapter to allow the use of ordinary
 // function as ManifestTagReference mutator.
 type ManifestTagReferenceFunc func(context.Context, *ent.ManifestTagReferenceMutation) (ent.Value, error)

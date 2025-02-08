@@ -28,6 +28,7 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 
 	r.Use(chiMiddleware.Logger)
 	r.Use(chiMiddleware.Recoverer)
+	r.Use(chiMiddleware.StripSlashes)
 
 	/* DB Repositories */
 	blobChunkRepository := repositories.NewBlobChunkRepository(dbClient)
@@ -60,15 +61,15 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 		OrganizationRepository: organizationsRepository,
 		RegistryRepository:     registryRepository,
 	}
-	extractBasicAuthMiddleware := middleware.ExtractBasicCredentialsMiddleware{}
+	extractBasicAuthMiddleware := middleware.ExtractBasicCredentialsMiddleware{
+		Config:        &cfg,
+		CognitoClient: helpers.GetCognitoClient(ctx, cfg),
+	}
 
 	/* HTTP Handlers */
 	healthHandler := HealthHandler{}
 
-	v2LoginHandler := V2LoginHandler{
-		Config:        &cfg,
-		CognitoClient: helpers.GetCognitoClient(ctx, cfg),
-	}
+	v2LoginHandler := V2LoginHandler{}
 
 	v2PingHandler := V2PingHandler{}
 
@@ -112,7 +113,22 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 		RepositoryRepository: repositoryRepository,
 	}
 
+	pythonHandler := PythonHandler{
+		Config:               &cfg,
+		ManifestRepository:   manifestRepository,
+		RepositoryRepository: repositoryRepository,
+	}
+
 	r.Get("/api/v1/health", healthHandler.GetHealth)
+
+	r.Route("/api/v1/{organizationSlug:[a-z0-9-]+}/{registrySlug:[a-z0-9-]+}/python", func(pythonApiV1 chi.Router) {
+		pythonApiV1.Use(extractBasicAuthMiddleware.Validate)
+		pythonApiV1.Use(jwtAuthMiddleware.Validate)
+		pythonApiV1.Use(orgMiddleware.ValidateOrgAndRegistry)
+		pythonApiV1.Post("/", pythonHandler.UploadPythonPackage)
+		pythonApiV1.Get("/simple/{packageName}", pythonHandler.SimpleRepositoryIndex)
+		pythonApiV1.Get("/simple/{packageName}/{fileName}", pythonHandler.DownloadPackage)
+	})
 
 	r.Route("/api/v1", func(authenticatedApiV1 chi.Router) {
 		authenticatedApiV1.Use(jwtAuthMiddleware.Validate)

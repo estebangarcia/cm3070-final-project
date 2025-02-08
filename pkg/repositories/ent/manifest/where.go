@@ -435,6 +435,29 @@ func HasRefererWith(preds ...predicate.Manifest) predicate.Manifest {
 	})
 }
 
+// HasManifestLayers applies the HasEdge predicate on the "manifest_layers" edge.
+func HasManifestLayers() predicate.Manifest {
+	return predicate.Manifest(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ManifestLayersTable, ManifestLayersColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasManifestLayersWith applies the HasEdge predicate on the "manifest_layers" edge with a given conditions (other predicates).
+func HasManifestLayersWith(preds ...predicate.ManifestLayer) predicate.Manifest {
+	return predicate.Manifest(func(s *sql.Selector) {
+		step := newManifestLayersStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Manifest) predicate.Manifest {
 	return predicate.Manifest(sql.AndPredicates(predicates...))
