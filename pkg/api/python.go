@@ -3,6 +3,7 @@ package api
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -34,9 +35,11 @@ const (
 )
 
 type PythonPackage struct {
-	FileName    string
-	DownloadURL string
-	Digest      string
+	FileName         string
+	DownloadURL      string
+	Digest           string
+	RequiresPython   string
+	MetadataChecksum string
 }
 
 type PythonHandler struct {
@@ -92,11 +95,21 @@ func (rh *PythonHandler) SimpleRepositoryIndex(w http.ResponseWriter, r *http.Re
 		digest, _ := strings.CutPrefix(whlFileLayer.Digest, "sha256:")
 		fileName := whlFileLayer.Annotations["org.opencontainers.image.title"]
 
-		packages = append(packages, PythonPackage{
+		pkg := PythonPackage{
 			FileName:    fileName,
 			DownloadURL: downloadPythonPackageURL(rh.Config.BaseURL, organization.Slug, registry.Slug, packageName, fileName),
 			Digest:      digest,
-		})
+		}
+
+		if requiresPython, ok := whlFileLayer.Annotations["Requires-Python"]; ok {
+			pkg.RequiresPython = requiresPython
+		}
+
+		if metadataChecksum, ok := whlFileLayer.Annotations["Metadata-SHA256-Checksum"]; ok {
+			pkg.MetadataChecksum = metadataChecksum
+		}
+
+		packages = append(packages, pkg)
 	}
 
 	html, err := rh.renderTemplate(packages)
@@ -268,6 +281,8 @@ func parseWheelMetadata(whlPath string) (map[string]string, error) {
 		return nil, err
 	}
 
+	metadataChecksum := fmt.Sprintf("%x", sha256.Sum256(buffer.Bytes()))
+
 	msg, err := mail.ReadMessage(&buffer)
 	if err != nil {
 		return nil, err
@@ -296,6 +311,8 @@ func parseWheelMetadata(whlPath string) (map[string]string, error) {
 	if len(msgString) > 0 {
 		metadata["Description"] = msgString
 	}
+
+	metadata["Metadata-SHA256-Checksum"] = metadataChecksum
 
 	return metadata, nil
 }

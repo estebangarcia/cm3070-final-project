@@ -2,7 +2,7 @@
 <html>
   <body>
     {{ range . }}
-    <a href="{{ .DownloadURL }}?digest={{ .Digest }}#sha256={{ .Digest }}">{{ .FileName }}</a>
+    <a href="{{ .DownloadURL }}?digest={{ .Digest }}#sha256={{ .Digest }}" {{ if .RequiresPython }}data-requires-python="{{ .RequiresPython }}"{{ end }} {{ if .MetadataChecksum }}data-dist-info-metadata="sha256={{.MetadataChecksum}}" data-core-metadata="sha256={{.MetadataChecksum}}"{{end}}>{{ .FileName }}</a>
     <br/>
     {{ end }}
   </body>
