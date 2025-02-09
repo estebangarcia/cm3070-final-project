@@ -351,7 +351,7 @@ func (h *V2BlobsHandler) handleStreamingUpload(ctx context.Context, body io.Read
 	partNumber := 0
 	fullBytesRead := 0
 
-	eg := errgroup.Group{}
+	eg, grpCtx := errgroup.WithContext(ctx)
 	eg.SetLimit(h.Config.BlobUploadMaxGoRoutines)
 
 	// Read file in chunks
@@ -362,7 +362,7 @@ func (h *V2BlobsHandler) handleStreamingUpload(ctx context.Context, body io.Read
 		if bytesRead > 0 {
 			partNumber++
 			eg.Go(func() error {
-				_, err := h.asyncPartUpload(ctx, keyName, buffer, bytesRead, partNumber, sessionId)
+				_, err := h.asyncPartUpload(grpCtx, keyName, buffer, bytesRead, partNumber, sessionId)
 				if err != nil {
 					return err
 				}
