@@ -119,6 +119,12 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 		ManifestRepository:   manifestRepository,
 	}
 
+	vulnerabilitiesHandler := VulnerabilitiesHandlers{
+		Config:               &cfg,
+		RepositoryRepository: repositoryRepository,
+		ManifestRepository:   manifestRepository,
+	}
+
 	pythonHandler := PythonHandler{
 		Config:               &cfg,
 		ManifestRepository:   manifestRepository,
@@ -156,6 +162,7 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 			repositoryScopedRoutes.Use(orgMiddleware.ValidateOrgAndRegistry)
 			repositoryScopedRoutes.Get("/", repositoriesHandler.GetRepositories)
 
+			apiCustomMux.Get(getRepositoryRegexRoute()+`\/artifacts\/(?P<digest>[\/\w:]+)/vulnerabilities`, vulnerabilitiesHandler.GetVulnerabilitiesForArtifact)
 			apiCustomMux.Get(getRepositoryRegexRoute()+`\/artifacts\/(?P<digest>[\/\w:]+)`, artifactsHandler.GetArtifactByDigest)
 			apiCustomMux.Get(getRepositoryRegexRoute()+`\/artifacts`, artifactsHandler.GetArtifactsForRepository)
 			apiCustomMux.Get(getRepositoryRegexRoute(), repositoriesHandler.GetRepository)

@@ -246,6 +246,7 @@ var (
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "vulnerability_id", Type: field.TypeString, Unique: true},
 		{Name: "vulnerability_url_details", Type: field.TypeString},
+		{Name: "package_name", Type: field.TypeString},
 		{Name: "installed_version", Type: field.TypeString},
 		{Name: "fixed_version", Type: field.TypeString},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"unknown", "not_affected", "affected", "fixed", "under_investigation", "will_not_fix", "fix_deferred", "end_of_life"}},

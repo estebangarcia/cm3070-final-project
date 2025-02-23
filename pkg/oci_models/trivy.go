@@ -9,6 +9,7 @@ type TrivyCVSS struct {
 
 type TrivyVulnerability struct {
 	VulnerabilityID  string               `json:"VulnerabilityID"`
+	PackageName      string               `json:"PkgName"`
 	PackageID        string               `json:"PkgID"`
 	InstalledVersion string               `json:"InstalledVersion"`
 	FixedVersion     string               `json:"FixedVersion"`

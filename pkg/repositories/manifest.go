@@ -11,6 +11,7 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
 	ent_repository "github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
+	ent_vulnerability "github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/vulnerability"
 )
 
 type ManifestRepository struct {
@@ -87,6 +88,17 @@ func (mr *ManifestRepository) GetManifestByReference(ctx context.Context, refere
 	}
 
 	return manifest, true, nil
+}
+
+func (mr *ManifestRepository) GetManifestVulnerabilitiesByReference(ctx context.Context, reference string, repository *ent.Repository) (ent.Vulnerabilities, error) {
+	return mr.dbClient.Vulnerability.Query().Where(
+		ent_vulnerability.HasManifestsWith(
+			ent_manifest.And(
+				mr.getTagOrReferencePredicate(reference),
+				ent_manifest.HasRepositoryWith(ent_repository.ID(repository.ID)),
+			),
+		),
+	).All(ctx)
 }
 
 func (mr *ManifestRepository) GetAllByTypeWithTags(ctx context.Context, artifactType string, repository *ent.Repository) ([]*ent.Manifest, error) {
@@ -204,6 +216,7 @@ func (mr *ManifestRepository) CreateVulnerabilitiesInBulkAndMarkAsScanned(ctx co
 
 	for _, vulnerability := range vulnerabilities {
 		err := tx.Vulnerability.Create().
+			SetPackageName(vulnerability.PackageName).
 			SetFixedVersion(vulnerability.FixedVersion).
 			SetInstalledVersion(vulnerability.InstalledVersion).
 			SetSeverity(vulnerability.Severity).

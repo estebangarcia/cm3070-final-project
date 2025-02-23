@@ -254,7 +254,7 @@ func (mc *ManifestCreate) createSpec() (*Manifest, *sqlgraph.CreateSpec) {
 	}
 	if value, ok := mc.mutation.ScannedAt(); ok {
 		_spec.SetField(manifest.FieldScannedAt, field.TypeTime, value)
-		_node.ScannedAt = value
+		_node.ScannedAt = &value
 	}
 	if nodes := mc.mutation.TagsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

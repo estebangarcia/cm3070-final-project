@@ -123,6 +123,7 @@ func (w *SecurityScannerWorker) Handle(ctx context.Context) error {
 			for _, results := range report.Results {
 				for _, rawVulnerability := range results.Vulnerabilities {
 					vulnerabilities = append(vulnerabilities, &ent.Vulnerability{
+						PackageName:             rawVulnerability.PackageName,
 						VulnerabilityID:         rawVulnerability.VulnerabilityID,
 						VulnerabilityURLDetails: rawVulnerability.PrimaryURL,
 						InstalledVersion:        rawVulnerability.InstalledVersion,

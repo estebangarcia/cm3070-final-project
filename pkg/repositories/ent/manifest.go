@@ -27,7 +27,7 @@ type Manifest struct {
 	// Digest holds the value of the "digest" field.
 	Digest string `json:"digest,omitempty"`
 	// ScannedAt holds the value of the "scanned_at" field.
-	ScannedAt time.Time `json:"scanned_at,omitempty"`
+	ScannedAt *time.Time `json:"scanned_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ManifestQuery when eager-loading is set.
 	Edges                ManifestEdges `json:"edges"`
@@ -172,7 +172,8 @@ func (m *Manifest) assignValues(columns []string, values []any) error {
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field scanned_at", values[i])
 			} else if value.Valid {
-				m.ScannedAt = value.Time
+				m.ScannedAt = new(time.Time)
+				*m.ScannedAt = value.Time
 			}
 		case manifest.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -259,8 +260,10 @@ func (m *Manifest) String() string {
 	builder.WriteString("digest=")
 	builder.WriteString(m.Digest)
 	builder.WriteString(", ")
-	builder.WriteString("scanned_at=")
-	builder.WriteString(m.ScannedAt.Format(time.ANSIC))
+	if v := m.ScannedAt; v != nil {
+		builder.WriteString("scanned_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

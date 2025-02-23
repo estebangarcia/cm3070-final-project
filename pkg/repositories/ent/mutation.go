@@ -995,7 +995,7 @@ func (m *ManifestMutation) ScannedAt() (r time.Time, exists bool) {
 // OldScannedAt returns the old "scanned_at" field's value of the Manifest entity.
 // If the Manifest object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ManifestMutation) OldScannedAt(ctx context.Context) (v time.Time, err error) {
+func (m *ManifestMutation) OldScannedAt(ctx context.Context) (v *time.Time, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldScannedAt is only allowed on UpdateOne operations")
 	}
@@ -5399,6 +5399,7 @@ type VulnerabilityMutation struct {
 	id                        *int
 	vulnerability_id          *string
 	vulnerability_url_details *string
+	package_name              *string
 	installed_version         *string
 	fixed_version             *string
 	status                    *vulnerability.Status
@@ -5582,6 +5583,42 @@ func (m *VulnerabilityMutation) OldVulnerabilityURLDetails(ctx context.Context) 
 // ResetVulnerabilityURLDetails resets all changes to the "vulnerability_url_details" field.
 func (m *VulnerabilityMutation) ResetVulnerabilityURLDetails() {
 	m.vulnerability_url_details = nil
+}
+
+// SetPackageName sets the "package_name" field.
+func (m *VulnerabilityMutation) SetPackageName(s string) {
+	m.package_name = &s
+}
+
+// PackageName returns the value of the "package_name" field in the mutation.
+func (m *VulnerabilityMutation) PackageName() (r string, exists bool) {
+	v := m.package_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPackageName returns the old "package_name" field's value of the Vulnerability entity.
+// If the Vulnerability object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VulnerabilityMutation) OldPackageName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPackageName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPackageName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPackageName: %w", err)
+	}
+	return oldValue.PackageName, nil
+}
+
+// ResetPackageName resets all changes to the "package_name" field.
+func (m *VulnerabilityMutation) ResetPackageName() {
+	m.package_name = nil
 }
 
 // SetInstalledVersion sets the "installed_version" field.
@@ -5888,12 +5925,15 @@ func (m *VulnerabilityMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *VulnerabilityMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 9)
 	if m.vulnerability_id != nil {
 		fields = append(fields, vulnerability.FieldVulnerabilityID)
 	}
 	if m.vulnerability_url_details != nil {
 		fields = append(fields, vulnerability.FieldVulnerabilityURLDetails)
+	}
+	if m.package_name != nil {
+		fields = append(fields, vulnerability.FieldPackageName)
 	}
 	if m.installed_version != nil {
 		fields = append(fields, vulnerability.FieldInstalledVersion)
@@ -5925,6 +5965,8 @@ func (m *VulnerabilityMutation) Field(name string) (ent.Value, bool) {
 		return m.VulnerabilityID()
 	case vulnerability.FieldVulnerabilityURLDetails:
 		return m.VulnerabilityURLDetails()
+	case vulnerability.FieldPackageName:
+		return m.PackageName()
 	case vulnerability.FieldInstalledVersion:
 		return m.InstalledVersion()
 	case vulnerability.FieldFixedVersion:
@@ -5950,6 +5992,8 @@ func (m *VulnerabilityMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldVulnerabilityID(ctx)
 	case vulnerability.FieldVulnerabilityURLDetails:
 		return m.OldVulnerabilityURLDetails(ctx)
+	case vulnerability.FieldPackageName:
+		return m.OldPackageName(ctx)
 	case vulnerability.FieldInstalledVersion:
 		return m.OldInstalledVersion(ctx)
 	case vulnerability.FieldFixedVersion:
@@ -5984,6 +6028,13 @@ func (m *VulnerabilityMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetVulnerabilityURLDetails(v)
+		return nil
+	case vulnerability.FieldPackageName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPackageName(v)
 		return nil
 	case vulnerability.FieldInstalledVersion:
 		v, ok := value.(string)
@@ -6081,6 +6132,9 @@ func (m *VulnerabilityMutation) ResetField(name string) error {
 		return nil
 	case vulnerability.FieldVulnerabilityURLDetails:
 		m.ResetVulnerabilityURLDetails()
+		return nil
+	case vulnerability.FieldPackageName:
+		m.ResetPackageName()
 		return nil
 	case vulnerability.FieldInstalledVersion:
 		m.ResetInstalledVersion()

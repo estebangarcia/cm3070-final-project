@@ -18,7 +18,7 @@ func (Manifest) Fields() []ent.Field {
 		field.String("artifact_type").Optional(),
 		field.String("s3_path"),
 		field.String("digest"),
-		field.Time("scanned_at").Optional(),
+		field.Time("scanned_at").Optional().Nillable(),
 	}
 }
 
