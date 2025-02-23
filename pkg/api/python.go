@@ -55,7 +55,7 @@ func (rh *PythonHandler) DownloadPackage(w http.ResponseWriter, r *http.Request)
 	fileName := chi.URLParam(r, "fileName")
 	digest := r.URL.Query().Get("digest")
 
-	w.Header().Set("Location", getBlobDownloadUrl(rh.Config.BaseURL, organization.Slug, registry.Slug, packageName, digest)+"?filename="+fileName)
+	w.Header().Set("Location", getBlobDownloadUrl(rh.Config.GetBaseUrl(), organization.Slug, registry.Slug, packageName, digest)+"?filename="+fileName)
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
@@ -97,7 +97,7 @@ func (rh *PythonHandler) SimpleRepositoryIndex(w http.ResponseWriter, r *http.Re
 
 		pkg := PythonPackage{
 			FileName:    fileName,
-			DownloadURL: downloadPythonPackageURL(rh.Config.BaseURL, organization.Slug, registry.Slug, packageName, fileName),
+			DownloadURL: downloadPythonPackageURL(rh.Config.GetBaseUrl(), organization.Slug, registry.Slug, packageName, fileName),
 			Digest:      digest,
 		}
 

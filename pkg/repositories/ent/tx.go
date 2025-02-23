@@ -30,6 +30,8 @@ type Tx struct {
 	Repository *RepositoryClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
+	// Vulnerability is the client for interacting with the Vulnerability builders.
+	Vulnerability *VulnerabilityClient
 
 	// lazily loaded.
 	client     *Client
@@ -170,6 +172,7 @@ func (tx *Tx) init() {
 	tx.Registry = NewRegistryClient(tx.config)
 	tx.Repository = NewRepositoryClient(tx.config)
 	tx.User = NewUserClient(tx.config)
+	tx.Vulnerability = NewVulnerabilityClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

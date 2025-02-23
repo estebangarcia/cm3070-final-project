@@ -113,6 +113,12 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 		RepositoryRepository: repositoryRepository,
 	}
 
+	artifactsHandler := ArtifactsHandler{
+		Config:               &cfg,
+		RepositoryRepository: repositoryRepository,
+		ManifestRepository:   manifestRepository,
+	}
+
 	pythonHandler := PythonHandler{
 		Config:               &cfg,
 		ManifestRepository:   manifestRepository,
@@ -150,9 +156,12 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 			repositoryScopedRoutes.Use(orgMiddleware.ValidateOrgAndRegistry)
 			repositoryScopedRoutes.Get("/", repositoriesHandler.GetRepositories)
 
+			apiCustomMux.Get(getRepositoryRegexRoute()+`\/artifacts\/(?P<digest>[\/\w:]+)`, artifactsHandler.GetArtifactByDigest)
+			apiCustomMux.Get(getRepositoryRegexRoute()+`\/artifacts`, artifactsHandler.GetArtifactsForRepository)
 			apiCustomMux.Get(getRepositoryRegexRoute(), repositoriesHandler.GetRepository)
 			repositoryScopedRoutes.HandleFunc("/*", apiCustomMux.Handle)
 		})
+
 	})
 
 	r.With(extractBasicAuthMiddleware.Validate).Get("/v2/login", v2LoginHandler.Login)
@@ -196,9 +205,10 @@ func (r Router) Run(ctx context.Context, portBinding string) error {
 		ReadHeaderTimeout: 3 * time.Second,
 	}
 
+	fmt.Println("Starting Server...")
 	go r.listen(srv)
 	<-ctx.Done()
-	log.Println("shutting down server")
+	fmt.Println("shutting down server")
 
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

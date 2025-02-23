@@ -21,6 +21,7 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/user"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/vulnerability"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -90,6 +91,7 @@ func checkColumn(table, column string) error {
 			registry.Table:               registry.ValidColumn,
 			repository.Table:             repository.ValidColumn,
 			user.Table:                   user.ValidColumn,
+			vulnerability.Table:          vulnerability.ValidColumn,
 		})
 	})
 	return columnCheck(table, column)

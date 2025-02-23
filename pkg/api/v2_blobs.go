@@ -49,7 +49,7 @@ func (h *V2BlobsHandler) InitiateUploadSession(w http.ResponseWriter, r *http.Re
 	mount := r.URL.Query().Get("mount")
 
 	if err := h.mountBlob(r.Context(), org.Slug, mount); err == nil {
-		w.Header().Set("Location", getBlobDownloadUrl(h.Config.BaseURL, org.Slug, registry.Slug, imageName, mount))
+		w.Header().Set("Location", getBlobDownloadUrl(h.Config.GetBaseUrl(), org.Slug, registry.Slug, imageName, mount))
 		w.Header().Set("Docker-Content-Digest", mount)
 		w.WriteHeader(http.StatusCreated)
 		return
@@ -91,7 +91,7 @@ func (h *V2BlobsHandler) InitiateUploadSession(w http.ResponseWriter, r *http.Re
 
 	if fullBytesRead > 0 {
 		w.Header().Set("Range", fmt.Sprintf("0-%d", fullBytesRead))
-		w.Header().Set("Location", getBlobDownloadUrl(h.Config.BaseURL, org.Slug, registry.Slug, imageName, blobDigest))
+		w.Header().Set("Location", getBlobDownloadUrl(h.Config.GetBaseUrl(), org.Slug, registry.Slug, imageName, blobDigest))
 		status = http.StatusCreated
 	} else {
 		w.Header().Set("Location", h.getUploadUrl(org.Slug, registry.Slug, imageName, uploadId, sessionId))
@@ -289,7 +289,7 @@ func (h *V2BlobsHandler) FinalizeBlobUploadSession(w http.ResponseWriter, r *htt
 	if fullBytesRead > 0 {
 		w.Header().Set("Range", fmt.Sprintf("0-%d", fullBytesRead))
 	}
-	w.Header().Set("Location", getBlobDownloadUrl(h.Config.BaseURL, org.Slug, registry.Slug, imageName, blobDigest))
+	w.Header().Set("Location", getBlobDownloadUrl(h.Config.GetBaseUrl(), org.Slug, registry.Slug, imageName, blobDigest))
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -468,7 +468,7 @@ func (h *V2BlobsHandler) getKeyForBlob(orgSlug string, digest string) string {
 }
 
 func (h *V2BlobsHandler) getUploadUrl(orgSlug string, registrySlug string, imageName string, uploadId string, s3UploadId string) string {
-	return fmt.Sprintf("%s/v2/%s/%s/%s/blobs/uploads/%s?session=%s", h.Config.BaseURL, orgSlug, registrySlug, imageName, uploadId, s3UploadId)
+	return fmt.Sprintf("%s/v2/%s/%s/%s/blobs/uploads/%s?session=%s", h.Config.GetBaseUrl(), orgSlug, registrySlug, imageName, uploadId, s3UploadId)
 }
 
 func getBlobDownloadUrl(baseURL string, orgSlug string, registrySlug string, imageName string, digest string) string {

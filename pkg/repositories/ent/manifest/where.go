@@ -3,6 +3,8 @@
 package manifest
 
 import (
+	"time"
+
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
@@ -71,6 +73,11 @@ func S3Path(v string) predicate.Manifest {
 // Digest applies equality check predicate on the "digest" field. It's identical to DigestEQ.
 func Digest(v string) predicate.Manifest {
 	return predicate.Manifest(sql.FieldEQ(FieldDigest, v))
+}
+
+// ScannedAt applies equality check predicate on the "scanned_at" field. It's identical to ScannedAtEQ.
+func ScannedAt(v time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldEQ(FieldScannedAt, v))
 }
 
 // MediaTypeEQ applies the EQ predicate on the "media_type" field.
@@ -343,6 +350,56 @@ func DigestContainsFold(v string) predicate.Manifest {
 	return predicate.Manifest(sql.FieldContainsFold(FieldDigest, v))
 }
 
+// ScannedAtEQ applies the EQ predicate on the "scanned_at" field.
+func ScannedAtEQ(v time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldEQ(FieldScannedAt, v))
+}
+
+// ScannedAtNEQ applies the NEQ predicate on the "scanned_at" field.
+func ScannedAtNEQ(v time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldNEQ(FieldScannedAt, v))
+}
+
+// ScannedAtIn applies the In predicate on the "scanned_at" field.
+func ScannedAtIn(vs ...time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldIn(FieldScannedAt, vs...))
+}
+
+// ScannedAtNotIn applies the NotIn predicate on the "scanned_at" field.
+func ScannedAtNotIn(vs ...time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldNotIn(FieldScannedAt, vs...))
+}
+
+// ScannedAtGT applies the GT predicate on the "scanned_at" field.
+func ScannedAtGT(v time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldGT(FieldScannedAt, v))
+}
+
+// ScannedAtGTE applies the GTE predicate on the "scanned_at" field.
+func ScannedAtGTE(v time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldGTE(FieldScannedAt, v))
+}
+
+// ScannedAtLT applies the LT predicate on the "scanned_at" field.
+func ScannedAtLT(v time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldLT(FieldScannedAt, v))
+}
+
+// ScannedAtLTE applies the LTE predicate on the "scanned_at" field.
+func ScannedAtLTE(v time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldLTE(FieldScannedAt, v))
+}
+
+// ScannedAtIsNil applies the IsNil predicate on the "scanned_at" field.
+func ScannedAtIsNil() predicate.Manifest {
+	return predicate.Manifest(sql.FieldIsNull(FieldScannedAt))
+}
+
+// ScannedAtNotNil applies the NotNil predicate on the "scanned_at" field.
+func ScannedAtNotNil() predicate.Manifest {
+	return predicate.Manifest(sql.FieldNotNull(FieldScannedAt))
+}
+
 // HasTags applies the HasEdge predicate on the "tags" edge.
 func HasTags() predicate.Manifest {
 	return predicate.Manifest(func(s *sql.Selector) {
@@ -450,6 +507,29 @@ func HasManifestLayers() predicate.Manifest {
 func HasManifestLayersWith(preds ...predicate.ManifestLayer) predicate.Manifest {
 	return predicate.Manifest(func(s *sql.Selector) {
 		step := newManifestLayersStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasVulnerabilities applies the HasEdge predicate on the "vulnerabilities" edge.
+func HasVulnerabilities() predicate.Manifest {
+	return predicate.Manifest(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, VulnerabilitiesTable, VulnerabilitiesPrimaryKey...),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasVulnerabilitiesWith applies the HasEdge predicate on the "vulnerabilities" edge with a given conditions (other predicates).
+func HasVulnerabilitiesWith(preds ...predicate.Vulnerability) predicate.Manifest {
+	return predicate.Manifest(func(s *sql.Selector) {
+		step := newVulnerabilitiesStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
 	"github.com/estebangarcia/cm3070-final-project/pkg/responses"
@@ -35,6 +36,7 @@ func (a *JWTAuthMiddleware) Validate(next http.Handler) http.Handler {
 
 		token, err := parseJWT(r.Context(), jwtToken, a.JwkCache, a.Config.GetCognitoJWKUrl())
 		if err != nil {
+			fmt.Println(err)
 			w.Header().Set(wwwAuthenticateHeader, a.getAuthenticationUrl())
 			responses.OCIUnauthorizedError(w)
 			return
@@ -49,7 +51,7 @@ func (a *JWTAuthMiddleware) Validate(next http.Handler) http.Handler {
 }
 
 func (a *JWTAuthMiddleware) getAuthenticationUrl() string {
-	return fmt.Sprintf(`Bearer realm="%s/v2/login",service="registry.io"`, a.Config.BaseURL)
+	return fmt.Sprintf(`Bearer realm="%s/v2/login",service="registry.io"`, a.Config.GetBaseUrl())
 }
 
 func parseJWT(ctx context.Context, jwtToken string, jwkCache *jwk.Cache, cognitoJWKUrl string) (jwt.Token, error) {
@@ -57,5 +59,5 @@ func parseJWT(ctx context.Context, jwtToken string, jwkCache *jwk.Cache, cognito
 	if err != nil {
 		return nil, err
 	}
-	return jwt.Parse([]byte(jwtToken), jwt.WithKeySet(jwkSet))
+	return jwt.Parse([]byte(jwtToken), jwt.WithKeySet(jwkSet), jwt.WithAcceptableSkew(time.Minute))
 }

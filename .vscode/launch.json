@@ -5,12 +5,39 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch App",
+            "name": "Launch Server",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/main.go",
             "args": ["server"],
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "Launch All Workers",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/main.go",
+            "args": ["workers"],
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "Launch Security Scanner Worker",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/main.go",
+            "args": ["workers", "security_scanner"],
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "Launch User Signup Worker",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/main.go",
+            "args": ["workers", "user_signup"],
             "envFile": "${workspaceFolder}/.env"
         }
     ]

@@ -18,6 +18,7 @@ func (Manifest) Fields() []ent.Field {
 		field.String("artifact_type").Optional(),
 		field.String("s3_path"),
 		field.String("digest"),
+		field.Time("scanned_at").Optional(),
 	}
 }
 
@@ -30,5 +31,6 @@ func (Manifest) Edges() []ent.Edge {
 		edge.To("subject", Manifest.Type),
 		edge.From("referer", Manifest.Type).Ref("subject"),
 		edge.To("manifest_layers", ManifestLayer.Type),
+		edge.From("vulnerabilities", Vulnerability.Type).Ref("manifests"),
 	}
 }

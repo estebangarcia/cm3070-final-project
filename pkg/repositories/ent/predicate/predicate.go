@@ -32,3 +32,6 @@ type Repository func(*sql.Selector)
 
 // User is the predicate function for user builders.
 type User func(*sql.Selector)
+
+// Vulnerability is the predicate function for vulnerability builders.
+type Vulnerability func(*sql.Selector)

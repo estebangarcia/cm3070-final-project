@@ -5,6 +5,7 @@ import (
 
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/user"
 	"github.com/gosimple/slug"
@@ -34,15 +35,22 @@ func (registryRepo *RegistryRepository) CreateRegistry(ctx context.Context, name
 }
 
 func (registryRepo *RegistryRepository) GetForOrgAndUser(ctx context.Context, userSub string, orgSlug string, registrySlug string) (*ent.Registry, bool, error) {
+	orgPredicate := []predicate.Organization{
+		organization.Slug(orgSlug),
+	}
+
+	if userSub != "" {
+		orgPredicate = append(orgPredicate, organization.HasMembersWith(
+			user.Sub(userSub),
+		))
+	}
+
 	registry, err := registryRepo.dbClient.Registry.Query().Where(
 		registry.And(
 			registry.Slug(registrySlug),
 			registry.HasOrganizationWith(
 				organization.And(
-					organization.Slug(orgSlug),
-					organization.HasMembersWith(
-						user.Sub(userSub),
-					),
+					orgPredicate...,
 				),
 			),
 		),

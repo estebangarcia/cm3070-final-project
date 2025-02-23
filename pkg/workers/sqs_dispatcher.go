@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
+	"golang.org/x/sync/errgroup"
 )
 
 type SQSWorkerDispatcher struct {
@@ -15,6 +16,7 @@ type SQSWorkerDispatcher struct {
 	sqsClient   *sqs.Client
 	wg          *sync.WaitGroup
 	mux         *sync.Mutex
+	errGroup    *errgroup.Group
 }
 
 func NewSQSWorkerDispatcher(sqsQueueUrl string, sqsClient *sqs.Client, maxMessages int32) *SQSWorkerDispatcher {
@@ -24,56 +26,59 @@ func NewSQSWorkerDispatcher(sqsQueueUrl string, sqsClient *sqs.Client, maxMessag
 		maxMessages: maxMessages,
 		wg:          &sync.WaitGroup{},
 		mux:         &sync.Mutex{},
+		errGroup:    &errgroup.Group{},
 	}
 }
 
 func (w *SQSWorkerDispatcher) Start(ctx context.Context, worker SQSWorker) {
-	for {
-		if ctx.Err() != nil {
-			log.Println("context has been cancelled")
-			return
-		}
+	w.errGroup.Go(func() error {
+		for {
+			if ctx.Err() != nil {
+				log.Println("context has been cancelled")
+				return nil
+			}
 
-		results, err := w.sqsClient.ReceiveMessage(
-			ctx,
-			&sqs.ReceiveMessageInput{
-				QueueUrl:            &w.queueUrl,
-				MaxNumberOfMessages: 10,
-				WaitTimeSeconds:     20,
-			},
-		)
+			results, err := w.sqsClient.ReceiveMessage(
+				ctx,
+				&sqs.ReceiveMessageInput{
+					QueueUrl:            &w.queueUrl,
+					MaxNumberOfMessages: 10,
+					WaitTimeSeconds:     20,
+				},
+			)
 
-		if err != nil {
-			log.Printf("error consuming from sqs %v", err)
-			continue
-		}
-
-		msgAck := []types.DeleteMessageBatchRequestEntry{}
-
-		for _, message := range results.Messages {
-			w.wg.Add(1)
-			go func() {
-				defer w.wg.Done()
-				if err := worker.Handle(ctx, message); err == nil {
-					w.mux.Lock()
-					msgAck = append(msgAck, types.DeleteMessageBatchRequestEntry{
-						Id:            message.MessageId,
-						ReceiptHandle: message.ReceiptHandle,
-					})
-					w.mux.Unlock()
-				}
-			}()
-		}
-		w.wg.Wait()
-
-		if len(msgAck) > 0 {
-			_, err = w.sqsClient.DeleteMessageBatch(ctx, &sqs.DeleteMessageBatchInput{
-				Entries:  msgAck,
-				QueueUrl: &w.queueUrl,
-			})
 			if err != nil {
-				log.Printf("error acking messages %v", err)
+				log.Printf("error consuming from sqs %v", err)
+				continue
+			}
+
+			msgAck := []types.DeleteMessageBatchRequestEntry{}
+
+			for _, message := range results.Messages {
+				w.wg.Add(1)
+				go func() {
+					defer w.wg.Done()
+					if err := worker.Handle(ctx, message); err == nil {
+						w.mux.Lock()
+						msgAck = append(msgAck, types.DeleteMessageBatchRequestEntry{
+							Id:            message.MessageId,
+							ReceiptHandle: message.ReceiptHandle,
+						})
+						w.mux.Unlock()
+					}
+				}()
+			}
+			w.wg.Wait()
+
+			if len(msgAck) > 0 {
+				_, err = w.sqsClient.DeleteMessageBatch(ctx, &sqs.DeleteMessageBatchInput{
+					Entries:  msgAck,
+					QueueUrl: &w.queueUrl,
+				})
+				if err != nil {
+					log.Printf("error acking messages %v", err)
+				}
 			}
 		}
-	}
+	})
 }
