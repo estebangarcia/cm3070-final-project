@@ -128,6 +128,7 @@ func (rh *PythonHandler) UploadPythonPackage(w http.ResponseWriter, r *http.Requ
 	organization := r.Context().Value("organization").(*ent.Organization)
 	registry := r.Context().Value("registry").(*ent.Registry)
 	token := r.Context().Value("token").(string)
+	pkgName := strings.ToLower(r.FormValue("name"))
 
 	r.ParseMultipartForm(32 << 20)
 
@@ -198,12 +199,12 @@ func (rh *PythonHandler) UploadPythonPackage(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	pkgName := r.FormValue("name")
-
 	reg := "localhost:8081"
 	repo, err := remote.NewRepository(reg + "/" + organization.Slug + "/" + registry.Slug + "/" + pkgName)
 	if err != nil {
-		panic(err)
+		log.Println(err)
+		responses.OCIInternalServerError(w)
+		return
 	}
 	repo.PlainHTTP = true
 
