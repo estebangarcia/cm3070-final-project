@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -43,13 +44,17 @@ func (a *OrganizationMiddleware) ValidateOrg(next http.Handler) http.Handler {
 
 func (a *OrganizationMiddleware) ValidateOrgAndRegistry(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userSub := r.Context().Value("user_sub").(string)
+		userSubToken := r.Context().Value("user_sub").(string)
 		orgSlug := chi.URLParam(r, "organizationSlug")
 		registrySlug := chi.URLParam(r, "registrySlug")
 
-		registry, found, err := a.RegistryRepository.GetForOrgAndUser(r.Context(), userSub, orgSlug, registrySlug)
+		if userSubToken == a.Config.AdminUser.Sub {
+			userSubToken = ""
+		}
+
+		registry, found, err := a.RegistryRepository.GetForOrgAndUser(r.Context(), userSubToken, orgSlug, registrySlug)
 		if err != nil {
-			log.Println(err)
+			fmt.Println(err)
 			w.WriteHeader(500)
 			return
 		}

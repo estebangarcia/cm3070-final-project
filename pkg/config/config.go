@@ -2,6 +2,12 @@ package config
 
 import "fmt"
 
+type AdminUserConfig struct {
+	Email    string `env:"EMAIL,notEmpty"`
+	Password string `env:"PASSWORD,notEmpty"`
+	Sub      string `env:"SUB,notEmpty"`
+}
+
 type DatabaseConfig struct {
 	DSN string `env:"DSN,notEmpty"`
 }
@@ -24,6 +30,7 @@ type SignupWorkerConfig struct {
 type AppConfig struct {
 	ServerPort              uint16             `env:"SERVER_PORT,notEmpty" envDefault:"8081"`
 	BaseURL                 string             `env:"BASE_URL,notEmpty"`
+	AdminUser               AdminUserConfig    `envPrefix:"ADMIN_"`
 	Database                DatabaseConfig     `envPrefix:"DB_"`
 	Cognito                 CognitoConfig      `envPrefix:"COGNITO_"`
 	S3                      S3Config           `envPrefix:"S3_"`
@@ -35,4 +42,8 @@ type AppConfig struct {
 
 func (a AppConfig) GetCognitoJWKUrl() string {
 	return fmt.Sprintf("%s/.well-known/jwks.json", a.Cognito.Url)
+}
+
+func (a AppConfig) GetBaseUrl() string {
+	return fmt.Sprintf("https://%s", a.BaseURL)
 }

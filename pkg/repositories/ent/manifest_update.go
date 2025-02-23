@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -15,6 +16,7 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/vulnerability"
 )
 
 // ManifestUpdate is the builder for updating Manifest entities.
@@ -89,6 +91,26 @@ func (mu *ManifestUpdate) SetNillableDigest(s *string) *ManifestUpdate {
 	if s != nil {
 		mu.SetDigest(*s)
 	}
+	return mu
+}
+
+// SetScannedAt sets the "scanned_at" field.
+func (mu *ManifestUpdate) SetScannedAt(t time.Time) *ManifestUpdate {
+	mu.mutation.SetScannedAt(t)
+	return mu
+}
+
+// SetNillableScannedAt sets the "scanned_at" field if the given value is not nil.
+func (mu *ManifestUpdate) SetNillableScannedAt(t *time.Time) *ManifestUpdate {
+	if t != nil {
+		mu.SetScannedAt(*t)
+	}
+	return mu
+}
+
+// ClearScannedAt clears the value of the "scanned_at" field.
+func (mu *ManifestUpdate) ClearScannedAt() *ManifestUpdate {
+	mu.mutation.ClearScannedAt()
 	return mu
 }
 
@@ -169,6 +191,21 @@ func (mu *ManifestUpdate) AddManifestLayers(m ...*ManifestLayer) *ManifestUpdate
 		ids[i] = m[i].ID
 	}
 	return mu.AddManifestLayerIDs(ids...)
+}
+
+// AddVulnerabilityIDs adds the "vulnerabilities" edge to the Vulnerability entity by IDs.
+func (mu *ManifestUpdate) AddVulnerabilityIDs(ids ...int) *ManifestUpdate {
+	mu.mutation.AddVulnerabilityIDs(ids...)
+	return mu
+}
+
+// AddVulnerabilities adds the "vulnerabilities" edges to the Vulnerability entity.
+func (mu *ManifestUpdate) AddVulnerabilities(v ...*Vulnerability) *ManifestUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return mu.AddVulnerabilityIDs(ids...)
 }
 
 // Mutation returns the ManifestMutation object of the builder.
@@ -266,6 +303,27 @@ func (mu *ManifestUpdate) RemoveManifestLayers(m ...*ManifestLayer) *ManifestUpd
 	return mu.RemoveManifestLayerIDs(ids...)
 }
 
+// ClearVulnerabilities clears all "vulnerabilities" edges to the Vulnerability entity.
+func (mu *ManifestUpdate) ClearVulnerabilities() *ManifestUpdate {
+	mu.mutation.ClearVulnerabilities()
+	return mu
+}
+
+// RemoveVulnerabilityIDs removes the "vulnerabilities" edge to Vulnerability entities by IDs.
+func (mu *ManifestUpdate) RemoveVulnerabilityIDs(ids ...int) *ManifestUpdate {
+	mu.mutation.RemoveVulnerabilityIDs(ids...)
+	return mu
+}
+
+// RemoveVulnerabilities removes "vulnerabilities" edges to Vulnerability entities.
+func (mu *ManifestUpdate) RemoveVulnerabilities(v ...*Vulnerability) *ManifestUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return mu.RemoveVulnerabilityIDs(ids...)
+}
+
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (mu *ManifestUpdate) Save(ctx context.Context) (int, error) {
 	return withHooks(ctx, mu.sqlSave, mu.mutation, mu.hooks)
@@ -316,6 +374,12 @@ func (mu *ManifestUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := mu.mutation.Digest(); ok {
 		_spec.SetField(manifest.FieldDigest, field.TypeString, value)
+	}
+	if value, ok := mu.mutation.ScannedAt(); ok {
+		_spec.SetField(manifest.FieldScannedAt, field.TypeTime, value)
+	}
+	if mu.mutation.ScannedAtCleared() {
+		_spec.ClearField(manifest.FieldScannedAt, field.TypeTime)
 	}
 	if mu.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -526,6 +590,51 @@ func (mu *ManifestUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if mu.mutation.VulnerabilitiesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   manifest.VulnerabilitiesTable,
+			Columns: manifest.VulnerabilitiesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(vulnerability.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mu.mutation.RemovedVulnerabilitiesIDs(); len(nodes) > 0 && !mu.mutation.VulnerabilitiesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   manifest.VulnerabilitiesTable,
+			Columns: manifest.VulnerabilitiesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(vulnerability.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mu.mutation.VulnerabilitiesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   manifest.VulnerabilitiesTable,
+			Columns: manifest.VulnerabilitiesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(vulnerability.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, mu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{manifest.Label}
@@ -608,6 +717,26 @@ func (muo *ManifestUpdateOne) SetNillableDigest(s *string) *ManifestUpdateOne {
 	return muo
 }
 
+// SetScannedAt sets the "scanned_at" field.
+func (muo *ManifestUpdateOne) SetScannedAt(t time.Time) *ManifestUpdateOne {
+	muo.mutation.SetScannedAt(t)
+	return muo
+}
+
+// SetNillableScannedAt sets the "scanned_at" field if the given value is not nil.
+func (muo *ManifestUpdateOne) SetNillableScannedAt(t *time.Time) *ManifestUpdateOne {
+	if t != nil {
+		muo.SetScannedAt(*t)
+	}
+	return muo
+}
+
+// ClearScannedAt clears the value of the "scanned_at" field.
+func (muo *ManifestUpdateOne) ClearScannedAt() *ManifestUpdateOne {
+	muo.mutation.ClearScannedAt()
+	return muo
+}
+
 // AddTagIDs adds the "tags" edge to the ManifestTagReference entity by IDs.
 func (muo *ManifestUpdateOne) AddTagIDs(ids ...int) *ManifestUpdateOne {
 	muo.mutation.AddTagIDs(ids...)
@@ -685,6 +814,21 @@ func (muo *ManifestUpdateOne) AddManifestLayers(m ...*ManifestLayer) *ManifestUp
 		ids[i] = m[i].ID
 	}
 	return muo.AddManifestLayerIDs(ids...)
+}
+
+// AddVulnerabilityIDs adds the "vulnerabilities" edge to the Vulnerability entity by IDs.
+func (muo *ManifestUpdateOne) AddVulnerabilityIDs(ids ...int) *ManifestUpdateOne {
+	muo.mutation.AddVulnerabilityIDs(ids...)
+	return muo
+}
+
+// AddVulnerabilities adds the "vulnerabilities" edges to the Vulnerability entity.
+func (muo *ManifestUpdateOne) AddVulnerabilities(v ...*Vulnerability) *ManifestUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return muo.AddVulnerabilityIDs(ids...)
 }
 
 // Mutation returns the ManifestMutation object of the builder.
@@ -782,6 +926,27 @@ func (muo *ManifestUpdateOne) RemoveManifestLayers(m ...*ManifestLayer) *Manifes
 	return muo.RemoveManifestLayerIDs(ids...)
 }
 
+// ClearVulnerabilities clears all "vulnerabilities" edges to the Vulnerability entity.
+func (muo *ManifestUpdateOne) ClearVulnerabilities() *ManifestUpdateOne {
+	muo.mutation.ClearVulnerabilities()
+	return muo
+}
+
+// RemoveVulnerabilityIDs removes the "vulnerabilities" edge to Vulnerability entities by IDs.
+func (muo *ManifestUpdateOne) RemoveVulnerabilityIDs(ids ...int) *ManifestUpdateOne {
+	muo.mutation.RemoveVulnerabilityIDs(ids...)
+	return muo
+}
+
+// RemoveVulnerabilities removes "vulnerabilities" edges to Vulnerability entities.
+func (muo *ManifestUpdateOne) RemoveVulnerabilities(v ...*Vulnerability) *ManifestUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return muo.RemoveVulnerabilityIDs(ids...)
+}
+
 // Where appends a list predicates to the ManifestUpdate builder.
 func (muo *ManifestUpdateOne) Where(ps ...predicate.Manifest) *ManifestUpdateOne {
 	muo.mutation.Where(ps...)
@@ -862,6 +1027,12 @@ func (muo *ManifestUpdateOne) sqlSave(ctx context.Context) (_node *Manifest, err
 	}
 	if value, ok := muo.mutation.Digest(); ok {
 		_spec.SetField(manifest.FieldDigest, field.TypeString, value)
+	}
+	if value, ok := muo.mutation.ScannedAt(); ok {
+		_spec.SetField(manifest.FieldScannedAt, field.TypeTime, value)
+	}
+	if muo.mutation.ScannedAtCleared() {
+		_spec.ClearField(manifest.FieldScannedAt, field.TypeTime)
 	}
 	if muo.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1065,6 +1236,51 @@ func (muo *ManifestUpdateOne) sqlSave(ctx context.Context) (_node *Manifest, err
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(manifestlayer.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if muo.mutation.VulnerabilitiesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   manifest.VulnerabilitiesTable,
+			Columns: manifest.VulnerabilitiesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(vulnerability.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := muo.mutation.RemovedVulnerabilitiesIDs(); len(nodes) > 0 && !muo.mutation.VulnerabilitiesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   manifest.VulnerabilitiesTable,
+			Columns: manifest.VulnerabilitiesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(vulnerability.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := muo.mutation.VulnerabilitiesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   manifest.VulnerabilitiesTable,
+			Columns: manifest.VulnerabilitiesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(vulnerability.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

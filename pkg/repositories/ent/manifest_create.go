@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -14,6 +15,7 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifestlayer"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/vulnerability"
 )
 
 // ManifestCreate is the builder for creating a Manifest entity.
@@ -53,6 +55,20 @@ func (mc *ManifestCreate) SetS3Path(s string) *ManifestCreate {
 // SetDigest sets the "digest" field.
 func (mc *ManifestCreate) SetDigest(s string) *ManifestCreate {
 	mc.mutation.SetDigest(s)
+	return mc
+}
+
+// SetScannedAt sets the "scanned_at" field.
+func (mc *ManifestCreate) SetScannedAt(t time.Time) *ManifestCreate {
+	mc.mutation.SetScannedAt(t)
+	return mc
+}
+
+// SetNillableScannedAt sets the "scanned_at" field if the given value is not nil.
+func (mc *ManifestCreate) SetNillableScannedAt(t *time.Time) *ManifestCreate {
+	if t != nil {
+		mc.SetScannedAt(*t)
+	}
 	return mc
 }
 
@@ -133,6 +149,21 @@ func (mc *ManifestCreate) AddManifestLayers(m ...*ManifestLayer) *ManifestCreate
 		ids[i] = m[i].ID
 	}
 	return mc.AddManifestLayerIDs(ids...)
+}
+
+// AddVulnerabilityIDs adds the "vulnerabilities" edge to the Vulnerability entity by IDs.
+func (mc *ManifestCreate) AddVulnerabilityIDs(ids ...int) *ManifestCreate {
+	mc.mutation.AddVulnerabilityIDs(ids...)
+	return mc
+}
+
+// AddVulnerabilities adds the "vulnerabilities" edges to the Vulnerability entity.
+func (mc *ManifestCreate) AddVulnerabilities(v ...*Vulnerability) *ManifestCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return mc.AddVulnerabilityIDs(ids...)
 }
 
 // Mutation returns the ManifestMutation object of the builder.
@@ -221,6 +252,10 @@ func (mc *ManifestCreate) createSpec() (*Manifest, *sqlgraph.CreateSpec) {
 		_spec.SetField(manifest.FieldDigest, field.TypeString, value)
 		_node.Digest = value
 	}
+	if value, ok := mc.mutation.ScannedAt(); ok {
+		_spec.SetField(manifest.FieldScannedAt, field.TypeTime, value)
+		_node.ScannedAt = &value
+	}
 	if nodes := mc.mutation.TagsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -295,6 +330,22 @@ func (mc *ManifestCreate) createSpec() (*Manifest, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(manifestlayer.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := mc.mutation.VulnerabilitiesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   manifest.VulnerabilitiesTable,
+			Columns: manifest.VulnerabilitiesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(vulnerability.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -408,6 +459,24 @@ func (u *ManifestUpsert) UpdateDigest() *ManifestUpsert {
 	return u
 }
 
+// SetScannedAt sets the "scanned_at" field.
+func (u *ManifestUpsert) SetScannedAt(v time.Time) *ManifestUpsert {
+	u.Set(manifest.FieldScannedAt, v)
+	return u
+}
+
+// UpdateScannedAt sets the "scanned_at" field to the value that was provided on create.
+func (u *ManifestUpsert) UpdateScannedAt() *ManifestUpsert {
+	u.SetExcluded(manifest.FieldScannedAt)
+	return u
+}
+
+// ClearScannedAt clears the value of the "scanned_at" field.
+func (u *ManifestUpsert) ClearScannedAt() *ManifestUpsert {
+	u.SetNull(manifest.FieldScannedAt)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -508,6 +577,27 @@ func (u *ManifestUpsertOne) SetDigest(v string) *ManifestUpsertOne {
 func (u *ManifestUpsertOne) UpdateDigest() *ManifestUpsertOne {
 	return u.Update(func(s *ManifestUpsert) {
 		s.UpdateDigest()
+	})
+}
+
+// SetScannedAt sets the "scanned_at" field.
+func (u *ManifestUpsertOne) SetScannedAt(v time.Time) *ManifestUpsertOne {
+	return u.Update(func(s *ManifestUpsert) {
+		s.SetScannedAt(v)
+	})
+}
+
+// UpdateScannedAt sets the "scanned_at" field to the value that was provided on create.
+func (u *ManifestUpsertOne) UpdateScannedAt() *ManifestUpsertOne {
+	return u.Update(func(s *ManifestUpsert) {
+		s.UpdateScannedAt()
+	})
+}
+
+// ClearScannedAt clears the value of the "scanned_at" field.
+func (u *ManifestUpsertOne) ClearScannedAt() *ManifestUpsertOne {
+	return u.Update(func(s *ManifestUpsert) {
+		s.ClearScannedAt()
 	})
 }
 
@@ -774,6 +864,27 @@ func (u *ManifestUpsertBulk) SetDigest(v string) *ManifestUpsertBulk {
 func (u *ManifestUpsertBulk) UpdateDigest() *ManifestUpsertBulk {
 	return u.Update(func(s *ManifestUpsert) {
 		s.UpdateDigest()
+	})
+}
+
+// SetScannedAt sets the "scanned_at" field.
+func (u *ManifestUpsertBulk) SetScannedAt(v time.Time) *ManifestUpsertBulk {
+	return u.Update(func(s *ManifestUpsert) {
+		s.SetScannedAt(v)
+	})
+}
+
+// UpdateScannedAt sets the "scanned_at" field to the value that was provided on create.
+func (u *ManifestUpsertBulk) UpdateScannedAt() *ManifestUpsertBulk {
+	return u.Update(func(s *ManifestUpsert) {
+		s.UpdateScannedAt()
+	})
+}
+
+// ClearScannedAt clears the value of the "scanned_at" field.
+func (u *ManifestUpsertBulk) ClearScannedAt() *ManifestUpsertBulk {
+	return u.Update(func(s *ManifestUpsert) {
+		s.ClearScannedAt()
 	})
 }
 

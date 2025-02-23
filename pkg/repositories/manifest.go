@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"time"
 
 	"github.com/estebangarcia/cm3070-final-project/pkg/helpers"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent"
@@ -10,6 +11,7 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
 	ent_repository "github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
+	ent_vulnerability "github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/vulnerability"
 )
 
 type ManifestRepository struct {
@@ -32,11 +34,18 @@ func (mr *ManifestRepository) getTagOrReferencePredicate(reference string) predi
 }
 
 func (mr *ManifestRepository) GetManifestsByReferenceAndMediaType(ctx context.Context, reference string, mediaTypes []string, repository *ent.Repository) ([]*ent.Manifest, error) {
+	predicates := []predicate.Manifest{
+		mr.getTagOrReferencePredicate(reference),
+		ent_manifest.HasRepositoryWith(ent_repository.ID(repository.ID)),
+	}
+
+	if len(mediaTypes) > 0 {
+		predicates = append(predicates, ent_manifest.MediaTypeIn(mediaTypes...))
+	}
+
 	return mr.dbClient.Manifest.Query().Where(
 		ent_manifest.And(
-			mr.getTagOrReferencePredicate(reference),
-			ent_manifest.HasRepositoryWith(ent_repository.ID(repository.ID)),
-			ent_manifest.MediaTypeIn(mediaTypes...),
+			predicates...,
 		),
 	).All(ctx)
 }
@@ -59,13 +68,18 @@ func (mr *ManifestRepository) GetManifestByReferenceAndMediaType(ctx context.Con
 	return manifest, true, nil
 }
 
-func (mr *ManifestRepository) GetManifestByReference(ctx context.Context, reference string, repository *ent.Repository) (*ent.Manifest, bool, error) {
-	manifest, err := mr.dbClient.Manifest.Query().Where(
+func (mr *ManifestRepository) GetManifestByReference(ctx context.Context, reference string, repository *ent.Repository, withTags bool) (*ent.Manifest, bool, error) {
+	query := mr.dbClient.Manifest.Query().Where(
 		ent_manifest.And(
 			mr.getTagOrReferencePredicate(reference),
 			ent_manifest.HasRepositoryWith(ent_repository.ID(repository.ID)),
 		),
-	).First(ctx)
+	)
+	if withTags {
+		query = query.WithTags()
+	}
+
+	manifest, err := query.First(ctx)
 
 	if err != nil && ent.IsNotFound(err) {
 		return nil, false, nil
@@ -74,6 +88,17 @@ func (mr *ManifestRepository) GetManifestByReference(ctx context.Context, refere
 	}
 
 	return manifest, true, nil
+}
+
+func (mr *ManifestRepository) GetManifestVulnerabilitiesByReference(ctx context.Context, reference string, repository *ent.Repository) (ent.Vulnerabilities, error) {
+	return mr.dbClient.Vulnerability.Query().Where(
+		ent_vulnerability.HasManifestsWith(
+			ent_manifest.And(
+				mr.getTagOrReferencePredicate(reference),
+				ent_manifest.HasRepositoryWith(ent_repository.ID(repository.ID)),
+			),
+		),
+	).All(ctx)
 }
 
 func (mr *ManifestRepository) GetAllByTypeWithTags(ctx context.Context, artifactType string, repository *ent.Repository) ([]*ent.Manifest, error) {
@@ -87,6 +112,20 @@ func (mr *ManifestRepository) GetAllByTypeWithTags(ctx context.Context, artifact
 			ent_manifest.HasTags(),
 		),
 	).WithTags().WithManifestLayers().All(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return manifests, nil
+}
+
+func (mr *ManifestRepository) GetAllWithTags(ctx context.Context, repository *ent.Repository) ([]*ent.Manifest, error) {
+	manifests, err := mr.dbClient.Manifest.Query().Where(
+		ent_manifest.And(
+			ent_manifest.HasRepositoryWith(ent_repository.ID(repository.ID)),
+		),
+	).WithTags().All(ctx)
 
 	if err != nil {
 		return nil, err
@@ -166,6 +205,45 @@ func (mr *ManifestRepository) UpsertManifestTagReference(ctx context.Context, re
 	return nil
 }
 
+func (mr *ManifestRepository) CreateVulnerabilitiesInBulkAndMarkAsScanned(ctx context.Context, vulnerabilities ent.Vulnerabilities, manifest *ent.Manifest) error {
+	tx, err := mr.dbClient.Debug().Tx(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	ctxV := context.WithValue(ctx, "tx", tx)
+
+	for _, vulnerability := range vulnerabilities {
+		err := tx.Vulnerability.Create().
+			SetPackageName(vulnerability.PackageName).
+			SetFixedVersion(vulnerability.FixedVersion).
+			SetInstalledVersion(vulnerability.InstalledVersion).
+			SetSeverity(vulnerability.Severity).
+			SetStatus(vulnerability.Status).
+			SetTitle(vulnerability.Title).
+			SetV3Score(vulnerability.V3Score).
+			SetVulnerabilityID(vulnerability.VulnerabilityID).
+			SetVulnerabilityURLDetails(vulnerability.VulnerabilityURLDetails).
+			AddManifests(manifest).
+			OnConflictColumns("vulnerability_id").
+			Ignore().Exec(ctxV)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err = mr.MarkAsScanned(ctxV, manifest); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (mr *ManifestRepository) UpsertManifestWithSubjectAndTag(ctx context.Context, layers []*ent.ManifestLayer, reference string, digest string, mediaType string, artifactType *string, s3Path string, manifestSubject *ent.Manifest, repository *ent.Repository) (*ent.Manifest, error) {
 	tx, err := mr.dbClient.Tx(ctx)
 	if err != nil {
@@ -235,6 +313,32 @@ func (mr *ManifestRepository) GetManifestReferrers(ctx context.Context, digest s
 			manifestPredicate...,
 		),
 	).All(ctx)
+}
+
+func (mr *ManifestRepository) GetAllUnscanned(ctx context.Context) ([]*ent.Manifest, error) {
+	manifests, err := mr.dbClient.Manifest.Query().Where(
+		ent_manifest.ScannedAtIsNil(),
+	).WithRepository(
+		func(rq *ent.RepositoryQuery) {
+			rq.WithRegistry(
+				func(rq *ent.RegistryQuery) {
+					rq.WithOrganization()
+				},
+			)
+		},
+	).All(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return manifests, nil
+}
+
+func (mr *ManifestRepository) MarkAsScanned(ctx context.Context, manifest *ent.Manifest) error {
+	dbClient := mr.getClient(ctx)
+	_, err := dbClient.Manifest.UpdateOne(manifest).SetScannedAt(time.Now()).Save(ctx)
+	return err
 }
 
 func (mr *ManifestRepository) DeleteManifest(ctx context.Context, manifest *ent.Manifest) error {

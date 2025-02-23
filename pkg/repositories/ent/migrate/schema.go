@@ -47,6 +47,7 @@ var (
 		{Name: "artifact_type", Type: field.TypeString, Nullable: true},
 		{Name: "s3_path", Type: field.TypeString},
 		{Name: "digest", Type: field.TypeString},
+		{Name: "scanned_at", Type: field.TypeTime, Nullable: true},
 		{Name: "repository_manifests", Type: field.TypeInt, Nullable: true},
 	}
 	// ManifestsTable holds the schema information for the "manifests" table.
@@ -57,7 +58,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "manifests_repositories_manifests",
-				Columns:    []*schema.Column{ManifestsColumns[5]},
+				Columns:    []*schema.Column{ManifestsColumns[6]},
 				RefColumns: []*schema.Column{RepositoriesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -240,6 +241,25 @@ var (
 			},
 		},
 	}
+	// VulnerabilitiesColumns holds the columns for the "vulnerabilities" table.
+	VulnerabilitiesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "vulnerability_id", Type: field.TypeString, Unique: true},
+		{Name: "vulnerability_url_details", Type: field.TypeString},
+		{Name: "package_name", Type: field.TypeString},
+		{Name: "installed_version", Type: field.TypeString},
+		{Name: "fixed_version", Type: field.TypeString},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"unknown", "not_affected", "affected", "fixed", "under_investigation", "will_not_fix", "fix_deferred", "end_of_life"}},
+		{Name: "title", Type: field.TypeString},
+		{Name: "severity", Type: field.TypeEnum, Enums: []string{"UNKNOWN", "LOW", "MEDIUM", "HIGH", "CRITICAL"}},
+		{Name: "v3_score", Type: field.TypeString},
+	}
+	// VulnerabilitiesTable holds the schema information for the "vulnerabilities" table.
+	VulnerabilitiesTable = &schema.Table{
+		Name:       "vulnerabilities",
+		Columns:    VulnerabilitiesColumns,
+		PrimaryKey: []*schema.Column{VulnerabilitiesColumns[0]},
+	}
 	// ManifestSubjectColumns holds the columns for the "manifest_subject" table.
 	ManifestSubjectColumns = []*schema.Column{
 		{Name: "manifest_id", Type: field.TypeInt},
@@ -265,6 +285,31 @@ var (
 			},
 		},
 	}
+	// VulnerabilityManifestsColumns holds the columns for the "vulnerability_manifests" table.
+	VulnerabilityManifestsColumns = []*schema.Column{
+		{Name: "vulnerability_id", Type: field.TypeInt},
+		{Name: "manifest_id", Type: field.TypeInt},
+	}
+	// VulnerabilityManifestsTable holds the schema information for the "vulnerability_manifests" table.
+	VulnerabilityManifestsTable = &schema.Table{
+		Name:       "vulnerability_manifests",
+		Columns:    VulnerabilityManifestsColumns,
+		PrimaryKey: []*schema.Column{VulnerabilityManifestsColumns[0], VulnerabilityManifestsColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "vulnerability_manifests_vulnerability_id",
+				Columns:    []*schema.Column{VulnerabilityManifestsColumns[0]},
+				RefColumns: []*schema.Column{VulnerabilitiesColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "vulnerability_manifests_manifest_id",
+				Columns:    []*schema.Column{VulnerabilityManifestsColumns[1]},
+				RefColumns: []*schema.Column{ManifestsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		BlobChunksTable,
@@ -276,7 +321,9 @@ var (
 		RegistriesTable,
 		RepositoriesTable,
 		UsersTable,
+		VulnerabilitiesTable,
 		ManifestSubjectTable,
+		VulnerabilityManifestsTable,
 	}
 )
 
@@ -290,4 +337,6 @@ func init() {
 	RepositoriesTable.ForeignKeys[0].RefTable = RegistriesTable
 	ManifestSubjectTable.ForeignKeys[0].RefTable = ManifestsTable
 	ManifestSubjectTable.ForeignKeys[1].RefTable = ManifestsTable
+	VulnerabilityManifestsTable.ForeignKeys[0].RefTable = VulnerabilitiesTable
+	VulnerabilityManifestsTable.ForeignKeys[1].RefTable = ManifestsTable
 }

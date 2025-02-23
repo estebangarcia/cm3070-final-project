@@ -17,21 +17,23 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/vulnerability"
 )
 
 // ManifestQuery is the builder for querying Manifest entities.
 type ManifestQuery struct {
 	config
-	ctx                *QueryContext
-	order              []manifest.OrderOption
-	inters             []Interceptor
-	predicates         []predicate.Manifest
-	withTags           *ManifestTagReferenceQuery
-	withRepository     *RepositoryQuery
-	withSubject        *ManifestQuery
-	withReferer        *ManifestQuery
-	withManifestLayers *ManifestLayerQuery
-	withFKs            bool
+	ctx                 *QueryContext
+	order               []manifest.OrderOption
+	inters              []Interceptor
+	predicates          []predicate.Manifest
+	withTags            *ManifestTagReferenceQuery
+	withRepository      *RepositoryQuery
+	withSubject         *ManifestQuery
+	withReferer         *ManifestQuery
+	withManifestLayers  *ManifestLayerQuery
+	withVulnerabilities *VulnerabilityQuery
+	withFKs             bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -171,6 +173,28 @@ func (mq *ManifestQuery) QueryManifestLayers() *ManifestLayerQuery {
 			sqlgraph.From(manifest.Table, manifest.FieldID, selector),
 			sqlgraph.To(manifestlayer.Table, manifestlayer.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, manifest.ManifestLayersTable, manifest.ManifestLayersColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(mq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryVulnerabilities chains the current query on the "vulnerabilities" edge.
+func (mq *ManifestQuery) QueryVulnerabilities() *VulnerabilityQuery {
+	query := (&VulnerabilityClient{config: mq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := mq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := mq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(manifest.Table, manifest.FieldID, selector),
+			sqlgraph.To(vulnerability.Table, vulnerability.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, manifest.VulnerabilitiesTable, manifest.VulnerabilitiesPrimaryKey...),
 		)
 		fromU = sqlgraph.SetNeighbors(mq.driver.Dialect(), step)
 		return fromU, nil
@@ -365,16 +389,17 @@ func (mq *ManifestQuery) Clone() *ManifestQuery {
 		return nil
 	}
 	return &ManifestQuery{
-		config:             mq.config,
-		ctx:                mq.ctx.Clone(),
-		order:              append([]manifest.OrderOption{}, mq.order...),
-		inters:             append([]Interceptor{}, mq.inters...),
-		predicates:         append([]predicate.Manifest{}, mq.predicates...),
-		withTags:           mq.withTags.Clone(),
-		withRepository:     mq.withRepository.Clone(),
-		withSubject:        mq.withSubject.Clone(),
-		withReferer:        mq.withReferer.Clone(),
-		withManifestLayers: mq.withManifestLayers.Clone(),
+		config:              mq.config,
+		ctx:                 mq.ctx.Clone(),
+		order:               append([]manifest.OrderOption{}, mq.order...),
+		inters:              append([]Interceptor{}, mq.inters...),
+		predicates:          append([]predicate.Manifest{}, mq.predicates...),
+		withTags:            mq.withTags.Clone(),
+		withRepository:      mq.withRepository.Clone(),
+		withSubject:         mq.withSubject.Clone(),
+		withReferer:         mq.withReferer.Clone(),
+		withManifestLayers:  mq.withManifestLayers.Clone(),
+		withVulnerabilities: mq.withVulnerabilities.Clone(),
 		// clone intermediate query.
 		sql:  mq.sql.Clone(),
 		path: mq.path,
@@ -433,6 +458,17 @@ func (mq *ManifestQuery) WithManifestLayers(opts ...func(*ManifestLayerQuery)) *
 		opt(query)
 	}
 	mq.withManifestLayers = query
+	return mq
+}
+
+// WithVulnerabilities tells the query-builder to eager-load the nodes that are connected to
+// the "vulnerabilities" edge. The optional arguments are used to configure the query builder of the edge.
+func (mq *ManifestQuery) WithVulnerabilities(opts ...func(*VulnerabilityQuery)) *ManifestQuery {
+	query := (&VulnerabilityClient{config: mq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	mq.withVulnerabilities = query
 	return mq
 }
 
@@ -515,12 +551,13 @@ func (mq *ManifestQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Man
 		nodes       = []*Manifest{}
 		withFKs     = mq.withFKs
 		_spec       = mq.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [6]bool{
 			mq.withTags != nil,
 			mq.withRepository != nil,
 			mq.withSubject != nil,
 			mq.withReferer != nil,
 			mq.withManifestLayers != nil,
+			mq.withVulnerabilities != nil,
 		}
 	)
 	if mq.withRepository != nil {
@@ -578,6 +615,13 @@ func (mq *ManifestQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Man
 		if err := mq.loadManifestLayers(ctx, query, nodes,
 			func(n *Manifest) { n.Edges.ManifestLayers = []*ManifestLayer{} },
 			func(n *Manifest, e *ManifestLayer) { n.Edges.ManifestLayers = append(n.Edges.ManifestLayers, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := mq.withVulnerabilities; query != nil {
+		if err := mq.loadVulnerabilities(ctx, query, nodes,
+			func(n *Manifest) { n.Edges.Vulnerabilities = []*Vulnerability{} },
+			func(n *Manifest, e *Vulnerability) { n.Edges.Vulnerabilities = append(n.Edges.Vulnerabilities, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -797,6 +841,67 @@ func (mq *ManifestQuery) loadManifestLayers(ctx context.Context, query *Manifest
 			return fmt.Errorf(`unexpected referenced foreign-key "manifest_manifest_layers" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
+	}
+	return nil
+}
+func (mq *ManifestQuery) loadVulnerabilities(ctx context.Context, query *VulnerabilityQuery, nodes []*Manifest, init func(*Manifest), assign func(*Manifest, *Vulnerability)) error {
+	edgeIDs := make([]driver.Value, len(nodes))
+	byID := make(map[int]*Manifest)
+	nids := make(map[int]map[*Manifest]struct{})
+	for i, node := range nodes {
+		edgeIDs[i] = node.ID
+		byID[node.ID] = node
+		if init != nil {
+			init(node)
+		}
+	}
+	query.Where(func(s *sql.Selector) {
+		joinT := sql.Table(manifest.VulnerabilitiesTable)
+		s.Join(joinT).On(s.C(vulnerability.FieldID), joinT.C(manifest.VulnerabilitiesPrimaryKey[0]))
+		s.Where(sql.InValues(joinT.C(manifest.VulnerabilitiesPrimaryKey[1]), edgeIDs...))
+		columns := s.SelectedColumns()
+		s.Select(joinT.C(manifest.VulnerabilitiesPrimaryKey[1]))
+		s.AppendSelect(columns...)
+		s.SetDistinct(false)
+	})
+	if err := query.prepareQuery(ctx); err != nil {
+		return err
+	}
+	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
+		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
+			assign := spec.Assign
+			values := spec.ScanValues
+			spec.ScanValues = func(columns []string) ([]any, error) {
+				values, err := values(columns[1:])
+				if err != nil {
+					return nil, err
+				}
+				return append([]any{new(sql.NullInt64)}, values...), nil
+			}
+			spec.Assign = func(columns []string, values []any) error {
+				outValue := int(values[0].(*sql.NullInt64).Int64)
+				inValue := int(values[1].(*sql.NullInt64).Int64)
+				if nids[inValue] == nil {
+					nids[inValue] = map[*Manifest]struct{}{byID[outValue]: {}}
+					return assign(columns[1:], values[1:])
+				}
+				nids[inValue][byID[outValue]] = struct{}{}
+				return nil
+			}
+		})
+	})
+	neighbors, err := withInterceptors[[]*Vulnerability](ctx, query, qr, query.inters)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected "vulnerabilities" node returned %v`, n.ID)
+		}
+		for kn := range nodes {
+			assign(kn, n)
+		}
 	}
 	return nil
 }

@@ -5,6 +5,7 @@ package ent
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
@@ -25,6 +26,8 @@ type Manifest struct {
 	S3Path string `json:"s3_path,omitempty"`
 	// Digest holds the value of the "digest" field.
 	Digest string `json:"digest,omitempty"`
+	// ScannedAt holds the value of the "scanned_at" field.
+	ScannedAt *time.Time `json:"scanned_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ManifestQuery when eager-loading is set.
 	Edges                ManifestEdges `json:"edges"`
@@ -44,9 +47,11 @@ type ManifestEdges struct {
 	Referer []*Manifest `json:"referer,omitempty"`
 	// ManifestLayers holds the value of the manifest_layers edge.
 	ManifestLayers []*ManifestLayer `json:"manifest_layers,omitempty"`
+	// Vulnerabilities holds the value of the vulnerabilities edge.
+	Vulnerabilities []*Vulnerability `json:"vulnerabilities,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [6]bool
 }
 
 // TagsOrErr returns the Tags value or an error if the edge
@@ -96,6 +101,15 @@ func (e ManifestEdges) ManifestLayersOrErr() ([]*ManifestLayer, error) {
 	return nil, &NotLoadedError{edge: "manifest_layers"}
 }
 
+// VulnerabilitiesOrErr returns the Vulnerabilities value or an error if the edge
+// was not loaded in eager-loading.
+func (e ManifestEdges) VulnerabilitiesOrErr() ([]*Vulnerability, error) {
+	if e.loadedTypes[5] {
+		return e.Vulnerabilities, nil
+	}
+	return nil, &NotLoadedError{edge: "vulnerabilities"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Manifest) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -105,6 +119,8 @@ func (*Manifest) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case manifest.FieldMediaType, manifest.FieldArtifactType, manifest.FieldS3Path, manifest.FieldDigest:
 			values[i] = new(sql.NullString)
+		case manifest.FieldScannedAt:
+			values[i] = new(sql.NullTime)
 		case manifest.ForeignKeys[0]: // repository_manifests
 			values[i] = new(sql.NullInt64)
 		default:
@@ -152,6 +168,13 @@ func (m *Manifest) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				m.Digest = value.String
 			}
+		case manifest.FieldScannedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field scanned_at", values[i])
+			} else if value.Valid {
+				m.ScannedAt = new(time.Time)
+				*m.ScannedAt = value.Time
+			}
 		case manifest.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for edge-field repository_manifests", value)
@@ -197,6 +220,11 @@ func (m *Manifest) QueryManifestLayers() *ManifestLayerQuery {
 	return NewManifestClient(m.config).QueryManifestLayers(m)
 }
 
+// QueryVulnerabilities queries the "vulnerabilities" edge of the Manifest entity.
+func (m *Manifest) QueryVulnerabilities() *VulnerabilityQuery {
+	return NewManifestClient(m.config).QueryVulnerabilities(m)
+}
+
 // Update returns a builder for updating this Manifest.
 // Note that you need to call Manifest.Unwrap() before calling this method if this Manifest
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -231,6 +259,11 @@ func (m *Manifest) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("digest=")
 	builder.WriteString(m.Digest)
+	builder.WriteString(", ")
+	if v := m.ScannedAt; v != nil {
+		builder.WriteString("scanned_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

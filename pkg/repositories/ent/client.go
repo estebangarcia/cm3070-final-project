@@ -24,6 +24,7 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/user"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/vulnerability"
 )
 
 // Client is the client that holds all ent builders.
@@ -49,6 +50,8 @@ type Client struct {
 	Repository *RepositoryClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
+	// Vulnerability is the client for interacting with the Vulnerability builders.
+	Vulnerability *VulnerabilityClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -69,6 +72,7 @@ func (c *Client) init() {
 	c.Registry = NewRegistryClient(c.config)
 	c.Repository = NewRepositoryClient(c.config)
 	c.User = NewUserClient(c.config)
+	c.Vulnerability = NewVulnerabilityClient(c.config)
 }
 
 type (
@@ -170,6 +174,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Registry:               NewRegistryClient(cfg),
 		Repository:             NewRepositoryClient(cfg),
 		User:                   NewUserClient(cfg),
+		Vulnerability:          NewVulnerabilityClient(cfg),
 	}, nil
 }
 
@@ -198,6 +203,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Registry:               NewRegistryClient(cfg),
 		Repository:             NewRepositoryClient(cfg),
 		User:                   NewUserClient(cfg),
+		Vulnerability:          NewVulnerabilityClient(cfg),
 	}, nil
 }
 
@@ -229,6 +235,7 @@ func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.BlobChunk, c.Manifest, c.ManifestLayer, c.ManifestTagReference,
 		c.Organization, c.OrganizationMembership, c.Registry, c.Repository, c.User,
+		c.Vulnerability,
 	} {
 		n.Use(hooks...)
 	}
@@ -240,6 +247,7 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.BlobChunk, c.Manifest, c.ManifestLayer, c.ManifestTagReference,
 		c.Organization, c.OrganizationMembership, c.Registry, c.Repository, c.User,
+		c.Vulnerability,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -266,6 +274,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Repository.mutate(ctx, m)
 	case *UserMutation:
 		return c.User.mutate(ctx, m)
+	case *VulnerabilityMutation:
+		return c.Vulnerability.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
 	}
@@ -585,6 +595,22 @@ func (c *ManifestClient) QueryManifestLayers(m *Manifest) *ManifestLayerQuery {
 			sqlgraph.From(manifest.Table, manifest.FieldID, id),
 			sqlgraph.To(manifestlayer.Table, manifestlayer.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, manifest.ManifestLayersTable, manifest.ManifestLayersColumn),
+		)
+		fromV = sqlgraph.Neighbors(m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryVulnerabilities queries the vulnerabilities edge of a Manifest.
+func (c *ManifestClient) QueryVulnerabilities(m *Manifest) *VulnerabilityQuery {
+	query := (&VulnerabilityClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(manifest.Table, manifest.FieldID, id),
+			sqlgraph.To(vulnerability.Table, vulnerability.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, manifest.VulnerabilitiesTable, manifest.VulnerabilitiesPrimaryKey...),
 		)
 		fromV = sqlgraph.Neighbors(m.driver.Dialect(), step)
 		return fromV, nil
@@ -1707,14 +1733,164 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 	}
 }
 
+// VulnerabilityClient is a client for the Vulnerability schema.
+type VulnerabilityClient struct {
+	config
+}
+
+// NewVulnerabilityClient returns a client for the Vulnerability from the given config.
+func NewVulnerabilityClient(c config) *VulnerabilityClient {
+	return &VulnerabilityClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `vulnerability.Hooks(f(g(h())))`.
+func (c *VulnerabilityClient) Use(hooks ...Hook) {
+	c.hooks.Vulnerability = append(c.hooks.Vulnerability, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `vulnerability.Intercept(f(g(h())))`.
+func (c *VulnerabilityClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Vulnerability = append(c.inters.Vulnerability, interceptors...)
+}
+
+// Create returns a builder for creating a Vulnerability entity.
+func (c *VulnerabilityClient) Create() *VulnerabilityCreate {
+	mutation := newVulnerabilityMutation(c.config, OpCreate)
+	return &VulnerabilityCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Vulnerability entities.
+func (c *VulnerabilityClient) CreateBulk(builders ...*VulnerabilityCreate) *VulnerabilityCreateBulk {
+	return &VulnerabilityCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *VulnerabilityClient) MapCreateBulk(slice any, setFunc func(*VulnerabilityCreate, int)) *VulnerabilityCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &VulnerabilityCreateBulk{err: fmt.Errorf("calling to VulnerabilityClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*VulnerabilityCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &VulnerabilityCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Vulnerability.
+func (c *VulnerabilityClient) Update() *VulnerabilityUpdate {
+	mutation := newVulnerabilityMutation(c.config, OpUpdate)
+	return &VulnerabilityUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *VulnerabilityClient) UpdateOne(v *Vulnerability) *VulnerabilityUpdateOne {
+	mutation := newVulnerabilityMutation(c.config, OpUpdateOne, withVulnerability(v))
+	return &VulnerabilityUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *VulnerabilityClient) UpdateOneID(id int) *VulnerabilityUpdateOne {
+	mutation := newVulnerabilityMutation(c.config, OpUpdateOne, withVulnerabilityID(id))
+	return &VulnerabilityUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Vulnerability.
+func (c *VulnerabilityClient) Delete() *VulnerabilityDelete {
+	mutation := newVulnerabilityMutation(c.config, OpDelete)
+	return &VulnerabilityDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *VulnerabilityClient) DeleteOne(v *Vulnerability) *VulnerabilityDeleteOne {
+	return c.DeleteOneID(v.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *VulnerabilityClient) DeleteOneID(id int) *VulnerabilityDeleteOne {
+	builder := c.Delete().Where(vulnerability.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &VulnerabilityDeleteOne{builder}
+}
+
+// Query returns a query builder for Vulnerability.
+func (c *VulnerabilityClient) Query() *VulnerabilityQuery {
+	return &VulnerabilityQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeVulnerability},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Vulnerability entity by its id.
+func (c *VulnerabilityClient) Get(ctx context.Context, id int) (*Vulnerability, error) {
+	return c.Query().Where(vulnerability.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *VulnerabilityClient) GetX(ctx context.Context, id int) *Vulnerability {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryManifests queries the manifests edge of a Vulnerability.
+func (c *VulnerabilityClient) QueryManifests(v *Vulnerability) *ManifestQuery {
+	query := (&ManifestClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := v.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(vulnerability.Table, vulnerability.FieldID, id),
+			sqlgraph.To(manifest.Table, manifest.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, vulnerability.ManifestsTable, vulnerability.ManifestsPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(v.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *VulnerabilityClient) Hooks() []Hook {
+	return c.hooks.Vulnerability
+}
+
+// Interceptors returns the client interceptors.
+func (c *VulnerabilityClient) Interceptors() []Interceptor {
+	return c.inters.Vulnerability
+}
+
+func (c *VulnerabilityClient) mutate(ctx context.Context, m *VulnerabilityMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&VulnerabilityCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&VulnerabilityUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&VulnerabilityUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&VulnerabilityDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Vulnerability mutation op: %q", m.Op())
+	}
+}
+
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
 		BlobChunk, Manifest, ManifestLayer, ManifestTagReference, Organization,
-		OrganizationMembership, Registry, Repository, User []ent.Hook
+		OrganizationMembership, Registry, Repository, User, Vulnerability []ent.Hook
 	}
 	inters struct {
 		BlobChunk, Manifest, ManifestLayer, ManifestTagReference, Organization,
-		OrganizationMembership, Registry, Repository, User []ent.Interceptor
+		OrganizationMembership, Registry, Repository, User,
+		Vulnerability []ent.Interceptor
 	}
 )

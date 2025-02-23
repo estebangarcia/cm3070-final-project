@@ -20,6 +20,8 @@ const (
 	FieldS3Path = "s3_path"
 	// FieldDigest holds the string denoting the digest field in the database.
 	FieldDigest = "digest"
+	// FieldScannedAt holds the string denoting the scanned_at field in the database.
+	FieldScannedAt = "scanned_at"
 	// EdgeTags holds the string denoting the tags edge name in mutations.
 	EdgeTags = "tags"
 	// EdgeRepository holds the string denoting the repository edge name in mutations.
@@ -30,6 +32,8 @@ const (
 	EdgeReferer = "referer"
 	// EdgeManifestLayers holds the string denoting the manifest_layers edge name in mutations.
 	EdgeManifestLayers = "manifest_layers"
+	// EdgeVulnerabilities holds the string denoting the vulnerabilities edge name in mutations.
+	EdgeVulnerabilities = "vulnerabilities"
 	// Table holds the table name of the manifest in the database.
 	Table = "manifests"
 	// TagsTable is the table that holds the tags relation/edge.
@@ -57,6 +61,11 @@ const (
 	ManifestLayersInverseTable = "manifest_layers"
 	// ManifestLayersColumn is the table column denoting the manifest_layers relation/edge.
 	ManifestLayersColumn = "manifest_manifest_layers"
+	// VulnerabilitiesTable is the table that holds the vulnerabilities relation/edge. The primary key declared below.
+	VulnerabilitiesTable = "vulnerability_manifests"
+	// VulnerabilitiesInverseTable is the table name for the Vulnerability entity.
+	// It exists in this package in order to avoid circular dependency with the "vulnerability" package.
+	VulnerabilitiesInverseTable = "vulnerabilities"
 )
 
 // Columns holds all SQL columns for manifest fields.
@@ -66,6 +75,7 @@ var Columns = []string{
 	FieldArtifactType,
 	FieldS3Path,
 	FieldDigest,
+	FieldScannedAt,
 }
 
 // ForeignKeys holds the SQL foreign-keys that are owned by the "manifests"
@@ -81,6 +91,9 @@ var (
 	// RefererPrimaryKey and RefererColumn2 are the table columns denoting the
 	// primary key for the referer relation (M2M).
 	RefererPrimaryKey = []string{"manifest_id", "referer_id"}
+	// VulnerabilitiesPrimaryKey and VulnerabilitiesColumn2 are the table columns denoting the
+	// primary key for the vulnerabilities relation (M2M).
+	VulnerabilitiesPrimaryKey = []string{"vulnerability_id", "manifest_id"}
 )
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -124,6 +137,11 @@ func ByS3Path(opts ...sql.OrderTermOption) OrderOption {
 // ByDigest orders the results by the digest field.
 func ByDigest(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDigest, opts...).ToFunc()
+}
+
+// ByScannedAt orders the results by the scanned_at field.
+func ByScannedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldScannedAt, opts...).ToFunc()
 }
 
 // ByTagsCount orders the results by tags count.
@@ -188,6 +206,20 @@ func ByManifestLayers(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newManifestLayersStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByVulnerabilitiesCount orders the results by vulnerabilities count.
+func ByVulnerabilitiesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newVulnerabilitiesStep(), opts...)
+	}
+}
+
+// ByVulnerabilities orders the results by vulnerabilities terms.
+func ByVulnerabilities(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newVulnerabilitiesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newTagsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -221,5 +253,12 @@ func newManifestLayersStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ManifestLayersInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ManifestLayersTable, ManifestLayersColumn),
+	)
+}
+func newVulnerabilitiesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(VulnerabilitiesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, true, VulnerabilitiesTable, VulnerabilitiesPrimaryKey...),
 	)
 }

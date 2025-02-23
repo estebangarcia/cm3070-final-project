@@ -1,7 +1,11 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
+	"slices"
+	"strings"
+	"time"
 
 	"github.com/caarlos0/env/v11"
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
@@ -11,10 +15,27 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var availableWorkers = []string{
+	"all",
+	"security_scanner",
+	"user_signup",
+}
+
 // workersCmd represents the server command
 var workersCmd = &cobra.Command{
 	Use:   "workers",
 	Short: "Start registry background workers",
+	Args: func(cmd *cobra.Command, args []string) error {
+		if err := cobra.MaximumNArgs(1)(cmd, args); err != nil {
+			return err
+		}
+
+		if len(args) > 0 && !slices.Contains(availableWorkers, args[0]) {
+			return fmt.Errorf("%s is not a valid worker", strings.ToLower(args[0]))
+		}
+
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		var cfg config.AppConfig
 
@@ -30,12 +51,28 @@ var workersCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
-		userRepository := repositories.NewUserRepository(dbClient)
+		startWorker := "all"
+		if len(args) > 0 {
+			startWorker = strings.ToLower(args[0])
+		}
 
-		userSignedUpWorker := workers.NewUserSignupWorker(sqsClient, userRepository)
+		if startWorker == "all" || startWorker == "security_scanner" {
+			fmt.Println("Starting Security Scanning worker...")
+			manifestRepository := repositories.NewManifestRepository(dbClient)
+			periodicWorkerDispatcher := workers.NewPeriodicWorkerDispatcher(10 * time.Second)
+			trivyWorker := workers.NewSecurityScannerWorker(1, manifestRepository, &cfg)
+			periodicWorkerDispatcher.Start(ctx, trivyWorker)
+		}
 
-		sqsWorkerDispatcher := workers.NewSQSWorkerDispatcher(cfg.SignupWorker.QueueURL, sqsClient, 10)
-		sqsWorkerDispatcher.Start(ctx, userSignedUpWorker)
+		if startWorker == "all" || startWorker == "user_signup" {
+			fmt.Println("Starting User Signup worker...")
+			userRepository := repositories.NewUserRepository(dbClient)
+			userSignedUpWorker := workers.NewUserSignupWorker(sqsClient, userRepository)
+			sqsWorkerDispatcher := workers.NewSQSWorkerDispatcher(cfg.SignupWorker.QueueURL, sqsClient, 10)
+			sqsWorkerDispatcher.Start(ctx, userSignedUpWorker)
+		}
+
+		<-ctx.Done()
 	},
 }
 

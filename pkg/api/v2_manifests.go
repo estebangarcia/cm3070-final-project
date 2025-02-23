@@ -143,9 +143,7 @@ func (h *V2ManifestsHandler) DownloadManifest(w http.ResponseWriter, r *http.Req
 	imageName := r.Context().Value("repositoryName").(string)
 	reference := r.Context().Value("reference").(string)
 	registry := r.Context().Value("registry").(*ent.Registry)
-	acceptedTypes := r.Header.Values("Accept")
-
-	log.Println(imageName)
+	acceptedTypes := h.getAcceptedTypes(r)
 
 	repo, err := h.RepositoryRepository.GetOrCreateRepository(r.Context(), registry.ID, imageName)
 	if err != nil {
@@ -186,7 +184,7 @@ func (h *V2ManifestsHandler) HeadManifest(w http.ResponseWriter, r *http.Request
 	imageName := r.Context().Value("repositoryName").(string)
 	reference := r.Context().Value("reference").(string)
 	registry := r.Context().Value("registry").(*ent.Registry)
-	acceptedTypes := r.Header.Values("Accept")
+	acceptedTypes := h.getAcceptedTypes(r)
 
 	repo, err := h.RepositoryRepository.GetOrCreateRepository(r.Context(), registry.ID, imageName)
 	if err != nil {
@@ -270,7 +268,7 @@ func (h *V2ManifestsHandler) deleteTag(ctx context.Context, w http.ResponseWrite
 }
 
 func (h *V2ManifestsHandler) deleteManifestByDigest(ctx context.Context, w http.ResponseWriter, repo *ent.Repository, digest string) {
-	manifest, found, err := h.ManifestRepository.GetManifestByReference(ctx, digest, repo)
+	manifest, found, err := h.ManifestRepository.GetManifestByReference(ctx, digest, repo, false)
 	if err != nil {
 		log.Println(err)
 		responses.OCIInternalServerError(w)
@@ -311,7 +309,7 @@ func (h *V2ManifestsHandler) getKeyForManifestRef(contentType string, orgSlug st
 }
 
 func (h *V2ManifestsHandler) getManifestDownloadUrl(orgSlug string, registrySlug string, imageName string, reference string) string {
-	return fmt.Sprintf("%s/v2/%s/%s/%s/manifests/%s", h.Config.BaseURL, orgSlug, registrySlug, imageName, reference)
+	return fmt.Sprintf("%s/v2/%s/%s/%s/manifests/%s", h.Config.GetBaseUrl(), orgSlug, registrySlug, imageName, reference)
 }
 
 func (h *V2ManifestsHandler) getDigestFromReferenceOrBody(reference string, body []byte) (string, []byte, error) {
@@ -326,4 +324,21 @@ func (h *V2ManifestsHandler) getDigestFromReferenceOrBody(reference string, body
 	checksumBytes, err := hex.DecodeString(digest)
 
 	return digest, checksumBytes, err
+}
+
+func (h *V2ManifestsHandler) getAcceptedTypes(r *http.Request) []string {
+	acceptedTypes := r.Header["Accept"]
+	if len(acceptedTypes) == 1 && strings.Contains(acceptedTypes[0], ",") {
+		acceptedTypesComma := acceptedTypes[0]
+		acceptedTypesComma = strings.ReplaceAll(acceptedTypesComma, " ", "")
+		acceptedTypes = strings.Split(acceptedTypesComma, ",")
+	}
+
+	for i, acceptedType := range acceptedTypes {
+		if acceptedType == "*/*" {
+			return append(acceptedTypes[:i], acceptedTypes[i+1:]...)
+		}
+	}
+
+	return acceptedTypes
 }

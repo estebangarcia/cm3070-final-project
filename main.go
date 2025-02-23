@@ -1,5 +1,5 @@
 /*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
+Copyright © 2025 Esteban Garcia <estu91@gmail.com>
 */
 package main
 

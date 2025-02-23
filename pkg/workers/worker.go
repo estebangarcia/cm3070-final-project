@@ -11,6 +11,14 @@ type SQSWorker interface {
 	Handle(context.Context, types.Message) error
 }
 
-type Dispatcher interface {
+type SQSDispatcher interface {
 	Start(context.Context, SQSWorker)
+}
+
+type PeriodicWorker interface {
+	Handle(context.Context) error
+}
+
+type PeriodicDispatcher interface {
+	Start(context.Context, PeriodicWorker)
 }
