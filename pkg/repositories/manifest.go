@@ -326,7 +326,7 @@ func (mr *ManifestRepository) GetAllUnscanned(ctx context.Context) ([]*ent.Manif
 				},
 			)
 		},
-	).All(ctx)
+	).WithManifestLayers().All(ctx)
 
 	if err != nil {
 		return nil, err
