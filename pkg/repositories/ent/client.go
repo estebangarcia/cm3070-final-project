@@ -18,7 +18,9 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/blobchunk"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifest"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifestlayer"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifestmisconfiguration"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/misconfiguration"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organizationmembership"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
@@ -38,8 +40,12 @@ type Client struct {
 	Manifest *ManifestClient
 	// ManifestLayer is the client for interacting with the ManifestLayer builders.
 	ManifestLayer *ManifestLayerClient
+	// ManifestMisconfiguration is the client for interacting with the ManifestMisconfiguration builders.
+	ManifestMisconfiguration *ManifestMisconfigurationClient
 	// ManifestTagReference is the client for interacting with the ManifestTagReference builders.
 	ManifestTagReference *ManifestTagReferenceClient
+	// Misconfiguration is the client for interacting with the Misconfiguration builders.
+	Misconfiguration *MisconfigurationClient
 	// Organization is the client for interacting with the Organization builders.
 	Organization *OrganizationClient
 	// OrganizationMembership is the client for interacting with the OrganizationMembership builders.
@@ -66,7 +72,9 @@ func (c *Client) init() {
 	c.BlobChunk = NewBlobChunkClient(c.config)
 	c.Manifest = NewManifestClient(c.config)
 	c.ManifestLayer = NewManifestLayerClient(c.config)
+	c.ManifestMisconfiguration = NewManifestMisconfigurationClient(c.config)
 	c.ManifestTagReference = NewManifestTagReferenceClient(c.config)
+	c.Misconfiguration = NewMisconfigurationClient(c.config)
 	c.Organization = NewOrganizationClient(c.config)
 	c.OrganizationMembership = NewOrganizationMembershipClient(c.config)
 	c.Registry = NewRegistryClient(c.config)
@@ -163,18 +171,20 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:                    ctx,
-		config:                 cfg,
-		BlobChunk:              NewBlobChunkClient(cfg),
-		Manifest:               NewManifestClient(cfg),
-		ManifestLayer:          NewManifestLayerClient(cfg),
-		ManifestTagReference:   NewManifestTagReferenceClient(cfg),
-		Organization:           NewOrganizationClient(cfg),
-		OrganizationMembership: NewOrganizationMembershipClient(cfg),
-		Registry:               NewRegistryClient(cfg),
-		Repository:             NewRepositoryClient(cfg),
-		User:                   NewUserClient(cfg),
-		Vulnerability:          NewVulnerabilityClient(cfg),
+		ctx:                      ctx,
+		config:                   cfg,
+		BlobChunk:                NewBlobChunkClient(cfg),
+		Manifest:                 NewManifestClient(cfg),
+		ManifestLayer:            NewManifestLayerClient(cfg),
+		ManifestMisconfiguration: NewManifestMisconfigurationClient(cfg),
+		ManifestTagReference:     NewManifestTagReferenceClient(cfg),
+		Misconfiguration:         NewMisconfigurationClient(cfg),
+		Organization:             NewOrganizationClient(cfg),
+		OrganizationMembership:   NewOrganizationMembershipClient(cfg),
+		Registry:                 NewRegistryClient(cfg),
+		Repository:               NewRepositoryClient(cfg),
+		User:                     NewUserClient(cfg),
+		Vulnerability:            NewVulnerabilityClient(cfg),
 	}, nil
 }
 
@@ -192,18 +202,20 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:                    ctx,
-		config:                 cfg,
-		BlobChunk:              NewBlobChunkClient(cfg),
-		Manifest:               NewManifestClient(cfg),
-		ManifestLayer:          NewManifestLayerClient(cfg),
-		ManifestTagReference:   NewManifestTagReferenceClient(cfg),
-		Organization:           NewOrganizationClient(cfg),
-		OrganizationMembership: NewOrganizationMembershipClient(cfg),
-		Registry:               NewRegistryClient(cfg),
-		Repository:             NewRepositoryClient(cfg),
-		User:                   NewUserClient(cfg),
-		Vulnerability:          NewVulnerabilityClient(cfg),
+		ctx:                      ctx,
+		config:                   cfg,
+		BlobChunk:                NewBlobChunkClient(cfg),
+		Manifest:                 NewManifestClient(cfg),
+		ManifestLayer:            NewManifestLayerClient(cfg),
+		ManifestMisconfiguration: NewManifestMisconfigurationClient(cfg),
+		ManifestTagReference:     NewManifestTagReferenceClient(cfg),
+		Misconfiguration:         NewMisconfigurationClient(cfg),
+		Organization:             NewOrganizationClient(cfg),
+		OrganizationMembership:   NewOrganizationMembershipClient(cfg),
+		Registry:                 NewRegistryClient(cfg),
+		Repository:               NewRepositoryClient(cfg),
+		User:                     NewUserClient(cfg),
+		Vulnerability:            NewVulnerabilityClient(cfg),
 	}, nil
 }
 
@@ -233,9 +245,9 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.BlobChunk, c.Manifest, c.ManifestLayer, c.ManifestTagReference,
-		c.Organization, c.OrganizationMembership, c.Registry, c.Repository, c.User,
-		c.Vulnerability,
+		c.BlobChunk, c.Manifest, c.ManifestLayer, c.ManifestMisconfiguration,
+		c.ManifestTagReference, c.Misconfiguration, c.Organization,
+		c.OrganizationMembership, c.Registry, c.Repository, c.User, c.Vulnerability,
 	} {
 		n.Use(hooks...)
 	}
@@ -245,9 +257,9 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.BlobChunk, c.Manifest, c.ManifestLayer, c.ManifestTagReference,
-		c.Organization, c.OrganizationMembership, c.Registry, c.Repository, c.User,
-		c.Vulnerability,
+		c.BlobChunk, c.Manifest, c.ManifestLayer, c.ManifestMisconfiguration,
+		c.ManifestTagReference, c.Misconfiguration, c.Organization,
+		c.OrganizationMembership, c.Registry, c.Repository, c.User, c.Vulnerability,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -262,8 +274,12 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Manifest.mutate(ctx, m)
 	case *ManifestLayerMutation:
 		return c.ManifestLayer.mutate(ctx, m)
+	case *ManifestMisconfigurationMutation:
+		return c.ManifestMisconfiguration.mutate(ctx, m)
 	case *ManifestTagReferenceMutation:
 		return c.ManifestTagReference.mutate(ctx, m)
+	case *MisconfigurationMutation:
+		return c.Misconfiguration.mutate(ctx, m)
 	case *OrganizationMutation:
 		return c.Organization.mutate(ctx, m)
 	case *OrganizationMembershipMutation:
@@ -792,6 +808,155 @@ func (c *ManifestLayerClient) mutate(ctx context.Context, m *ManifestLayerMutati
 	}
 }
 
+// ManifestMisconfigurationClient is a client for the ManifestMisconfiguration schema.
+type ManifestMisconfigurationClient struct {
+	config
+}
+
+// NewManifestMisconfigurationClient returns a client for the ManifestMisconfiguration from the given config.
+func NewManifestMisconfigurationClient(c config) *ManifestMisconfigurationClient {
+	return &ManifestMisconfigurationClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `manifestmisconfiguration.Hooks(f(g(h())))`.
+func (c *ManifestMisconfigurationClient) Use(hooks ...Hook) {
+	c.hooks.ManifestMisconfiguration = append(c.hooks.ManifestMisconfiguration, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `manifestmisconfiguration.Intercept(f(g(h())))`.
+func (c *ManifestMisconfigurationClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ManifestMisconfiguration = append(c.inters.ManifestMisconfiguration, interceptors...)
+}
+
+// Create returns a builder for creating a ManifestMisconfiguration entity.
+func (c *ManifestMisconfigurationClient) Create() *ManifestMisconfigurationCreate {
+	mutation := newManifestMisconfigurationMutation(c.config, OpCreate)
+	return &ManifestMisconfigurationCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ManifestMisconfiguration entities.
+func (c *ManifestMisconfigurationClient) CreateBulk(builders ...*ManifestMisconfigurationCreate) *ManifestMisconfigurationCreateBulk {
+	return &ManifestMisconfigurationCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ManifestMisconfigurationClient) MapCreateBulk(slice any, setFunc func(*ManifestMisconfigurationCreate, int)) *ManifestMisconfigurationCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ManifestMisconfigurationCreateBulk{err: fmt.Errorf("calling to ManifestMisconfigurationClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ManifestMisconfigurationCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ManifestMisconfigurationCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ManifestMisconfiguration.
+func (c *ManifestMisconfigurationClient) Update() *ManifestMisconfigurationUpdate {
+	mutation := newManifestMisconfigurationMutation(c.config, OpUpdate)
+	return &ManifestMisconfigurationUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ManifestMisconfigurationClient) UpdateOne(mm *ManifestMisconfiguration) *ManifestMisconfigurationUpdateOne {
+	mutation := newManifestMisconfigurationMutation(c.config, OpUpdateOne, withManifestMisconfiguration(mm))
+	return &ManifestMisconfigurationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ManifestMisconfigurationClient) UpdateOneID(id int) *ManifestMisconfigurationUpdateOne {
+	mutation := newManifestMisconfigurationMutation(c.config, OpUpdateOne, withManifestMisconfigurationID(id))
+	return &ManifestMisconfigurationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ManifestMisconfiguration.
+func (c *ManifestMisconfigurationClient) Delete() *ManifestMisconfigurationDelete {
+	mutation := newManifestMisconfigurationMutation(c.config, OpDelete)
+	return &ManifestMisconfigurationDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ManifestMisconfigurationClient) DeleteOne(mm *ManifestMisconfiguration) *ManifestMisconfigurationDeleteOne {
+	return c.DeleteOneID(mm.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ManifestMisconfigurationClient) DeleteOneID(id int) *ManifestMisconfigurationDeleteOne {
+	builder := c.Delete().Where(manifestmisconfiguration.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ManifestMisconfigurationDeleteOne{builder}
+}
+
+// Query returns a query builder for ManifestMisconfiguration.
+func (c *ManifestMisconfigurationClient) Query() *ManifestMisconfigurationQuery {
+	return &ManifestMisconfigurationQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeManifestMisconfiguration},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ManifestMisconfiguration entity by its id.
+func (c *ManifestMisconfigurationClient) Get(ctx context.Context, id int) (*ManifestMisconfiguration, error) {
+	return c.Query().Where(manifestmisconfiguration.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ManifestMisconfigurationClient) GetX(ctx context.Context, id int) *ManifestMisconfiguration {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryMisconfiguration queries the misconfiguration edge of a ManifestMisconfiguration.
+func (c *ManifestMisconfigurationClient) QueryMisconfiguration(mm *ManifestMisconfiguration) *MisconfigurationQuery {
+	query := (&MisconfigurationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := mm.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(manifestmisconfiguration.Table, manifestmisconfiguration.FieldID, id),
+			sqlgraph.To(misconfiguration.Table, misconfiguration.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, manifestmisconfiguration.MisconfigurationTable, manifestmisconfiguration.MisconfigurationColumn),
+		)
+		fromV = sqlgraph.Neighbors(mm.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ManifestMisconfigurationClient) Hooks() []Hook {
+	return c.hooks.ManifestMisconfiguration
+}
+
+// Interceptors returns the client interceptors.
+func (c *ManifestMisconfigurationClient) Interceptors() []Interceptor {
+	return c.inters.ManifestMisconfiguration
+}
+
+func (c *ManifestMisconfigurationClient) mutate(ctx context.Context, m *ManifestMisconfigurationMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ManifestMisconfigurationCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ManifestMisconfigurationUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ManifestMisconfigurationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ManifestMisconfigurationDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ManifestMisconfiguration mutation op: %q", m.Op())
+	}
+}
+
 // ManifestTagReferenceClient is a client for the ManifestTagReference schema.
 type ManifestTagReferenceClient struct {
 	config
@@ -938,6 +1103,155 @@ func (c *ManifestTagReferenceClient) mutate(ctx context.Context, m *ManifestTagR
 		return (&ManifestTagReferenceDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown ManifestTagReference mutation op: %q", m.Op())
+	}
+}
+
+// MisconfigurationClient is a client for the Misconfiguration schema.
+type MisconfigurationClient struct {
+	config
+}
+
+// NewMisconfigurationClient returns a client for the Misconfiguration from the given config.
+func NewMisconfigurationClient(c config) *MisconfigurationClient {
+	return &MisconfigurationClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `misconfiguration.Hooks(f(g(h())))`.
+func (c *MisconfigurationClient) Use(hooks ...Hook) {
+	c.hooks.Misconfiguration = append(c.hooks.Misconfiguration, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `misconfiguration.Intercept(f(g(h())))`.
+func (c *MisconfigurationClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Misconfiguration = append(c.inters.Misconfiguration, interceptors...)
+}
+
+// Create returns a builder for creating a Misconfiguration entity.
+func (c *MisconfigurationClient) Create() *MisconfigurationCreate {
+	mutation := newMisconfigurationMutation(c.config, OpCreate)
+	return &MisconfigurationCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Misconfiguration entities.
+func (c *MisconfigurationClient) CreateBulk(builders ...*MisconfigurationCreate) *MisconfigurationCreateBulk {
+	return &MisconfigurationCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *MisconfigurationClient) MapCreateBulk(slice any, setFunc func(*MisconfigurationCreate, int)) *MisconfigurationCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &MisconfigurationCreateBulk{err: fmt.Errorf("calling to MisconfigurationClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*MisconfigurationCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &MisconfigurationCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Misconfiguration.
+func (c *MisconfigurationClient) Update() *MisconfigurationUpdate {
+	mutation := newMisconfigurationMutation(c.config, OpUpdate)
+	return &MisconfigurationUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *MisconfigurationClient) UpdateOne(m *Misconfiguration) *MisconfigurationUpdateOne {
+	mutation := newMisconfigurationMutation(c.config, OpUpdateOne, withMisconfiguration(m))
+	return &MisconfigurationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *MisconfigurationClient) UpdateOneID(id int) *MisconfigurationUpdateOne {
+	mutation := newMisconfigurationMutation(c.config, OpUpdateOne, withMisconfigurationID(id))
+	return &MisconfigurationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Misconfiguration.
+func (c *MisconfigurationClient) Delete() *MisconfigurationDelete {
+	mutation := newMisconfigurationMutation(c.config, OpDelete)
+	return &MisconfigurationDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *MisconfigurationClient) DeleteOne(m *Misconfiguration) *MisconfigurationDeleteOne {
+	return c.DeleteOneID(m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *MisconfigurationClient) DeleteOneID(id int) *MisconfigurationDeleteOne {
+	builder := c.Delete().Where(misconfiguration.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &MisconfigurationDeleteOne{builder}
+}
+
+// Query returns a query builder for Misconfiguration.
+func (c *MisconfigurationClient) Query() *MisconfigurationQuery {
+	return &MisconfigurationQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeMisconfiguration},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Misconfiguration entity by its id.
+func (c *MisconfigurationClient) Get(ctx context.Context, id int) (*Misconfiguration, error) {
+	return c.Query().Where(misconfiguration.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *MisconfigurationClient) GetX(ctx context.Context, id int) *Misconfiguration {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryManifestMisconfigurations queries the manifest_misconfigurations edge of a Misconfiguration.
+func (c *MisconfigurationClient) QueryManifestMisconfigurations(m *Misconfiguration) *ManifestMisconfigurationQuery {
+	query := (&ManifestMisconfigurationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(misconfiguration.Table, misconfiguration.FieldID, id),
+			sqlgraph.To(manifestmisconfiguration.Table, manifestmisconfiguration.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, misconfiguration.ManifestMisconfigurationsTable, misconfiguration.ManifestMisconfigurationsColumn),
+		)
+		fromV = sqlgraph.Neighbors(m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *MisconfigurationClient) Hooks() []Hook {
+	return c.hooks.Misconfiguration
+}
+
+// Interceptors returns the client interceptors.
+func (c *MisconfigurationClient) Interceptors() []Interceptor {
+	return c.inters.Misconfiguration
+}
+
+func (c *MisconfigurationClient) mutate(ctx context.Context, m *MisconfigurationMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&MisconfigurationCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&MisconfigurationUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&MisconfigurationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&MisconfigurationDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Misconfiguration mutation op: %q", m.Op())
 	}
 }
 
@@ -1885,12 +2199,13 @@ func (c *VulnerabilityClient) mutate(ctx context.Context, m *VulnerabilityMutati
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		BlobChunk, Manifest, ManifestLayer, ManifestTagReference, Organization,
-		OrganizationMembership, Registry, Repository, User, Vulnerability []ent.Hook
+		BlobChunk, Manifest, ManifestLayer, ManifestMisconfiguration,
+		ManifestTagReference, Misconfiguration, Organization, OrganizationMembership,
+		Registry, Repository, User, Vulnerability []ent.Hook
 	}
 	inters struct {
-		BlobChunk, Manifest, ManifestLayer, ManifestTagReference, Organization,
-		OrganizationMembership, Registry, Repository, User,
-		Vulnerability []ent.Interceptor
+		BlobChunk, Manifest, ManifestLayer, ManifestMisconfiguration,
+		ManifestTagReference, Misconfiguration, Organization, OrganizationMembership,
+		Registry, Repository, User, Vulnerability []ent.Interceptor
 	}
 )

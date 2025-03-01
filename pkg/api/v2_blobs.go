@@ -144,7 +144,7 @@ func (h *V2BlobsHandler) HeadBlob(w http.ResponseWriter, r *http.Request) {
 func (h *V2BlobsHandler) DownloadBlob(w http.ResponseWriter, r *http.Request) {
 	blobDigest := r.Context().Value("digest").(string)
 	org := r.Context().Value("organization").(*ent.Organization)
-	keyName := getKeyForBlob(org.Slug, blobDigest)
+	keyName := helpers.GetS3KeyForBlob(org.Slug, blobDigest)
 
 	withFileName := r.URL.Query().Get("filename")
 
@@ -432,7 +432,7 @@ func (h *V2BlobsHandler) completeMultiPartUpload(ctx context.Context, orgSlug st
 		return errors.New("object size is above 5GB")
 	}
 
-	destKey := getKeyForBlob(orgSlug, blobDigest)
+	destKey := helpers.GetS3KeyForBlob(orgSlug, blobDigest)
 	copySource := fmt.Sprintf("%s/%s", h.Config.S3.BlobsBucketName, keyName)
 
 	_, err = h.S3Client.CopyObject(ctx, &s3.CopyObjectInput{
@@ -447,7 +447,7 @@ func (h *V2BlobsHandler) completeMultiPartUpload(ctx context.Context, orgSlug st
 func (h *V2BlobsHandler) s3HeadBlob(ctx context.Context, orgSlug string, blobDigest string) (*s3.HeadObjectOutput, bool, error) {
 	output, err := h.S3Client.HeadObject(ctx, &s3.HeadObjectInput{
 		Bucket: &h.Config.S3.BlobsBucketName,
-		Key:    aws.String(getKeyForBlob(orgSlug, blobDigest)),
+		Key:    aws.String(helpers.GetS3KeyForBlob(orgSlug, blobDigest)),
 	})
 
 	var nfe *types.NotFound
@@ -462,10 +462,6 @@ func (h *V2BlobsHandler) s3HeadBlob(ctx context.Context, orgSlug string, blobDig
 
 func (h *V2BlobsHandler) getKeyForBlobInFlight(orgSlug string, uploadId string) string {
 	return fmt.Sprintf("%s/in-flight/%s.blob", orgSlug, uploadId)
-}
-
-func getKeyForBlob(orgSlug string, digest string) string {
-	return fmt.Sprintf("%s/blobs/%s/blob.data", orgSlug, helpers.GetDigestAsNestedFolder(digest))
 }
 
 func (h *V2BlobsHandler) getUploadUrl(orgSlug string, registrySlug string, imageName string, uploadId string, s3UploadId string) string {

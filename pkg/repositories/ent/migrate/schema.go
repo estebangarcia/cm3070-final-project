@@ -94,6 +94,36 @@ var (
 			},
 		},
 	}
+	// ManifestMisconfigurationsColumns holds the columns for the "manifest_misconfigurations" table.
+	ManifestMisconfigurationsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "target_file", Type: field.TypeString},
+		{Name: "message", Type: field.TypeString},
+		{Name: "resolution", Type: field.TypeString},
+		{Name: "manifest_id", Type: field.TypeInt},
+		{Name: "misconfiguration_id", Type: field.TypeInt, Nullable: true},
+	}
+	// ManifestMisconfigurationsTable holds the schema information for the "manifest_misconfigurations" table.
+	ManifestMisconfigurationsTable = &schema.Table{
+		Name:       "manifest_misconfigurations",
+		Columns:    ManifestMisconfigurationsColumns,
+		PrimaryKey: []*schema.Column{ManifestMisconfigurationsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "manifest_misconfigurations_misconfigurations_manifest_misconfigurations",
+				Columns:    []*schema.Column{ManifestMisconfigurationsColumns[5]},
+				RefColumns: []*schema.Column{MisconfigurationsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "manifestmisconfiguration_manifest_id_misconfiguration_id_target_file",
+				Unique:  true,
+				Columns: []*schema.Column{ManifestMisconfigurationsColumns[4], ManifestMisconfigurationsColumns[5], ManifestMisconfigurationsColumns[1]},
+			},
+		},
+	}
 	// ManifestTagReferencesColumns holds the columns for the "manifest_tag_references" table.
 	ManifestTagReferencesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -113,6 +143,20 @@ var (
 				OnDelete:   schema.SetNull,
 			},
 		},
+	}
+	// MisconfigurationsColumns holds the columns for the "misconfigurations" table.
+	MisconfigurationsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "misconfiguration_id", Type: field.TypeString, Unique: true},
+		{Name: "misconfiguration_url_details", Type: field.TypeString},
+		{Name: "title", Type: field.TypeString},
+		{Name: "severity", Type: field.TypeEnum, Enums: []string{"UNKNOWN", "LOW", "MEDIUM", "HIGH", "CRITICAL"}},
+	}
+	// MisconfigurationsTable holds the schema information for the "misconfigurations" table.
+	MisconfigurationsTable = &schema.Table{
+		Name:       "misconfigurations",
+		Columns:    MisconfigurationsColumns,
+		PrimaryKey: []*schema.Column{MisconfigurationsColumns[0]},
 	}
 	// OrganizationsColumns holds the columns for the "organizations" table.
 	OrganizationsColumns = []*schema.Column{
@@ -315,7 +359,9 @@ var (
 		BlobChunksTable,
 		ManifestsTable,
 		ManifestLayersTable,
+		ManifestMisconfigurationsTable,
 		ManifestTagReferencesTable,
+		MisconfigurationsTable,
 		OrganizationsTable,
 		OrganizationMembershipsTable,
 		RegistriesTable,
@@ -330,6 +376,7 @@ var (
 func init() {
 	ManifestsTable.ForeignKeys[0].RefTable = RepositoriesTable
 	ManifestLayersTable.ForeignKeys[0].RefTable = ManifestsTable
+	ManifestMisconfigurationsTable.ForeignKeys[0].RefTable = MisconfigurationsTable
 	ManifestTagReferencesTable.ForeignKeys[0].RefTable = ManifestsTable
 	OrganizationMembershipsTable.ForeignKeys[0].RefTable = UsersTable
 	OrganizationMembershipsTable.ForeignKeys[1].RefTable = OrganizationsTable

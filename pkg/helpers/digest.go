@@ -1,6 +1,9 @@
 package helpers
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 const sha256Prefix = "sha256:"
 
@@ -29,6 +32,10 @@ func GetDigestAsNestedFolder(digest string) string {
 
 	// Join the folders with a "/" to simulate the S3 folder structure
 	return strings.Join(folders, "/")
+}
+
+func GetS3KeyForBlob(orgSlug string, digest string) string {
+	return fmt.Sprintf("%s/blobs/%s/blob.data", orgSlug, GetDigestAsNestedFolder(digest))
 }
 
 func IsVendorSpecificContentType(contentType string) bool {

@@ -46,6 +46,7 @@ var workersCmd = &cobra.Command{
 		ctx := NewSigKillContext()
 
 		sqsClient := helpers.GetSQSClient(ctx, cfg)
+		s3Client := helpers.GetS3Client(ctx, cfg)
 		dbClient, err := helpers.GetDBClient(ctx, &cfg)
 		if err != nil {
 			log.Fatal(err)
@@ -59,8 +60,8 @@ var workersCmd = &cobra.Command{
 		if startWorker == "all" || startWorker == "security_scanner" {
 			fmt.Println("Starting Security Scanning worker...")
 			manifestRepository := repositories.NewManifestRepository()
-			periodicWorkerDispatcher := workers.NewPeriodicWorkerDispatcher(10 * time.Second)
-			trivyWorker := workers.NewSecurityScannerWorker(1, manifestRepository, &cfg)
+			periodicWorkerDispatcher := workers.NewPeriodicWorkerDispatcher(10*time.Second, dbClient)
+			trivyWorker := workers.NewSecurityScannerWorker(5, s3Client, manifestRepository, &cfg)
 			periodicWorkerDispatcher.Start(ctx, trivyWorker)
 		}
 

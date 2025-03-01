@@ -15,7 +15,9 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/blobchunk"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifest"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifestlayer"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifestmisconfiguration"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/misconfiguration"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organizationmembership"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
@@ -82,16 +84,18 @@ var (
 func checkColumn(table, column string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			blobchunk.Table:              blobchunk.ValidColumn,
-			manifest.Table:               manifest.ValidColumn,
-			manifestlayer.Table:          manifestlayer.ValidColumn,
-			manifesttagreference.Table:   manifesttagreference.ValidColumn,
-			organization.Table:           organization.ValidColumn,
-			organizationmembership.Table: organizationmembership.ValidColumn,
-			registry.Table:               registry.ValidColumn,
-			repository.Table:             repository.ValidColumn,
-			user.Table:                   user.ValidColumn,
-			vulnerability.Table:          vulnerability.ValidColumn,
+			blobchunk.Table:                blobchunk.ValidColumn,
+			manifest.Table:                 manifest.ValidColumn,
+			manifestlayer.Table:            manifestlayer.ValidColumn,
+			manifestmisconfiguration.Table: manifestmisconfiguration.ValidColumn,
+			manifesttagreference.Table:     manifesttagreference.ValidColumn,
+			misconfiguration.Table:         misconfiguration.ValidColumn,
+			organization.Table:             organization.ValidColumn,
+			organizationmembership.Table:   organizationmembership.ValidColumn,
+			registry.Table:                 registry.ValidColumn,
+			repository.Table:               repository.ValidColumn,
+			user.Table:                     user.ValidColumn,
+			vulnerability.Table:            vulnerability.ValidColumn,
 		})
 	})
 	return columnCheck(table, column)

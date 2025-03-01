@@ -1,25 +1,35 @@
 package workers
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
+	"slices"
 	"strconv"
 
 	dbTypes "github.com/aquasecurity/trivy-db/pkg/types"
 	"github.com/aquasecurity/trivy/pkg/commands/artifact"
 	"github.com/aquasecurity/trivy/pkg/commands/auth"
 	"github.com/aquasecurity/trivy/pkg/db"
+	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/flag"
 	"github.com/aquasecurity/trivy/pkg/report"
 	"github.com/aquasecurity/trivy/pkg/types"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
+	"github.com/estebangarcia/cm3070-final-project/pkg/helpers"
 	models "github.com/estebangarcia/cm3070-final-project/pkg/oci_models"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/misconfiguration"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/vulnerability"
 	"github.com/google/go-containerregistry/pkg/name"
 	"golang.org/x/sync/errgroup"
@@ -29,13 +39,15 @@ type SecurityScannerWorker struct {
 	cfg                *config.AppConfig
 	parallelScans      int
 	manifestRepository *repositories.ManifestRepository
+	s3Client           *s3.Client
 }
 
-func NewSecurityScannerWorker(parallelScans int, manifestRepository *repositories.ManifestRepository, cfg *config.AppConfig) *SecurityScannerWorker {
+func NewSecurityScannerWorker(parallelScans int, s3Client *s3.Client, manifestRepository *repositories.ManifestRepository, cfg *config.AppConfig) *SecurityScannerWorker {
 	return &SecurityScannerWorker{
 		cfg:                cfg,
 		parallelScans:      parallelScans,
 		manifestRepository: manifestRepository,
+		s3Client:           s3Client,
 	}
 }
 
@@ -91,18 +103,21 @@ func (w *SecurityScannerWorker) startSecurityScan(ctx context.Context, manifest 
 			"application/vnd.docker.container.image.v1+json": r.ScanImage,
 			"application/vnd.oci.image.config.v1+json":       r.ScanImage,
 			"application/vnd.python.artifact":                r.ScanFilesystem,
+			"application/vnd.cncf.helm.config.v1+json":       r.ScanFilesystem,
 		}
 
 		prepareFuncMapping := map[string]func(context.Context, *ent.Manifest, *flag.Options) error{
 			"application/vnd.docker.container.image.v1+json": w.prepareContainerScan,
 			"application/vnd.oci.image.config.v1+json":       w.prepareContainerScan,
 			"application/vnd.python.artifact":                w.preparePythonScan,
+			"application/vnd.cncf.helm.config.v1+json":       w.prepareHelmScan,
 		}
 
 		cleanupFuncMapping := map[string]func(*flag.Options) error{
 			"application/vnd.docker.container.image.v1+json": w.cleanupContainerScan,
 			"application/vnd.oci.image.config.v1+json":       w.cleanupContainerScan,
 			"application/vnd.python.artifact":                w.cleanupPythonScan,
+			"application/vnd.cncf.helm.config.v1+json":       w.cleanupPythonScan,
 		}
 
 		if prepareFunc, ok := prepareFuncMapping[manifest.ArtifactType]; ok && prepareFunc(ctx, manifest, opts) != nil {
@@ -156,6 +171,10 @@ func (w *SecurityScannerWorker) startSecurityScan(ctx context.Context, manifest 
 		}
 
 		var vulnerabilities ent.Vulnerabilities
+
+		var misconfigurations ent.Misconfigurations
+		var misconfigIDs []string
+
 		for _, results := range report.Results {
 			for _, rawVulnerability := range results.Vulnerabilities {
 				vulnerabilities = append(vulnerabilities, &ent.Vulnerability{
@@ -169,6 +188,65 @@ func (w *SecurityScannerWorker) startSecurityScan(ctx context.Context, manifest 
 					Title:                   rawVulnerability.Title,
 				})
 			}
+
+			for _, rawMisconfiguration := range results.Misconfigurations {
+				misconfigurations = append(misconfigurations, &ent.Misconfiguration{
+					MisconfigurationID:         rawMisconfiguration.ID,
+					MisconfigurationURLDetails: rawMisconfiguration.PrimaryURL,
+					Title:                      rawMisconfiguration.Title,
+					Severity:                   misconfiguration.Severity(rawMisconfiguration.Severity),
+				})
+				if !slices.Contains(misconfigIDs, rawMisconfiguration.ID) {
+					misconfigIDs = append(misconfigIDs, rawMisconfiguration.ID)
+				}
+			}
+		}
+
+		if err = w.manifestRepository.CreateMisconfigurationsInBulk(ctx, misconfigurations); err != nil {
+			return err
+		}
+
+		misconfigs, err := w.manifestRepository.GetMisconfigurationsByIDs(ctx, misconfigIDs)
+		if err != nil {
+			return err
+		}
+
+		var manifestMisconfigurations ent.ManifestMisconfigurations
+		targetFileMisconfigs := map[string][]string{}
+
+		misconfigMap := make(map[string]*ent.Misconfiguration)
+		for _, m := range misconfigs {
+			misconfigMap[m.MisconfigurationID] = m
+		}
+
+		for _, results := range report.Results {
+			for _, rawMisconfiguration := range results.Misconfigurations {
+				misconfig, ok := misconfigMap[rawMisconfiguration.ID]
+				if !ok {
+					continue
+				}
+
+				tFileMisconfigs, ok := targetFileMisconfigs[results.Target]
+				if !ok {
+					tFileMisconfigs = []string{}
+				}
+
+				if !slices.Contains(tFileMisconfigs, misconfig.MisconfigurationID) {
+					manifestMisconfigurations = append(manifestMisconfigurations, &ent.ManifestMisconfiguration{
+						TargetFile:         results.Target,
+						Message:            rawMisconfiguration.Message,
+						Resolution:         rawMisconfiguration.Resolution,
+						MisconfigurationID: misconfig.ID,
+						ManifestID:         manifest.ID,
+					})
+					tFileMisconfigs = append(tFileMisconfigs, misconfig.MisconfigurationID)
+					targetFileMisconfigs[results.Target] = tFileMisconfigs
+				}
+			}
+		}
+
+		if err = w.manifestRepository.CreateManifestMisconfigurationsInBulk(ctx, manifestMisconfigurations); err != nil {
+			return err
 		}
 
 		if err = w.manifestRepository.CreateVulnerabilitiesInBulkAndMarkAsScanned(ctx, vulnerabilities, manifest); err != nil {
@@ -197,6 +275,78 @@ func (w *SecurityScannerWorker) cleanupContainerScan(flags *flag.Options) error 
 
 func (w *SecurityScannerWorker) cleanupPythonScan(flags *flag.Options) error {
 	return os.Remove(flags.ScanOptions.Target)
+}
+
+func (w *SecurityScannerWorker) prepareHelmScan(ctx context.Context, manifest *ent.Manifest, flags *flag.Options) error {
+	var chartLayer *ent.ManifestLayer
+
+	for _, layer := range manifest.Edges.ManifestLayers {
+		if layer.MediaType == "application/vnd.cncf.helm.chart.content.v1.tar+gzip" {
+			chartLayer = layer
+			break
+		}
+	}
+
+	if chartLayer == nil {
+		return fmt.Errorf("helm chart manifest with digest '%s' has no helm chart content layer", manifest.Digest)
+	}
+
+	output, err := w.s3Client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: &w.cfg.S3.BlobsBucketName,
+		Key:    aws.String(helpers.GetS3KeyForBlob(manifest.Edges.Repository.Edges.Registry.Edges.Organization.Slug, chartLayer.Digest)),
+	})
+
+	dirName, err := os.MkdirTemp("/tmp", "helm-chart-scanning*")
+	if err != nil {
+		return err
+	}
+
+	gzipReader, err := gzip.NewReader(output.Body)
+	if err != nil {
+		return err
+	}
+
+	tarReader := tar.NewReader(gzipReader)
+
+	for true {
+		header, err := tarReader.Next()
+
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		destinationPath := filepath.Join(dirName, header.Name)
+		dir := filepath.Dir(destinationPath)
+		if _, err := os.Stat(dir); os.IsNotExist(err) && os.MkdirAll(dir, 0755) != nil {
+			return err
+		}
+
+		switch header.Typeflag {
+		case tar.TypeReg:
+			outFile, err := os.Create(destinationPath)
+			if err != nil {
+				return err
+			}
+			if _, err := io.Copy(outFile, tarReader); err != nil {
+				return err
+			}
+			outFile.Close()
+		}
+	}
+
+	flags.ScanOptions.Target = dirName + "/" + manifest.Edges.Repository.Name
+	flags.MisconfOptions.HelmKubeVersion = "1.32"
+	flags.ScanOptions.Scanners = types.Scanners{
+		types.MisconfigScanner,
+	}
+	flags.DisabledAnalyzers = append(analyzer.TypeOSes, analyzer.TypeLanguages...)
+	flags.PackageOptions = flag.PackageOptions{}
+
+	return nil
 }
 
 func (w *SecurityScannerWorker) preparePythonScan(ctx context.Context, manifest *ent.Manifest, flags *flag.Options) error {
@@ -264,6 +414,9 @@ func getBaseOpts() (*flag.Options, error) {
 		},
 		DBOptions: flag.DBOptions{
 			DBRepositories: dbRepositories,
+		},
+		MisconfOptions: flag.MisconfOptions{
+			MisconfigScanners: analyzer.TypeConfigFiles,
 		},
 		ScanOptions: flag.ScanOptions{
 			Scanners: types.Scanners{

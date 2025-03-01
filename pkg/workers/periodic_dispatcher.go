@@ -13,25 +13,27 @@ import (
 type PeriodicWorkerDispatcher struct {
 	RunEvery time.Duration
 	Group    *errgroup.Group
-	dBClient *ent.Client
+	dbClient *ent.Client
 }
 
-func NewPeriodicWorkerDispatcher(runEvery time.Duration) *PeriodicWorkerDispatcher {
+func NewPeriodicWorkerDispatcher(runEvery time.Duration, dbClient *ent.Client) *PeriodicWorkerDispatcher {
 	return &PeriodicWorkerDispatcher{
 		RunEvery: runEvery,
 		Group:    &errgroup.Group{},
+		dbClient: dbClient,
 	}
 }
 
 func (w *PeriodicWorkerDispatcher) Start(ctx context.Context, worker PeriodicWorker) {
 	w.Group.Go(func() error {
 		for {
-			tx, err := w.dBClient.Tx(ctx)
+			tx, err := w.dbClient.Tx(ctx)
 			if err != nil {
 				return err
 			}
+			ctxTx := context.WithValue(ctx, "dbClient", tx.Client())
 
-			if err := worker.Handle(ctx); err != nil {
+			if err := worker.Handle(ctxTx); err != nil {
 				fmt.Println(err)
 				tx.Rollback()
 				return err

@@ -14,7 +14,9 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/blobchunk"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifest"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifestlayer"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifestmisconfiguration"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/misconfiguration"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organizationmembership"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
@@ -33,16 +35,18 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeBlobChunk              = "BlobChunk"
-	TypeManifest               = "Manifest"
-	TypeManifestLayer          = "ManifestLayer"
-	TypeManifestTagReference   = "ManifestTagReference"
-	TypeOrganization           = "Organization"
-	TypeOrganizationMembership = "OrganizationMembership"
-	TypeRegistry               = "Registry"
-	TypeRepository             = "Repository"
-	TypeUser                   = "User"
-	TypeVulnerability          = "Vulnerability"
+	TypeBlobChunk                = "BlobChunk"
+	TypeManifest                 = "Manifest"
+	TypeManifestLayer            = "ManifestLayer"
+	TypeManifestMisconfiguration = "ManifestMisconfiguration"
+	TypeManifestTagReference     = "ManifestTagReference"
+	TypeMisconfiguration         = "Misconfiguration"
+	TypeOrganization             = "Organization"
+	TypeOrganizationMembership   = "OrganizationMembership"
+	TypeRegistry                 = "Registry"
+	TypeRepository               = "Repository"
+	TypeUser                     = "User"
+	TypeVulnerability            = "Vulnerability"
 )
 
 // BlobChunkMutation represents an operation that mutates the BlobChunk nodes in the graph.
@@ -2347,6 +2351,660 @@ func (m *ManifestLayerMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown ManifestLayer edge %s", name)
 }
 
+// ManifestMisconfigurationMutation represents an operation that mutates the ManifestMisconfiguration nodes in the graph.
+type ManifestMisconfigurationMutation struct {
+	config
+	op                      Op
+	typ                     string
+	id                      *int
+	target_file             *string
+	message                 *string
+	resolution              *string
+	manifest_id             *int
+	addmanifest_id          *int
+	clearedFields           map[string]struct{}
+	misconfiguration        *int
+	clearedmisconfiguration bool
+	done                    bool
+	oldValue                func(context.Context) (*ManifestMisconfiguration, error)
+	predicates              []predicate.ManifestMisconfiguration
+}
+
+var _ ent.Mutation = (*ManifestMisconfigurationMutation)(nil)
+
+// manifestmisconfigurationOption allows management of the mutation configuration using functional options.
+type manifestmisconfigurationOption func(*ManifestMisconfigurationMutation)
+
+// newManifestMisconfigurationMutation creates new mutation for the ManifestMisconfiguration entity.
+func newManifestMisconfigurationMutation(c config, op Op, opts ...manifestmisconfigurationOption) *ManifestMisconfigurationMutation {
+	m := &ManifestMisconfigurationMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeManifestMisconfiguration,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withManifestMisconfigurationID sets the ID field of the mutation.
+func withManifestMisconfigurationID(id int) manifestmisconfigurationOption {
+	return func(m *ManifestMisconfigurationMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ManifestMisconfiguration
+		)
+		m.oldValue = func(ctx context.Context) (*ManifestMisconfiguration, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ManifestMisconfiguration.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withManifestMisconfiguration sets the old ManifestMisconfiguration of the mutation.
+func withManifestMisconfiguration(node *ManifestMisconfiguration) manifestmisconfigurationOption {
+	return func(m *ManifestMisconfigurationMutation) {
+		m.oldValue = func(context.Context) (*ManifestMisconfiguration, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ManifestMisconfigurationMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ManifestMisconfigurationMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ManifestMisconfigurationMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ManifestMisconfigurationMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ManifestMisconfiguration.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetTargetFile sets the "target_file" field.
+func (m *ManifestMisconfigurationMutation) SetTargetFile(s string) {
+	m.target_file = &s
+}
+
+// TargetFile returns the value of the "target_file" field in the mutation.
+func (m *ManifestMisconfigurationMutation) TargetFile() (r string, exists bool) {
+	v := m.target_file
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetFile returns the old "target_file" field's value of the ManifestMisconfiguration entity.
+// If the ManifestMisconfiguration object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ManifestMisconfigurationMutation) OldTargetFile(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetFile is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetFile requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetFile: %w", err)
+	}
+	return oldValue.TargetFile, nil
+}
+
+// ResetTargetFile resets all changes to the "target_file" field.
+func (m *ManifestMisconfigurationMutation) ResetTargetFile() {
+	m.target_file = nil
+}
+
+// SetMessage sets the "message" field.
+func (m *ManifestMisconfigurationMutation) SetMessage(s string) {
+	m.message = &s
+}
+
+// Message returns the value of the "message" field in the mutation.
+func (m *ManifestMisconfigurationMutation) Message() (r string, exists bool) {
+	v := m.message
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMessage returns the old "message" field's value of the ManifestMisconfiguration entity.
+// If the ManifestMisconfiguration object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ManifestMisconfigurationMutation) OldMessage(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMessage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMessage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMessage: %w", err)
+	}
+	return oldValue.Message, nil
+}
+
+// ResetMessage resets all changes to the "message" field.
+func (m *ManifestMisconfigurationMutation) ResetMessage() {
+	m.message = nil
+}
+
+// SetResolution sets the "resolution" field.
+func (m *ManifestMisconfigurationMutation) SetResolution(s string) {
+	m.resolution = &s
+}
+
+// Resolution returns the value of the "resolution" field in the mutation.
+func (m *ManifestMisconfigurationMutation) Resolution() (r string, exists bool) {
+	v := m.resolution
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResolution returns the old "resolution" field's value of the ManifestMisconfiguration entity.
+// If the ManifestMisconfiguration object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ManifestMisconfigurationMutation) OldResolution(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResolution is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResolution requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResolution: %w", err)
+	}
+	return oldValue.Resolution, nil
+}
+
+// ResetResolution resets all changes to the "resolution" field.
+func (m *ManifestMisconfigurationMutation) ResetResolution() {
+	m.resolution = nil
+}
+
+// SetManifestID sets the "manifest_id" field.
+func (m *ManifestMisconfigurationMutation) SetManifestID(i int) {
+	m.manifest_id = &i
+	m.addmanifest_id = nil
+}
+
+// ManifestID returns the value of the "manifest_id" field in the mutation.
+func (m *ManifestMisconfigurationMutation) ManifestID() (r int, exists bool) {
+	v := m.manifest_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldManifestID returns the old "manifest_id" field's value of the ManifestMisconfiguration entity.
+// If the ManifestMisconfiguration object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ManifestMisconfigurationMutation) OldManifestID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldManifestID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldManifestID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldManifestID: %w", err)
+	}
+	return oldValue.ManifestID, nil
+}
+
+// AddManifestID adds i to the "manifest_id" field.
+func (m *ManifestMisconfigurationMutation) AddManifestID(i int) {
+	if m.addmanifest_id != nil {
+		*m.addmanifest_id += i
+	} else {
+		m.addmanifest_id = &i
+	}
+}
+
+// AddedManifestID returns the value that was added to the "manifest_id" field in this mutation.
+func (m *ManifestMisconfigurationMutation) AddedManifestID() (r int, exists bool) {
+	v := m.addmanifest_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetManifestID resets all changes to the "manifest_id" field.
+func (m *ManifestMisconfigurationMutation) ResetManifestID() {
+	m.manifest_id = nil
+	m.addmanifest_id = nil
+}
+
+// SetMisconfigurationID sets the "misconfiguration_id" field.
+func (m *ManifestMisconfigurationMutation) SetMisconfigurationID(i int) {
+	m.misconfiguration = &i
+}
+
+// MisconfigurationID returns the value of the "misconfiguration_id" field in the mutation.
+func (m *ManifestMisconfigurationMutation) MisconfigurationID() (r int, exists bool) {
+	v := m.misconfiguration
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMisconfigurationID returns the old "misconfiguration_id" field's value of the ManifestMisconfiguration entity.
+// If the ManifestMisconfiguration object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ManifestMisconfigurationMutation) OldMisconfigurationID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMisconfigurationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMisconfigurationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMisconfigurationID: %w", err)
+	}
+	return oldValue.MisconfigurationID, nil
+}
+
+// ClearMisconfigurationID clears the value of the "misconfiguration_id" field.
+func (m *ManifestMisconfigurationMutation) ClearMisconfigurationID() {
+	m.misconfiguration = nil
+	m.clearedFields[manifestmisconfiguration.FieldMisconfigurationID] = struct{}{}
+}
+
+// MisconfigurationIDCleared returns if the "misconfiguration_id" field was cleared in this mutation.
+func (m *ManifestMisconfigurationMutation) MisconfigurationIDCleared() bool {
+	_, ok := m.clearedFields[manifestmisconfiguration.FieldMisconfigurationID]
+	return ok
+}
+
+// ResetMisconfigurationID resets all changes to the "misconfiguration_id" field.
+func (m *ManifestMisconfigurationMutation) ResetMisconfigurationID() {
+	m.misconfiguration = nil
+	delete(m.clearedFields, manifestmisconfiguration.FieldMisconfigurationID)
+}
+
+// ClearMisconfiguration clears the "misconfiguration" edge to the Misconfiguration entity.
+func (m *ManifestMisconfigurationMutation) ClearMisconfiguration() {
+	m.clearedmisconfiguration = true
+	m.clearedFields[manifestmisconfiguration.FieldMisconfigurationID] = struct{}{}
+}
+
+// MisconfigurationCleared reports if the "misconfiguration" edge to the Misconfiguration entity was cleared.
+func (m *ManifestMisconfigurationMutation) MisconfigurationCleared() bool {
+	return m.MisconfigurationIDCleared() || m.clearedmisconfiguration
+}
+
+// MisconfigurationIDs returns the "misconfiguration" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// MisconfigurationID instead. It exists only for internal usage by the builders.
+func (m *ManifestMisconfigurationMutation) MisconfigurationIDs() (ids []int) {
+	if id := m.misconfiguration; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetMisconfiguration resets all changes to the "misconfiguration" edge.
+func (m *ManifestMisconfigurationMutation) ResetMisconfiguration() {
+	m.misconfiguration = nil
+	m.clearedmisconfiguration = false
+}
+
+// Where appends a list predicates to the ManifestMisconfigurationMutation builder.
+func (m *ManifestMisconfigurationMutation) Where(ps ...predicate.ManifestMisconfiguration) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ManifestMisconfigurationMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ManifestMisconfigurationMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ManifestMisconfiguration, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ManifestMisconfigurationMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ManifestMisconfigurationMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ManifestMisconfiguration).
+func (m *ManifestMisconfigurationMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ManifestMisconfigurationMutation) Fields() []string {
+	fields := make([]string, 0, 5)
+	if m.target_file != nil {
+		fields = append(fields, manifestmisconfiguration.FieldTargetFile)
+	}
+	if m.message != nil {
+		fields = append(fields, manifestmisconfiguration.FieldMessage)
+	}
+	if m.resolution != nil {
+		fields = append(fields, manifestmisconfiguration.FieldResolution)
+	}
+	if m.manifest_id != nil {
+		fields = append(fields, manifestmisconfiguration.FieldManifestID)
+	}
+	if m.misconfiguration != nil {
+		fields = append(fields, manifestmisconfiguration.FieldMisconfigurationID)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ManifestMisconfigurationMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case manifestmisconfiguration.FieldTargetFile:
+		return m.TargetFile()
+	case manifestmisconfiguration.FieldMessage:
+		return m.Message()
+	case manifestmisconfiguration.FieldResolution:
+		return m.Resolution()
+	case manifestmisconfiguration.FieldManifestID:
+		return m.ManifestID()
+	case manifestmisconfiguration.FieldMisconfigurationID:
+		return m.MisconfigurationID()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ManifestMisconfigurationMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case manifestmisconfiguration.FieldTargetFile:
+		return m.OldTargetFile(ctx)
+	case manifestmisconfiguration.FieldMessage:
+		return m.OldMessage(ctx)
+	case manifestmisconfiguration.FieldResolution:
+		return m.OldResolution(ctx)
+	case manifestmisconfiguration.FieldManifestID:
+		return m.OldManifestID(ctx)
+	case manifestmisconfiguration.FieldMisconfigurationID:
+		return m.OldMisconfigurationID(ctx)
+	}
+	return nil, fmt.Errorf("unknown ManifestMisconfiguration field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ManifestMisconfigurationMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case manifestmisconfiguration.FieldTargetFile:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetFile(v)
+		return nil
+	case manifestmisconfiguration.FieldMessage:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMessage(v)
+		return nil
+	case manifestmisconfiguration.FieldResolution:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResolution(v)
+		return nil
+	case manifestmisconfiguration.FieldManifestID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetManifestID(v)
+		return nil
+	case manifestmisconfiguration.FieldMisconfigurationID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMisconfigurationID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ManifestMisconfiguration field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ManifestMisconfigurationMutation) AddedFields() []string {
+	var fields []string
+	if m.addmanifest_id != nil {
+		fields = append(fields, manifestmisconfiguration.FieldManifestID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ManifestMisconfigurationMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case manifestmisconfiguration.FieldManifestID:
+		return m.AddedManifestID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ManifestMisconfigurationMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case manifestmisconfiguration.FieldManifestID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddManifestID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ManifestMisconfiguration numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ManifestMisconfigurationMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(manifestmisconfiguration.FieldMisconfigurationID) {
+		fields = append(fields, manifestmisconfiguration.FieldMisconfigurationID)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ManifestMisconfigurationMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ManifestMisconfigurationMutation) ClearField(name string) error {
+	switch name {
+	case manifestmisconfiguration.FieldMisconfigurationID:
+		m.ClearMisconfigurationID()
+		return nil
+	}
+	return fmt.Errorf("unknown ManifestMisconfiguration nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ManifestMisconfigurationMutation) ResetField(name string) error {
+	switch name {
+	case manifestmisconfiguration.FieldTargetFile:
+		m.ResetTargetFile()
+		return nil
+	case manifestmisconfiguration.FieldMessage:
+		m.ResetMessage()
+		return nil
+	case manifestmisconfiguration.FieldResolution:
+		m.ResetResolution()
+		return nil
+	case manifestmisconfiguration.FieldManifestID:
+		m.ResetManifestID()
+		return nil
+	case manifestmisconfiguration.FieldMisconfigurationID:
+		m.ResetMisconfigurationID()
+		return nil
+	}
+	return fmt.Errorf("unknown ManifestMisconfiguration field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ManifestMisconfigurationMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.misconfiguration != nil {
+		edges = append(edges, manifestmisconfiguration.EdgeMisconfiguration)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ManifestMisconfigurationMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case manifestmisconfiguration.EdgeMisconfiguration:
+		if id := m.misconfiguration; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ManifestMisconfigurationMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ManifestMisconfigurationMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ManifestMisconfigurationMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedmisconfiguration {
+		edges = append(edges, manifestmisconfiguration.EdgeMisconfiguration)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ManifestMisconfigurationMutation) EdgeCleared(name string) bool {
+	switch name {
+	case manifestmisconfiguration.EdgeMisconfiguration:
+		return m.clearedmisconfiguration
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ManifestMisconfigurationMutation) ClearEdge(name string) error {
+	switch name {
+	case manifestmisconfiguration.EdgeMisconfiguration:
+		m.ClearMisconfiguration()
+		return nil
+	}
+	return fmt.Errorf("unknown ManifestMisconfiguration unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ManifestMisconfigurationMutation) ResetEdge(name string) error {
+	switch name {
+	case manifestmisconfiguration.EdgeMisconfiguration:
+		m.ResetMisconfiguration()
+		return nil
+	}
+	return fmt.Errorf("unknown ManifestMisconfiguration edge %s", name)
+}
+
 // ManifestTagReferenceMutation represents an operation that mutates the ManifestTagReference nodes in the graph.
 type ManifestTagReferenceMutation struct {
 	config
@@ -2738,6 +3396,587 @@ func (m *ManifestTagReferenceMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown ManifestTagReference edge %s", name)
+}
+
+// MisconfigurationMutation represents an operation that mutates the Misconfiguration nodes in the graph.
+type MisconfigurationMutation struct {
+	config
+	op                                Op
+	typ                               string
+	id                                *int
+	misconfiguration_id               *string
+	misconfiguration_url_details      *string
+	title                             *string
+	severity                          *misconfiguration.Severity
+	clearedFields                     map[string]struct{}
+	manifest_misconfigurations        map[int]struct{}
+	removedmanifest_misconfigurations map[int]struct{}
+	clearedmanifest_misconfigurations bool
+	done                              bool
+	oldValue                          func(context.Context) (*Misconfiguration, error)
+	predicates                        []predicate.Misconfiguration
+}
+
+var _ ent.Mutation = (*MisconfigurationMutation)(nil)
+
+// misconfigurationOption allows management of the mutation configuration using functional options.
+type misconfigurationOption func(*MisconfigurationMutation)
+
+// newMisconfigurationMutation creates new mutation for the Misconfiguration entity.
+func newMisconfigurationMutation(c config, op Op, opts ...misconfigurationOption) *MisconfigurationMutation {
+	m := &MisconfigurationMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeMisconfiguration,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withMisconfigurationID sets the ID field of the mutation.
+func withMisconfigurationID(id int) misconfigurationOption {
+	return func(m *MisconfigurationMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Misconfiguration
+		)
+		m.oldValue = func(ctx context.Context) (*Misconfiguration, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Misconfiguration.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withMisconfiguration sets the old Misconfiguration of the mutation.
+func withMisconfiguration(node *Misconfiguration) misconfigurationOption {
+	return func(m *MisconfigurationMutation) {
+		m.oldValue = func(context.Context) (*Misconfiguration, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m MisconfigurationMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m MisconfigurationMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *MisconfigurationMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *MisconfigurationMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Misconfiguration.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetMisconfigurationID sets the "misconfiguration_id" field.
+func (m *MisconfigurationMutation) SetMisconfigurationID(s string) {
+	m.misconfiguration_id = &s
+}
+
+// MisconfigurationID returns the value of the "misconfiguration_id" field in the mutation.
+func (m *MisconfigurationMutation) MisconfigurationID() (r string, exists bool) {
+	v := m.misconfiguration_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMisconfigurationID returns the old "misconfiguration_id" field's value of the Misconfiguration entity.
+// If the Misconfiguration object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MisconfigurationMutation) OldMisconfigurationID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMisconfigurationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMisconfigurationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMisconfigurationID: %w", err)
+	}
+	return oldValue.MisconfigurationID, nil
+}
+
+// ResetMisconfigurationID resets all changes to the "misconfiguration_id" field.
+func (m *MisconfigurationMutation) ResetMisconfigurationID() {
+	m.misconfiguration_id = nil
+}
+
+// SetMisconfigurationURLDetails sets the "misconfiguration_url_details" field.
+func (m *MisconfigurationMutation) SetMisconfigurationURLDetails(s string) {
+	m.misconfiguration_url_details = &s
+}
+
+// MisconfigurationURLDetails returns the value of the "misconfiguration_url_details" field in the mutation.
+func (m *MisconfigurationMutation) MisconfigurationURLDetails() (r string, exists bool) {
+	v := m.misconfiguration_url_details
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMisconfigurationURLDetails returns the old "misconfiguration_url_details" field's value of the Misconfiguration entity.
+// If the Misconfiguration object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MisconfigurationMutation) OldMisconfigurationURLDetails(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMisconfigurationURLDetails is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMisconfigurationURLDetails requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMisconfigurationURLDetails: %w", err)
+	}
+	return oldValue.MisconfigurationURLDetails, nil
+}
+
+// ResetMisconfigurationURLDetails resets all changes to the "misconfiguration_url_details" field.
+func (m *MisconfigurationMutation) ResetMisconfigurationURLDetails() {
+	m.misconfiguration_url_details = nil
+}
+
+// SetTitle sets the "title" field.
+func (m *MisconfigurationMutation) SetTitle(s string) {
+	m.title = &s
+}
+
+// Title returns the value of the "title" field in the mutation.
+func (m *MisconfigurationMutation) Title() (r string, exists bool) {
+	v := m.title
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTitle returns the old "title" field's value of the Misconfiguration entity.
+// If the Misconfiguration object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MisconfigurationMutation) OldTitle(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTitle is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTitle requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTitle: %w", err)
+	}
+	return oldValue.Title, nil
+}
+
+// ResetTitle resets all changes to the "title" field.
+func (m *MisconfigurationMutation) ResetTitle() {
+	m.title = nil
+}
+
+// SetSeverity sets the "severity" field.
+func (m *MisconfigurationMutation) SetSeverity(value misconfiguration.Severity) {
+	m.severity = &value
+}
+
+// Severity returns the value of the "severity" field in the mutation.
+func (m *MisconfigurationMutation) Severity() (r misconfiguration.Severity, exists bool) {
+	v := m.severity
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSeverity returns the old "severity" field's value of the Misconfiguration entity.
+// If the Misconfiguration object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MisconfigurationMutation) OldSeverity(ctx context.Context) (v misconfiguration.Severity, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSeverity is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSeverity requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSeverity: %w", err)
+	}
+	return oldValue.Severity, nil
+}
+
+// ResetSeverity resets all changes to the "severity" field.
+func (m *MisconfigurationMutation) ResetSeverity() {
+	m.severity = nil
+}
+
+// AddManifestMisconfigurationIDs adds the "manifest_misconfigurations" edge to the ManifestMisconfiguration entity by ids.
+func (m *MisconfigurationMutation) AddManifestMisconfigurationIDs(ids ...int) {
+	if m.manifest_misconfigurations == nil {
+		m.manifest_misconfigurations = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.manifest_misconfigurations[ids[i]] = struct{}{}
+	}
+}
+
+// ClearManifestMisconfigurations clears the "manifest_misconfigurations" edge to the ManifestMisconfiguration entity.
+func (m *MisconfigurationMutation) ClearManifestMisconfigurations() {
+	m.clearedmanifest_misconfigurations = true
+}
+
+// ManifestMisconfigurationsCleared reports if the "manifest_misconfigurations" edge to the ManifestMisconfiguration entity was cleared.
+func (m *MisconfigurationMutation) ManifestMisconfigurationsCleared() bool {
+	return m.clearedmanifest_misconfigurations
+}
+
+// RemoveManifestMisconfigurationIDs removes the "manifest_misconfigurations" edge to the ManifestMisconfiguration entity by IDs.
+func (m *MisconfigurationMutation) RemoveManifestMisconfigurationIDs(ids ...int) {
+	if m.removedmanifest_misconfigurations == nil {
+		m.removedmanifest_misconfigurations = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.manifest_misconfigurations, ids[i])
+		m.removedmanifest_misconfigurations[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedManifestMisconfigurations returns the removed IDs of the "manifest_misconfigurations" edge to the ManifestMisconfiguration entity.
+func (m *MisconfigurationMutation) RemovedManifestMisconfigurationsIDs() (ids []int) {
+	for id := range m.removedmanifest_misconfigurations {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ManifestMisconfigurationsIDs returns the "manifest_misconfigurations" edge IDs in the mutation.
+func (m *MisconfigurationMutation) ManifestMisconfigurationsIDs() (ids []int) {
+	for id := range m.manifest_misconfigurations {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetManifestMisconfigurations resets all changes to the "manifest_misconfigurations" edge.
+func (m *MisconfigurationMutation) ResetManifestMisconfigurations() {
+	m.manifest_misconfigurations = nil
+	m.clearedmanifest_misconfigurations = false
+	m.removedmanifest_misconfigurations = nil
+}
+
+// Where appends a list predicates to the MisconfigurationMutation builder.
+func (m *MisconfigurationMutation) Where(ps ...predicate.Misconfiguration) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the MisconfigurationMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *MisconfigurationMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Misconfiguration, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *MisconfigurationMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *MisconfigurationMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Misconfiguration).
+func (m *MisconfigurationMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *MisconfigurationMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.misconfiguration_id != nil {
+		fields = append(fields, misconfiguration.FieldMisconfigurationID)
+	}
+	if m.misconfiguration_url_details != nil {
+		fields = append(fields, misconfiguration.FieldMisconfigurationURLDetails)
+	}
+	if m.title != nil {
+		fields = append(fields, misconfiguration.FieldTitle)
+	}
+	if m.severity != nil {
+		fields = append(fields, misconfiguration.FieldSeverity)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *MisconfigurationMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case misconfiguration.FieldMisconfigurationID:
+		return m.MisconfigurationID()
+	case misconfiguration.FieldMisconfigurationURLDetails:
+		return m.MisconfigurationURLDetails()
+	case misconfiguration.FieldTitle:
+		return m.Title()
+	case misconfiguration.FieldSeverity:
+		return m.Severity()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *MisconfigurationMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case misconfiguration.FieldMisconfigurationID:
+		return m.OldMisconfigurationID(ctx)
+	case misconfiguration.FieldMisconfigurationURLDetails:
+		return m.OldMisconfigurationURLDetails(ctx)
+	case misconfiguration.FieldTitle:
+		return m.OldTitle(ctx)
+	case misconfiguration.FieldSeverity:
+		return m.OldSeverity(ctx)
+	}
+	return nil, fmt.Errorf("unknown Misconfiguration field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *MisconfigurationMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case misconfiguration.FieldMisconfigurationID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMisconfigurationID(v)
+		return nil
+	case misconfiguration.FieldMisconfigurationURLDetails:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMisconfigurationURLDetails(v)
+		return nil
+	case misconfiguration.FieldTitle:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTitle(v)
+		return nil
+	case misconfiguration.FieldSeverity:
+		v, ok := value.(misconfiguration.Severity)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSeverity(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Misconfiguration field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *MisconfigurationMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *MisconfigurationMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *MisconfigurationMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Misconfiguration numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *MisconfigurationMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *MisconfigurationMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *MisconfigurationMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown Misconfiguration nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *MisconfigurationMutation) ResetField(name string) error {
+	switch name {
+	case misconfiguration.FieldMisconfigurationID:
+		m.ResetMisconfigurationID()
+		return nil
+	case misconfiguration.FieldMisconfigurationURLDetails:
+		m.ResetMisconfigurationURLDetails()
+		return nil
+	case misconfiguration.FieldTitle:
+		m.ResetTitle()
+		return nil
+	case misconfiguration.FieldSeverity:
+		m.ResetSeverity()
+		return nil
+	}
+	return fmt.Errorf("unknown Misconfiguration field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *MisconfigurationMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.manifest_misconfigurations != nil {
+		edges = append(edges, misconfiguration.EdgeManifestMisconfigurations)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *MisconfigurationMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case misconfiguration.EdgeManifestMisconfigurations:
+		ids := make([]ent.Value, 0, len(m.manifest_misconfigurations))
+		for id := range m.manifest_misconfigurations {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *MisconfigurationMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.removedmanifest_misconfigurations != nil {
+		edges = append(edges, misconfiguration.EdgeManifestMisconfigurations)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *MisconfigurationMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case misconfiguration.EdgeManifestMisconfigurations:
+		ids := make([]ent.Value, 0, len(m.removedmanifest_misconfigurations))
+		for id := range m.removedmanifest_misconfigurations {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *MisconfigurationMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedmanifest_misconfigurations {
+		edges = append(edges, misconfiguration.EdgeManifestMisconfigurations)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *MisconfigurationMutation) EdgeCleared(name string) bool {
+	switch name {
+	case misconfiguration.EdgeManifestMisconfigurations:
+		return m.clearedmanifest_misconfigurations
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *MisconfigurationMutation) ClearEdge(name string) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Misconfiguration unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *MisconfigurationMutation) ResetEdge(name string) error {
+	switch name {
+	case misconfiguration.EdgeManifestMisconfigurations:
+		m.ResetManifestMisconfigurations()
+		return nil
+	}
+	return fmt.Errorf("unknown Misconfiguration edge %s", name)
 }
 
 // OrganizationMutation represents an operation that mutates the Organization nodes in the graph.

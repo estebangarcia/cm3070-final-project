@@ -45,6 +45,18 @@ func (f ManifestLayerFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Valu
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ManifestLayerMutation", m)
 }
 
+// The ManifestMisconfigurationFunc type is an adapter to allow the use of ordinary
+// function as ManifestMisconfiguration mutator.
+type ManifestMisconfigurationFunc func(context.Context, *ent.ManifestMisconfigurationMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ManifestMisconfigurationFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ManifestMisconfigurationMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ManifestMisconfigurationMutation", m)
+}
+
 // The ManifestTagReferenceFunc type is an adapter to allow the use of ordinary
 // function as ManifestTagReference mutator.
 type ManifestTagReferenceFunc func(context.Context, *ent.ManifestTagReferenceMutation) (ent.Value, error)
@@ -55,6 +67,18 @@ func (f ManifestTagReferenceFunc) Mutate(ctx context.Context, m ent.Mutation) (e
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ManifestTagReferenceMutation", m)
+}
+
+// The MisconfigurationFunc type is an adapter to allow the use of ordinary
+// function as Misconfiguration mutator.
+type MisconfigurationFunc func(context.Context, *ent.MisconfigurationMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f MisconfigurationFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.MisconfigurationMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.MisconfigurationMutation", m)
 }
 
 // The OrganizationFunc type is an adapter to allow the use of ordinary

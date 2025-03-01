@@ -294,7 +294,7 @@ func (h *V2ManifestsHandler) deleteManifestByDigest(ctx context.Context, w http.
 
 	for _, layer := range layers {
 		layerOIDs = append(layerOIDs, types.ObjectIdentifier{
-			Key: aws.String(getKeyForBlob(orgSlug, layer.Digest)),
+			Key: aws.String(helpers.GetS3KeyForBlob(orgSlug, layer.Digest)),
 		})
 	}
 

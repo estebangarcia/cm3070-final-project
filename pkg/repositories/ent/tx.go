@@ -18,8 +18,12 @@ type Tx struct {
 	Manifest *ManifestClient
 	// ManifestLayer is the client for interacting with the ManifestLayer builders.
 	ManifestLayer *ManifestLayerClient
+	// ManifestMisconfiguration is the client for interacting with the ManifestMisconfiguration builders.
+	ManifestMisconfiguration *ManifestMisconfigurationClient
 	// ManifestTagReference is the client for interacting with the ManifestTagReference builders.
 	ManifestTagReference *ManifestTagReferenceClient
+	// Misconfiguration is the client for interacting with the Misconfiguration builders.
+	Misconfiguration *MisconfigurationClient
 	// Organization is the client for interacting with the Organization builders.
 	Organization *OrganizationClient
 	// OrganizationMembership is the client for interacting with the OrganizationMembership builders.
@@ -166,7 +170,9 @@ func (tx *Tx) init() {
 	tx.BlobChunk = NewBlobChunkClient(tx.config)
 	tx.Manifest = NewManifestClient(tx.config)
 	tx.ManifestLayer = NewManifestLayerClient(tx.config)
+	tx.ManifestMisconfiguration = NewManifestMisconfigurationClient(tx.config)
 	tx.ManifestTagReference = NewManifestTagReferenceClient(tx.config)
+	tx.Misconfiguration = NewMisconfigurationClient(tx.config)
 	tx.Organization = NewOrganizationClient(tx.config)
 	tx.OrganizationMembership = NewOrganizationMembershipClient(tx.config)
 	tx.Registry = NewRegistryClient(tx.config)
