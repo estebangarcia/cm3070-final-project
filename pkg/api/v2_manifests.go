@@ -115,6 +115,9 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 	}
 
 	var layers []*ent.ManifestLayer
+	manifestDescriptors := manifestRequest.Layers
+	manifestDescriptors = append(manifestDescriptors, manifestRequest.Config)
+
 	for _, layer := range manifestRequest.Layers {
 		layers = append(layers, &ent.ManifestLayer{
 			MediaType:   layer.MediaType,
@@ -222,6 +225,7 @@ func (h *V2ManifestsHandler) HeadManifest(w http.ResponseWriter, r *http.Request
 }
 
 func (h *V2ManifestsHandler) DeleteManifestOrTag(w http.ResponseWriter, r *http.Request) {
+	org := r.Context().Value("organization").(*ent.Organization)
 	imageName := r.Context().Value("repositoryName").(string)
 	reference := r.Context().Value("reference").(string)
 	registry := r.Context().Value("registry").(*ent.Registry)
@@ -243,7 +247,7 @@ func (h *V2ManifestsHandler) DeleteManifestOrTag(w http.ResponseWriter, r *http.
 		return
 	}
 
-	h.deleteManifestByDigest(r.Context(), w, repo, reference)
+	h.deleteManifestByDigest(r.Context(), w, org.Slug, repo, reference)
 }
 
 func (h *V2ManifestsHandler) deleteTag(ctx context.Context, w http.ResponseWriter, repo *ent.Repository, tagRef string) {
@@ -267,7 +271,7 @@ func (h *V2ManifestsHandler) deleteTag(ctx context.Context, w http.ResponseWrite
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (h *V2ManifestsHandler) deleteManifestByDigest(ctx context.Context, w http.ResponseWriter, repo *ent.Repository, digest string) {
+func (h *V2ManifestsHandler) deleteManifestByDigest(ctx context.Context, w http.ResponseWriter, orgSlug string, repo *ent.Repository, digest string) {
 	manifest, found, err := h.ManifestRepository.GetManifestByReference(ctx, digest, repo, false)
 	if err != nil {
 		log.Println(err)
@@ -277,6 +281,32 @@ func (h *V2ManifestsHandler) deleteManifestByDigest(ctx context.Context, w http.
 
 	if !found {
 		responses.OCIManifestUnknown(w, digest)
+		return
+	}
+
+	layers, err := h.ManifestRepository.GetUniqueManifestLayers(ctx, manifest)
+	if err != nil {
+		responses.OCIInternalServerError(w)
+		return
+	}
+
+	var layerOIDs []types.ObjectIdentifier
+
+	for _, layer := range layers {
+		layerOIDs = append(layerOIDs, types.ObjectIdentifier{
+			Key: aws.String(getKeyForBlob(orgSlug, layer.Digest)),
+		})
+	}
+
+	_, err = h.S3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+		Bucket: &h.Config.S3.BlobsBucketName,
+		Delete: &types.Delete{
+			Objects: layerOIDs,
+		},
+	})
+	if err != nil {
+		log.Println(err)
+		responses.OCIInternalServerError(w)
 		return
 	}
 

@@ -31,12 +31,12 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 	r.Use(chiMiddleware.StripSlashes)
 
 	/* DB Repositories */
-	blobChunkRepository := repositories.NewBlobChunkRepository(dbClient)
-	manifestRepository := repositories.NewManifestRepository(dbClient)
-	manifestTagRepository := repositories.NewManifestTagRepository(dbClient)
-	repositoryRepository := repositories.NewRepositoryRepository(dbClient)
-	organizationsRepository := repositories.NewOrganizationRepository(dbClient)
-	registryRepository := repositories.NewRegistryRepository(dbClient)
+	blobChunkRepository := repositories.NewBlobChunkRepository()
+	manifestRepository := repositories.NewManifestRepository()
+	manifestTagRepository := repositories.NewManifestTagRepository()
+	repositoryRepository := repositories.NewRepositoryRepository()
+	organizationsRepository := repositories.NewOrganizationRepository()
+	registryRepository := repositories.NewRegistryRepository()
 
 	/* AWS Helpers */
 	s3Client := helpers.GetS3Client(ctx, cfg)
@@ -47,6 +47,12 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 	}
 
 	/* Middlewares */
+	dbTxMiddleware := middleware.DbTxMiddleware{
+		DBClient: dbClient,
+	}
+
+	r.Use(dbTxMiddleware.HandleTransaction)
+
 	jwtAuthMiddleware := middleware.JWTAuthMiddleware{
 		Config:   &cfg,
 		JwkCache: jwkCache,

@@ -11,16 +11,15 @@ import (
 )
 
 type ManifestTagRepository struct {
-	dbClient *ent.Client
 }
 
-func NewManifestTagRepository(dbClient *ent.Client) *ManifestTagRepository {
-	return &ManifestTagRepository{
-		dbClient: dbClient,
-	}
+func NewManifestTagRepository() *ManifestTagRepository {
+	return &ManifestTagRepository{}
 }
 
 func (mr *ManifestTagRepository) ListTagsForRepository(ctx context.Context, repository *ent.Repository, limit int, lastTagName string) ([]*ent.ManifestTagReference, error) {
+	dbClient := getClient(ctx)
+
 	predicate := manifesttagreference.HasManifestsWith(
 		ent_manifest.HasRepositoryWith(
 			ent_repository.ID(repository.ID),
@@ -34,7 +33,7 @@ func (mr *ManifestTagRepository) ListTagsForRepository(ctx context.Context, repo
 		)
 	}
 
-	return mr.dbClient.ManifestTagReference.Query().Where(
+	return dbClient.ManifestTagReference.Query().Where(
 		predicate,
 	).Order(
 		manifesttagreference.ByTag(
@@ -44,7 +43,9 @@ func (mr *ManifestTagRepository) ListTagsForRepository(ctx context.Context, repo
 }
 
 func (mr *ManifestTagRepository) GetTagByName(ctx context.Context, repository *ent.Repository, tagName string) (*ent.ManifestTagReference, bool, error) {
-	tag, err := mr.dbClient.ManifestTagReference.Query().Where(
+	dbClient := getClient(ctx)
+
+	tag, err := dbClient.ManifestTagReference.Query().Where(
 		manifesttagreference.And(
 			manifesttagreference.HasManifestsWith(
 				ent_manifest.HasRepositoryWith(
@@ -66,5 +67,6 @@ func (mr *ManifestTagRepository) GetTagByName(ctx context.Context, repository *e
 }
 
 func (mr *ManifestTagRepository) DeleteTag(ctx context.Context, tag *ent.ManifestTagReference) error {
-	return mr.dbClient.ManifestTagReference.DeleteOne(tag).Exec(ctx)
+	dbClient := getClient(ctx)
+	return dbClient.ManifestTagReference.DeleteOne(tag).Exec(ctx)
 }

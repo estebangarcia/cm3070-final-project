@@ -9,17 +9,15 @@ import (
 )
 
 type OrganizationRepository struct {
-	dbClient *ent.Client
 }
 
-func NewOrganizationRepository(dbClient *ent.Client) *OrganizationRepository {
-	return &OrganizationRepository{
-		dbClient: dbClient,
-	}
+func NewOrganizationRepository() *OrganizationRepository {
+	return &OrganizationRepository{}
 }
 
 func (orgRepo *OrganizationRepository) GetForUser(ctx context.Context, sub string) ([]*ent.Organization, error) {
-	return orgRepo.dbClient.Organization.Query().Where(
+	dbClient := getClient(ctx)
+	return dbClient.Organization.Query().Where(
 		organization.HasMembersWith(
 			user.Sub(sub),
 		),
@@ -27,7 +25,9 @@ func (orgRepo *OrganizationRepository) GetForUser(ctx context.Context, sub strin
 }
 
 func (orgRepo *OrganizationRepository) GetForUserAndSlug(ctx context.Context, sub string, orgSlug string) (*ent.Organization, bool, error) {
-	org, err := orgRepo.dbClient.Organization.Query().Where(
+	dbClient := getClient(ctx)
+
+	org, err := dbClient.Organization.Query().Where(
 		organization.And(
 			organization.HasMembersWith(
 				user.Sub(sub),
