@@ -15,8 +15,14 @@ type Manifest func(*sql.Selector)
 // ManifestLayer is the predicate function for manifestlayer builders.
 type ManifestLayer func(*sql.Selector)
 
+// ManifestMisconfiguration is the predicate function for manifestmisconfiguration builders.
+type ManifestMisconfiguration func(*sql.Selector)
+
 // ManifestTagReference is the predicate function for manifesttagreference builders.
 type ManifestTagReference func(*sql.Selector)
+
+// Misconfiguration is the predicate function for misconfiguration builders.
+type Misconfiguration func(*sql.Selector)
 
 // Organization is the predicate function for organization builders.
 type Organization func(*sql.Selector)

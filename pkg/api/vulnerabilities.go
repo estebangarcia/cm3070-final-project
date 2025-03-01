@@ -8,6 +8,7 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent"
+	"github.com/estebangarcia/cm3070-final-project/pkg/responses"
 )
 
 type VulnerabilitiesHandlers struct {
@@ -40,6 +41,16 @@ func (vh *VulnerabilitiesHandlers) GetVulnerabilitiesForArtifact(w http.Response
 		return
 	}
 
+	misconfigurations, err := vh.ManifestRepository.GetManifestMisconfigurationsByReference(r.Context(), manifestDigest, repo)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(vulnerabilities)
+	json.NewEncoder(w).Encode(responses.VulnerabilitiesResponse{
+		Vulnerabilities:   vulnerabilities,
+		Misconfigurations: misconfigurations,
+	})
 }

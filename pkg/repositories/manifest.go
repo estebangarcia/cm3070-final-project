@@ -10,7 +10,9 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifest"
 	ent_manifest "github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifest"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifestlayer"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifestmisconfiguration"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/misconfiguration"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
 	ent_repository "github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
 	ent_vulnerability "github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/vulnerability"
@@ -104,6 +106,24 @@ func (mr *ManifestRepository) GetManifestVulnerabilitiesByReference(ctx context.
 			),
 		),
 	).All(ctx)
+}
+
+func (mr *ManifestRepository) GetManifestMisconfigurationsByReference(ctx context.Context, reference string, repository *ent.Repository) (ent.ManifestMisconfigurations, error) {
+	dbClient := getClient(ctx)
+
+	manifestId, err := dbClient.Manifest.Query().Where(
+		ent_manifest.And(
+			mr.getTagOrReferencePredicate(reference),
+			ent_manifest.HasRepositoryWith(ent_repository.ID(repository.ID)),
+		),
+	).FirstID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return dbClient.ManifestMisconfiguration.Query().Where(
+		manifestmisconfiguration.ManifestID(manifestId),
+	).WithMisconfiguration().All(ctx)
 }
 
 func (mr *ManifestRepository) GetAllByTypeWithTags(ctx context.Context, artifactType string, repository *ent.Repository) ([]*ent.Manifest, error) {
@@ -241,6 +261,34 @@ func (mr *ManifestRepository) CreateVulnerabilitiesInBulkAndMarkAsScanned(ctx co
 	}
 
 	return nil
+}
+
+func (mr *ManifestRepository) CreateMisconfigurationsInBulk(ctx context.Context, misconfigurations ent.Misconfigurations) error {
+	dbClient := getClient(ctx)
+	return dbClient.Misconfiguration.MapCreateBulk(misconfigurations, func(mc *ent.MisconfigurationCreate, i int) {
+		mc.SetMisconfigurationID(misconfigurations[i].MisconfigurationID).
+			SetTitle(misconfigurations[i].Title).
+			SetMisconfigurationURLDetails(misconfigurations[i].MisconfigurationURLDetails).
+			SetSeverity(misconfigurations[i].Severity)
+	}).OnConflictColumns("misconfiguration_id").DoNothing().Exec(ctx)
+}
+
+func (mr *ManifestRepository) CreateManifestMisconfigurationsInBulk(ctx context.Context, manifestMisconfigurations ent.ManifestMisconfigurations) error {
+	dbClient := getClient(ctx)
+	return dbClient.ManifestMisconfiguration.MapCreateBulk(manifestMisconfigurations, func(mmc *ent.ManifestMisconfigurationCreate, i int) {
+		mmc.SetTargetFile(manifestMisconfigurations[i].TargetFile).
+			SetMessage(manifestMisconfigurations[i].Message).
+			SetResolution(manifestMisconfigurations[i].Resolution).
+			SetManifestID(manifestMisconfigurations[i].ManifestID).
+			SetMisconfigurationID(manifestMisconfigurations[i].MisconfigurationID)
+	}).Exec(ctx)
+}
+
+func (mr *ManifestRepository) GetMisconfigurationsByIDs(ctx context.Context, ids []string) (ent.Misconfigurations, error) {
+	dbClient := getClient(ctx)
+	return dbClient.Misconfiguration.Query().Where(
+		misconfiguration.MisconfigurationIDIn(ids...),
+	).All(ctx)
 }
 
 func (mr *ManifestRepository) UpsertManifestWithSubjectAndTag(ctx context.Context, layers []*ent.ManifestLayer, reference string, digest string, mediaType string, artifactType *string, s3Path string, manifestSubject *ent.Manifest, repository *ent.Repository) (*ent.Manifest, error) {

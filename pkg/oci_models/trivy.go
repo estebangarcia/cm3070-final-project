@@ -20,10 +20,21 @@ type TrivyVulnerability struct {
 	CVSS             map[string]TrivyCVSS `json:"CVSS"`
 }
 
+type TrivyMisconfiguration struct {
+	ID         string `json:"ID"`
+	Title      string `json:"Title"`
+	Message    string `json:"Message"`
+	Resolution string `json:"Resolution"`
+	PrimaryURL string `json:"PrimaryURL"`
+	Severity   string `json:"Severity"`
+}
+
 type TrivyResult struct {
-	Class           string
-	Type            string
-	Vulnerabilities []TrivyVulnerability
+	Target            string
+	Class             string
+	Type              string
+	Vulnerabilities   []TrivyVulnerability
+	Misconfigurations []TrivyMisconfiguration
 }
 
 type TrivyReport struct {
