@@ -9,17 +9,15 @@ import (
 )
 
 type RepositoryRepository struct {
-	dbClient *ent.Client
 }
 
-func NewRepositoryRepository(dbClient *ent.Client) *RepositoryRepository {
-	return &RepositoryRepository{
-		dbClient: dbClient,
-	}
+func NewRepositoryRepository() *RepositoryRepository {
+	return &RepositoryRepository{}
 }
 
 func (rr *RepositoryRepository) GetForRegistryByName(ctx context.Context, registryId int, repositoryName string) (*ent.Repository, bool, error) {
-	repo, err := rr.dbClient.Repository.Query().Where(
+	dbClient := getClient(ctx)
+	repo, err := dbClient.Repository.Query().Where(
 		repository.And(
 			repository.HasRegistryWith(
 				registry.ID(registryId),
@@ -39,7 +37,8 @@ func (rr *RepositoryRepository) GetForRegistryByName(ctx context.Context, regist
 }
 
 func (rr *RepositoryRepository) GetAllForRegistry(ctx context.Context, registryId int) ([]*ent.Repository, error) {
-	return rr.dbClient.Repository.Query().Where(
+	dbClient := getClient(ctx)
+	return dbClient.Repository.Query().Where(
 		repository.And(
 			repository.HasRegistryWith(
 				registry.ID(registryId),
@@ -49,7 +48,8 @@ func (rr *RepositoryRepository) GetAllForRegistry(ctx context.Context, registryI
 }
 
 func (rr *RepositoryRepository) GetOrCreateRepository(ctx context.Context, registryId int, repositoryName string) (*ent.Repository, error) {
-	repository, err := rr.dbClient.Repository.Query().Where(
+	dbClient := getClient(ctx)
+	repository, err := dbClient.Repository.Query().Where(
 		repository.And(
 			repository.HasRegistryWith(
 				registry.ID(registryId),
@@ -58,7 +58,7 @@ func (rr *RepositoryRepository) GetOrCreateRepository(ctx context.Context, regis
 		),
 	).First(ctx)
 	if err != nil && ent.IsNotFound(err) {
-		repository, err = rr.dbClient.Repository.Create().SetName(repositoryName).SetRegistryID(registryId).Save(ctx)
+		repository, err = dbClient.Repository.Create().SetName(repositoryName).SetRegistryID(registryId).Save(ctx)
 	}
 	if err != nil {
 		return nil, err

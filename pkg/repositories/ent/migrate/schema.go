@@ -83,7 +83,7 @@ var (
 				Symbol:     "manifest_layers_manifests_manifest_layers",
 				Columns:    []*schema.Column{ManifestLayersColumns[5]},
 				RefColumns: []*schema.Column{ManifestsColumns[0]},
-				OnDelete:   schema.SetNull,
+				OnDelete:   schema.Cascade,
 			},
 		},
 		Indexes: []*schema.Index{

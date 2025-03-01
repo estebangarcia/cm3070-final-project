@@ -9,13 +9,10 @@ import (
 )
 
 type BlobChunkRepository struct {
-	dbClient *ent.Client
 }
 
-func NewBlobChunkRepository(dbClient *ent.Client) *BlobChunkRepository {
-	return &BlobChunkRepository{
-		dbClient: dbClient,
-	}
+func NewBlobChunkRepository() *BlobChunkRepository {
+	return &BlobChunkRepository{}
 }
 
 func (bcr *BlobChunkRepository) GetForRange(ctx context.Context, sessionId string, uploadId string, rangeFrom uint64, rangeTo uint64) (*ent.BlobChunk, error) {
@@ -23,7 +20,8 @@ func (bcr *BlobChunkRepository) GetForRange(ctx context.Context, sessionId strin
 }
 
 func (bcr *BlobChunkRepository) CreateBlobChunk(ctx context.Context, sessionId string, uploadId string, rangeFrom uint64, rangeTo uint64, partNumber uint64) (*ent.BlobChunk, error) {
-	return bcr.dbClient.BlobChunk.Create().
+	dbClient := getClient(ctx)
+	return dbClient.BlobChunk.Create().
 		SetSessionID(sessionId).
 		SetUploadID(uploadId).
 		SetRangeFrom(rangeFrom).
@@ -33,7 +31,8 @@ func (bcr *BlobChunkRepository) CreateBlobChunk(ctx context.Context, sessionId s
 }
 
 func (bcr *BlobChunkRepository) GetBlobChunkCount(ctx context.Context, sessionId string, uploadId string) (int, error) {
-	return bcr.dbClient.BlobChunk.Query().Where(
+	dbClient := getClient(ctx)
+	return dbClient.BlobChunk.Query().Where(
 		blobchunk.And(
 			blobchunk.SessionID(sessionId),
 			blobchunk.UploadID(uploadId),
@@ -42,7 +41,8 @@ func (bcr *BlobChunkRepository) GetBlobChunkCount(ctx context.Context, sessionId
 }
 
 func (bcr *BlobChunkRepository) GetLatestBlobChunk(ctx context.Context, sessionId string, uploadId string) (*ent.BlobChunk, error) {
-	return bcr.dbClient.BlobChunk.Query().Where(
+	dbClient := getClient(ctx)
+	return dbClient.BlobChunk.Query().Where(
 		blobchunk.And(
 			blobchunk.SessionID(sessionId),
 			blobchunk.UploadID(uploadId),
@@ -89,14 +89,16 @@ func (bcr *BlobChunkRepository) GetNext(ctx context.Context, sessionId string, u
 }
 
 func (bcr *BlobChunkRepository) DeleteAllForUploadID(ctx context.Context, uploadId string) error {
-	_, err := bcr.dbClient.BlobChunk.Delete().Where(
+	dbClient := getClient(ctx)
+	_, err := dbClient.BlobChunk.Delete().Where(
 		blobchunk.UploadID(uploadId),
 	).Exec(ctx)
 	return err
 }
 
 func (bcr *BlobChunkRepository) GetByUploadID(ctx context.Context, uploadId string) ([]*ent.BlobChunk, error) {
-	return bcr.dbClient.BlobChunk.Query().Where(
+	dbClient := getClient(ctx)
+	return dbClient.BlobChunk.Query().Where(
 		blobchunk.UploadID(uploadId),
 	).All(ctx)
 }

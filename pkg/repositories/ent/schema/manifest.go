@@ -2,6 +2,7 @@ package schema
 
 import (
 	"entgo.io/ent"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -30,7 +31,7 @@ func (Manifest) Edges() []ent.Edge {
 		edge.From("repository", Repository.Type).Ref("manifests").Unique(),
 		edge.To("subject", Manifest.Type),
 		edge.From("referer", Manifest.Type).Ref("subject"),
-		edge.To("manifest_layers", ManifestLayer.Type),
+		edge.To("manifest_layers", ManifestLayer.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.From("vulnerabilities", Vulnerability.Type).Ref("manifests"),
 	}
 }

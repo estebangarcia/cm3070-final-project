@@ -64,6 +64,13 @@ func (rh *PythonHandler) SimpleRepositoryIndex(w http.ResponseWriter, r *http.Re
 	registry := r.Context().Value("registry").(*ent.Registry)
 	packageName := chi.URLParam(r, "packageName")
 
+	lowerCasePackageName := strings.ToLower(packageName)
+	if lowerCasePackageName != packageName {
+		w.Header().Set("Location", simpleIndexUrl(rh.Config.GetBaseUrl(), organization.Slug, registry.Slug, lowerCasePackageName))
+		w.WriteHeader(http.StatusMovedPermanently)
+		return
+	}
+
 	repo, found, err := rh.RepositoryRepository.GetForRegistryByName(r.Context(), registry.ID, packageName)
 	if !found {
 		responses.OCIRepositoryUnknown(w, packageName, false)
@@ -246,6 +253,10 @@ func (rh *PythonHandler) renderTemplate(packages []PythonPackage) ([]byte, error
 
 func downloadPythonPackageURL(baseURL string, orgSlug string, registrySlug string, packageName string, fileName string) string {
 	return fmt.Sprintf("%s/api/v1/%s/%s/python/simple/%s/%s", baseURL, orgSlug, registrySlug, packageName, fileName)
+}
+
+func simpleIndexUrl(baseURL string, orgSlug string, registrySlug string, packageName string) string {
+	return fmt.Sprintf("%v/api/v1/%v/%v/python/simple/%v", baseURL, orgSlug, registrySlug, strings.ToLower(packageName))
 }
 
 func parseWheelMetadata(whlPath string) (map[string]string, error) {

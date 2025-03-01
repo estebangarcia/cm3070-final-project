@@ -58,7 +58,7 @@ var workersCmd = &cobra.Command{
 
 		if startWorker == "all" || startWorker == "security_scanner" {
 			fmt.Println("Starting Security Scanning worker...")
-			manifestRepository := repositories.NewManifestRepository(dbClient)
+			manifestRepository := repositories.NewManifestRepository()
 			periodicWorkerDispatcher := workers.NewPeriodicWorkerDispatcher(10 * time.Second)
 			trivyWorker := workers.NewSecurityScannerWorker(1, manifestRepository, &cfg)
 			periodicWorkerDispatcher.Start(ctx, trivyWorker)
