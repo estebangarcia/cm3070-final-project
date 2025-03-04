@@ -6,6 +6,7 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/user"
+	"github.com/gosimple/slug"
 )
 
 type OrganizationRepository struct {
@@ -44,4 +45,22 @@ func (orgRepo *OrganizationRepository) GetForUserAndSlug(ctx context.Context, su
 	}
 
 	return org, true, nil
+}
+
+func (orgRepo *OrganizationRepository) CreateOrganizationWithOwner(ctx context.Context, user *ent.User, orgName string) (*ent.Organization, error) {
+	dbClient := getClient(ctx)
+
+	orgSlug := slug.Make(orgName)
+
+	org, err := dbClient.Organization.Create().SetName(orgName).SetSlug(orgSlug).SetIsPersonal(false).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = dbClient.OrganizationMembership.Create().SetOrganization(org).SetUser(user).SetRole(0).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return org, nil
 }

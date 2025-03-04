@@ -67,9 +67,9 @@ var workersCmd = &cobra.Command{
 
 		if startWorker == "all" || startWorker == "user_signup" {
 			fmt.Println("Starting User Signup worker...")
-			userRepository := repositories.NewUserRepository(dbClient)
+			userRepository := repositories.NewUserRepository()
 			userSignedUpWorker := workers.NewUserSignupWorker(sqsClient, userRepository)
-			sqsWorkerDispatcher := workers.NewSQSWorkerDispatcher(cfg.SignupWorker.QueueURL, sqsClient, 10)
+			sqsWorkerDispatcher := workers.NewSQSWorkerDispatcher(cfg.SignupWorker.QueueURL, sqsClient, 10, dbClient)
 			sqsWorkerDispatcher.Start(ctx, userSignedUpWorker)
 		}
 
