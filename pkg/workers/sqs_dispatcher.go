@@ -2,11 +2,13 @@ package workers
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -17,9 +19,10 @@ type SQSWorkerDispatcher struct {
 	wg          *sync.WaitGroup
 	mux         *sync.Mutex
 	errGroup    *errgroup.Group
+	dbClient    *ent.Client
 }
 
-func NewSQSWorkerDispatcher(sqsQueueUrl string, sqsClient *sqs.Client, maxMessages int32) *SQSWorkerDispatcher {
+func NewSQSWorkerDispatcher(sqsQueueUrl string, sqsClient *sqs.Client, maxMessages int32, dbClient *ent.Client) *SQSWorkerDispatcher {
 	return &SQSWorkerDispatcher{
 		queueUrl:    sqsQueueUrl,
 		sqsClient:   sqsClient,
@@ -27,6 +30,7 @@ func NewSQSWorkerDispatcher(sqsQueueUrl string, sqsClient *sqs.Client, maxMessag
 		wg:          &sync.WaitGroup{},
 		mux:         &sync.Mutex{},
 		errGroup:    &errgroup.Group{},
+		dbClient:    dbClient,
 	}
 }
 
@@ -58,7 +62,19 @@ func (w *SQSWorkerDispatcher) Start(ctx context.Context, worker SQSWorker) {
 				w.wg.Add(1)
 				go func() {
 					defer w.wg.Done()
-					if err := worker.Handle(ctx, message); err == nil {
+
+					tx, err := w.dbClient.Tx(ctx)
+					if err != nil {
+						return
+					}
+					ctxTx := context.WithValue(ctx, "dbClient", tx.Client())
+					defer tx.Rollback()
+
+					if err := worker.Handle(ctxTx, message); err == nil {
+						if err := tx.Commit(); err != nil {
+							fmt.Printf("error commiting transaction %v", err)
+							return
+						}
 						w.mux.Lock()
 						msgAck = append(msgAck, types.DeleteMessageBatchRequestEntry{
 							Id:            message.MessageId,

@@ -47,8 +47,6 @@ func (rh *RegistriesHandler) CreateRegistries(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	log.Println(createRegistryRequest.Name)
-
 	registry, err := rh.RegistryRepository.CreateRegistry(r.Context(), createRegistryRequest.Name, org.ID)
 	if err != nil {
 		log.Println(err)

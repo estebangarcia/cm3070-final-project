@@ -37,6 +37,7 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 	repositoryRepository := repositories.NewRepositoryRepository()
 	organizationsRepository := repositories.NewOrganizationRepository()
 	registryRepository := repositories.NewRegistryRepository()
+	userRepository := repositories.NewUserRepository()
 
 	/* AWS Helpers */
 	s3Client := helpers.GetS3Client(ctx, cfg)
@@ -60,6 +61,7 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 	organizationsHandlers := OrganizationsHandler{
 		Config:                 &cfg,
 		OrganizationRepository: organizationsRepository,
+		UserRepository:         userRepository,
 	}
 
 	orgMiddleware := middleware.OrganizationMiddleware{
@@ -151,6 +153,7 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 	r.Route("/api/v1", func(authenticatedApiV1 chi.Router) {
 		authenticatedApiV1.Use(jwtAuthMiddleware.Validate)
 		authenticatedApiV1.Get("/organizations", organizationsHandlers.GetOrganizationsForUser)
+		authenticatedApiV1.Post("/organizations", organizationsHandlers.CreateOrganization)
 
 		authenticatedApiV1.Route("/organizations/{organizationSlug:[a-z0-9-]+}", func(orgScopedRoutes chi.Router) {
 			orgScopedRoutes.Use(orgMiddleware.ValidateOrg)
