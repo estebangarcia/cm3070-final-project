@@ -48,6 +48,7 @@ var (
 		{Name: "s3_path", Type: field.TypeString},
 		{Name: "digest", Type: field.TypeString},
 		{Name: "scanned_at", Type: field.TypeTime, Nullable: true},
+		{Name: "uploaded_at", Type: field.TypeTime, Nullable: true},
 		{Name: "repository_manifests", Type: field.TypeInt, Nullable: true},
 	}
 	// ManifestsTable holds the schema information for the "manifests" table.
@@ -58,7 +59,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "manifests_repositories_manifests",
-				Columns:    []*schema.Column{ManifestsColumns[6]},
+				Columns:    []*schema.Column{ManifestsColumns[7]},
 				RefColumns: []*schema.Column{RepositoriesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},

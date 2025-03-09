@@ -2,12 +2,15 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent"
 	"github.com/estebangarcia/cm3070-final-project/pkg/requests"
+	"github.com/estebangarcia/cm3070-final-project/pkg/responses"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -15,6 +18,9 @@ type OrganizationsHandler struct {
 	Config                 *config.AppConfig
 	OrganizationRepository *repositories.OrganizationRepository
 	UserRepository         *repositories.UserRepository
+	RegistryRepository     *repositories.RegistryRepository
+	RepositoryRepository   *repositories.RepositoryRepository
+	ManifestRepository     *repositories.ManifestRepository
 }
 
 func (oh *OrganizationsHandler) GetOrganizationsForUser(w http.ResponseWriter, r *http.Request) {
@@ -77,4 +83,54 @@ func (oh *OrganizationsHandler) CreateOrganization(w http.ResponseWriter, r *htt
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(org)
+}
+
+func (oh *OrganizationsHandler) GetOrganizationStats(w http.ResponseWriter, r *http.Request) {
+	organization := r.Context().Value("organization").(*ent.Organization)
+
+	storageUsed, err := oh.ManifestRepository.GetStorageUsedInBytesForOrganization(r.Context(), organization)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+
+	registryCount, err := oh.RegistryRepository.GetCountForOrg(r.Context(), organization)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+
+	repositoryCount, err := oh.RepositoryRepository.GetCountForOrg(r.Context(), organization)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+
+	artifactCount, err := oh.ManifestRepository.GetCountForOrg(r.Context(), organization)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+
+	artifactWithVulnerabilitiesCount, err := oh.ManifestRepository.GetCountWithVulnerabilitiesForOrg(r.Context(), organization)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+
+	response := &responses.OrganizationStatsResponse{
+		RegistryCount:            registryCount,
+		RepositoryCount:          repositoryCount,
+		ArtifactsCount:           artifactCount,
+		StorageUsed:              storageUsed,
+		VulnerableArtifactsCount: artifactWithVulnerabilitiesCount,
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }

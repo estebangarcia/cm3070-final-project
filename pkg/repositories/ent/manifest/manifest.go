@@ -3,6 +3,8 @@
 package manifest
 
 import (
+	"time"
+
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 )
@@ -22,6 +24,8 @@ const (
 	FieldDigest = "digest"
 	// FieldScannedAt holds the string denoting the scanned_at field in the database.
 	FieldScannedAt = "scanned_at"
+	// FieldUploadedAt holds the string denoting the uploaded_at field in the database.
+	FieldUploadedAt = "uploaded_at"
 	// EdgeTags holds the string denoting the tags edge name in mutations.
 	EdgeTags = "tags"
 	// EdgeRepository holds the string denoting the repository edge name in mutations.
@@ -76,6 +80,7 @@ var Columns = []string{
 	FieldS3Path,
 	FieldDigest,
 	FieldScannedAt,
+	FieldUploadedAt,
 }
 
 // ForeignKeys holds the SQL foreign-keys that are owned by the "manifests"
@@ -111,6 +116,11 @@ func ValidColumn(column string) bool {
 	return false
 }
 
+var (
+	// DefaultUploadedAt holds the default value on creation for the "uploaded_at" field.
+	DefaultUploadedAt func() time.Time
+)
+
 // OrderOption defines the ordering options for the Manifest queries.
 type OrderOption func(*sql.Selector)
 
@@ -142,6 +152,11 @@ func ByDigest(opts ...sql.OrderTermOption) OrderOption {
 // ByScannedAt orders the results by the scanned_at field.
 func ByScannedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldScannedAt, opts...).ToFunc()
+}
+
+// ByUploadedAt orders the results by the uploaded_at field.
+func ByUploadedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUploadedAt, opts...).ToFunc()
 }
 
 // ByTagsCount orders the results by tags count.

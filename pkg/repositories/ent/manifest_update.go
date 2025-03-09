@@ -114,6 +114,26 @@ func (mu *ManifestUpdate) ClearScannedAt() *ManifestUpdate {
 	return mu
 }
 
+// SetUploadedAt sets the "uploaded_at" field.
+func (mu *ManifestUpdate) SetUploadedAt(t time.Time) *ManifestUpdate {
+	mu.mutation.SetUploadedAt(t)
+	return mu
+}
+
+// SetNillableUploadedAt sets the "uploaded_at" field if the given value is not nil.
+func (mu *ManifestUpdate) SetNillableUploadedAt(t *time.Time) *ManifestUpdate {
+	if t != nil {
+		mu.SetUploadedAt(*t)
+	}
+	return mu
+}
+
+// ClearUploadedAt clears the value of the "uploaded_at" field.
+func (mu *ManifestUpdate) ClearUploadedAt() *ManifestUpdate {
+	mu.mutation.ClearUploadedAt()
+	return mu
+}
+
 // AddTagIDs adds the "tags" edge to the ManifestTagReference entity by IDs.
 func (mu *ManifestUpdate) AddTagIDs(ids ...int) *ManifestUpdate {
 	mu.mutation.AddTagIDs(ids...)
@@ -380,6 +400,12 @@ func (mu *ManifestUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if mu.mutation.ScannedAtCleared() {
 		_spec.ClearField(manifest.FieldScannedAt, field.TypeTime)
+	}
+	if value, ok := mu.mutation.UploadedAt(); ok {
+		_spec.SetField(manifest.FieldUploadedAt, field.TypeTime, value)
+	}
+	if mu.mutation.UploadedAtCleared() {
+		_spec.ClearField(manifest.FieldUploadedAt, field.TypeTime)
 	}
 	if mu.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -737,6 +763,26 @@ func (muo *ManifestUpdateOne) ClearScannedAt() *ManifestUpdateOne {
 	return muo
 }
 
+// SetUploadedAt sets the "uploaded_at" field.
+func (muo *ManifestUpdateOne) SetUploadedAt(t time.Time) *ManifestUpdateOne {
+	muo.mutation.SetUploadedAt(t)
+	return muo
+}
+
+// SetNillableUploadedAt sets the "uploaded_at" field if the given value is not nil.
+func (muo *ManifestUpdateOne) SetNillableUploadedAt(t *time.Time) *ManifestUpdateOne {
+	if t != nil {
+		muo.SetUploadedAt(*t)
+	}
+	return muo
+}
+
+// ClearUploadedAt clears the value of the "uploaded_at" field.
+func (muo *ManifestUpdateOne) ClearUploadedAt() *ManifestUpdateOne {
+	muo.mutation.ClearUploadedAt()
+	return muo
+}
+
 // AddTagIDs adds the "tags" edge to the ManifestTagReference entity by IDs.
 func (muo *ManifestUpdateOne) AddTagIDs(ids ...int) *ManifestUpdateOne {
 	muo.mutation.AddTagIDs(ids...)
@@ -1033,6 +1079,12 @@ func (muo *ManifestUpdateOne) sqlSave(ctx context.Context) (_node *Manifest, err
 	}
 	if muo.mutation.ScannedAtCleared() {
 		_spec.ClearField(manifest.FieldScannedAt, field.TypeTime)
+	}
+	if value, ok := muo.mutation.UploadedAt(); ok {
+		_spec.SetField(manifest.FieldUploadedAt, field.TypeTime, value)
+	}
+	if muo.mutation.UploadedAtCleared() {
+		_spec.ClearField(manifest.FieldUploadedAt, field.TypeTime)
 	}
 	if muo.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{

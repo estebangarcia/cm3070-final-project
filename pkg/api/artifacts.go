@@ -75,3 +75,17 @@ func (ah *ArtifactsHandler) GetArtifactByDigest(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(manifest)
 }
+
+func (ah *ArtifactsHandler) GetArtifactsForOrg(w http.ResponseWriter, r *http.Request) {
+	organization := r.Context().Value("organization").(*ent.Organization)
+
+	manifests, err := ah.ManifestRepository.GetAllForOrgWithTags(r.Context(), organization)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(manifests)
+}

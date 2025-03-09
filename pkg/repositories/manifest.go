@@ -13,7 +13,10 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifestmisconfiguration"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/misconfiguration"
+	ent_organization "github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
 	ent_repository "github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
 	ent_vulnerability "github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/vulnerability"
 )
@@ -155,6 +158,34 @@ func (mr *ManifestRepository) GetAllWithTags(ctx context.Context, repository *en
 			ent_manifest.HasRepositoryWith(ent_repository.ID(repository.ID)),
 		),
 	).WithTags().All(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return manifests, nil
+}
+
+func (mr *ManifestRepository) GetAllForOrgWithTags(ctx context.Context, organization *ent.Organization) ([]*ent.Manifest, error) {
+	dbClient := getClient(ctx)
+
+	manifests, err := dbClient.Manifest.Query().Where(
+		ent_manifest.And(
+			ent_manifest.HasRepositoryWith(
+				ent_repository.HasRegistryWith(
+					registry.HasOrganizationWith(
+						ent_organization.ID(organization.ID),
+					),
+				),
+			),
+		),
+	).WithTags().WithRepository(func(rq *ent.RepositoryQuery) {
+		rq.WithRegistry(
+			func(rq *ent.RegistryQuery) {
+				rq.WithOrganization()
+			},
+		)
+	}).Order(ent_manifest.ByUploadedAt(sql.OrderDesc())).All(ctx)
 
 	if err != nil {
 		return nil, err
@@ -410,6 +441,62 @@ func (mr *ManifestRepository) GetUniqueManifestLayers(ctx context.Context, manif
 		}).All(ctx)
 }
 
-func getClient(ctx context.Context) *ent.Client {
-	return ctx.Value("dbClient").(*ent.Client)
+func (mr *ManifestRepository) GetStorageUsedInBytesForOrganization(ctx context.Context, organization *ent.Organization) (int, error) {
+	dbClient := getClient(ctx)
+
+	return dbClient.ManifestLayer.Query().Aggregate(
+		func(s *sql.Selector) string {
+			manifestLayerTable := sql.Table(manifestlayer.Table)
+			manifestTable := sql.Table(manifest.Table)
+			repositoryTable := sql.Table(repository.Table)
+			registryTable := sql.Table(registry.Table)
+			organizationTable := sql.Table(ent_organization.Table)
+
+			aggregationLayerSize := sql.Select(sql.As(sql.Max(manifestLayerTable.C(manifestlayer.FieldSize)), "size_per_layer")).
+				From(manifestLayerTable).
+				Join(manifestTable).On(manifestLayerTable.C(manifestlayer.ManifestColumn), manifestTable.C(manifest.FieldID)).
+				Join(repositoryTable).On(manifestTable.C(manifest.RepositoryColumn), repositoryTable.C(repository.FieldID)).
+				Join(registryTable).On(repositoryTable.C(repository.RegistryColumn), registryTable.C(registry.FieldID)).
+				Join(organizationTable).On(registryTable.C(registry.OrganizationColumn), organizationTable.C(ent_organization.FieldID)).
+				Where(sql.EQ(organizationTable.C(ent_organization.FieldID), organization.ID)).
+				GroupBy(manifestLayerTable.C(manifestlayer.FieldDigest)).As("aggregation_layer_size")
+
+			s.From(aggregationLayerSize)
+
+			return sql.As(sql.Sum(aggregationLayerSize.C("size_per_layer")), "total_storage_used")
+		},
+	).Int(ctx)
+}
+
+func (mr *ManifestRepository) GetCountForOrg(ctx context.Context, organization *ent.Organization) (int, error) {
+	dbClient := getClient(ctx)
+
+	return dbClient.Manifest.Query().Where(
+		ent_manifest.And(
+			ent_manifest.HasRepositoryWith(
+				ent_repository.HasRegistryWith(
+					registry.HasOrganizationWith(
+						ent_organization.ID(organization.ID),
+					),
+				),
+			),
+		),
+	).Count(ctx)
+}
+
+func (mr *ManifestRepository) GetCountWithVulnerabilitiesForOrg(ctx context.Context, organization *ent.Organization) (int, error) {
+	dbClient := getClient(ctx)
+
+	return dbClient.Manifest.Query().Where(
+		ent_manifest.And(
+			ent_manifest.HasRepositoryWith(
+				ent_repository.HasRegistryWith(
+					registry.HasOrganizationWith(
+						ent_organization.ID(organization.ID),
+					),
+				),
+			),
+			ent_manifest.HasVulnerabilities(),
+		),
+	).Count(ctx)
 }

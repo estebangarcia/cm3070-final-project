@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent"
+	ent_organization "github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
 )
@@ -65,4 +66,17 @@ func (rr *RepositoryRepository) GetOrCreateRepository(ctx context.Context, regis
 	}
 
 	return repository, err
+}
+
+func (rr *RepositoryRepository) GetCountForOrg(ctx context.Context, organization *ent.Organization) (int, error) {
+	dbClient := getClient(ctx)
+	return dbClient.Repository.Query().Where(
+		repository.And(
+			repository.HasRegistryWith(
+				registry.HasOrganizationWith(
+					ent_organization.ID(organization.ID),
+				),
+			),
+		),
+	).Count(ctx)
 }
