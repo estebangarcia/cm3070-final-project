@@ -26,7 +26,7 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 	apiCustomMux := NewCustomMux()
 	v2CustomMux := NewCustomMux()
 
-	r.Use(chiMiddleware.Logger)
+	//r.Use(chiMiddleware.Logger)
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(chiMiddleware.StripSlashes)
 
@@ -62,6 +62,8 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 		Config:                 &cfg,
 		OrganizationRepository: organizationsRepository,
 		UserRepository:         userRepository,
+		RepositoryRepository:   repositoryRepository,
+		ManifestRepository:     manifestRepository,
 	}
 
 	orgMiddleware := middleware.OrganizationMiddleware{
@@ -158,8 +160,10 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 		authenticatedApiV1.Route("/organizations/{organizationSlug:[a-z0-9-]+}", func(orgScopedRoutes chi.Router) {
 			orgScopedRoutes.Use(orgMiddleware.ValidateOrg)
 			orgScopedRoutes.Get("/", organizationsHandlers.GetOrganizationsBySlugForUser)
+			orgScopedRoutes.Get("/stats", organizationsHandlers.GetOrganizationStats)
 			orgScopedRoutes.Get("/registries", registriesHandler.GetRegistries)
 			orgScopedRoutes.Post("/registries", registriesHandler.CreateRegistries)
+			orgScopedRoutes.Get("/artifacts", artifactsHandler.GetArtifactsForOrg)
 		})
 
 		authenticatedApiV1.Route("/organizations/{organizationSlug:[a-z0-9-]+}/registries/{registrySlug:[a-z0-9-]+}", func(registryScopedRoutes chi.Router) {

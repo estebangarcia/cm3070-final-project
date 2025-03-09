@@ -9,7 +9,8 @@ type AdminUserConfig struct {
 }
 
 type DatabaseConfig struct {
-	DSN string `env:"DSN,notEmpty"`
+	DSN   string `env:"DSN,notEmpty"`
+	Debug bool   `env:"DEBUG_MODE" envDefault:"false"`
 }
 
 type CognitoConfig struct {

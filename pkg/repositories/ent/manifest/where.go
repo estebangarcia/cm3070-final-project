@@ -80,6 +80,11 @@ func ScannedAt(v time.Time) predicate.Manifest {
 	return predicate.Manifest(sql.FieldEQ(FieldScannedAt, v))
 }
 
+// UploadedAt applies equality check predicate on the "uploaded_at" field. It's identical to UploadedAtEQ.
+func UploadedAt(v time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldEQ(FieldUploadedAt, v))
+}
+
 // MediaTypeEQ applies the EQ predicate on the "media_type" field.
 func MediaTypeEQ(v string) predicate.Manifest {
 	return predicate.Manifest(sql.FieldEQ(FieldMediaType, v))
@@ -398,6 +403,56 @@ func ScannedAtIsNil() predicate.Manifest {
 // ScannedAtNotNil applies the NotNil predicate on the "scanned_at" field.
 func ScannedAtNotNil() predicate.Manifest {
 	return predicate.Manifest(sql.FieldNotNull(FieldScannedAt))
+}
+
+// UploadedAtEQ applies the EQ predicate on the "uploaded_at" field.
+func UploadedAtEQ(v time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldEQ(FieldUploadedAt, v))
+}
+
+// UploadedAtNEQ applies the NEQ predicate on the "uploaded_at" field.
+func UploadedAtNEQ(v time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldNEQ(FieldUploadedAt, v))
+}
+
+// UploadedAtIn applies the In predicate on the "uploaded_at" field.
+func UploadedAtIn(vs ...time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldIn(FieldUploadedAt, vs...))
+}
+
+// UploadedAtNotIn applies the NotIn predicate on the "uploaded_at" field.
+func UploadedAtNotIn(vs ...time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldNotIn(FieldUploadedAt, vs...))
+}
+
+// UploadedAtGT applies the GT predicate on the "uploaded_at" field.
+func UploadedAtGT(v time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldGT(FieldUploadedAt, v))
+}
+
+// UploadedAtGTE applies the GTE predicate on the "uploaded_at" field.
+func UploadedAtGTE(v time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldGTE(FieldUploadedAt, v))
+}
+
+// UploadedAtLT applies the LT predicate on the "uploaded_at" field.
+func UploadedAtLT(v time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldLT(FieldUploadedAt, v))
+}
+
+// UploadedAtLTE applies the LTE predicate on the "uploaded_at" field.
+func UploadedAtLTE(v time.Time) predicate.Manifest {
+	return predicate.Manifest(sql.FieldLTE(FieldUploadedAt, v))
+}
+
+// UploadedAtIsNil applies the IsNil predicate on the "uploaded_at" field.
+func UploadedAtIsNil() predicate.Manifest {
+	return predicate.Manifest(sql.FieldIsNull(FieldUploadedAt))
+}
+
+// UploadedAtNotNil applies the NotNil predicate on the "uploaded_at" field.
+func UploadedAtNotNil() predicate.Manifest {
+	return predicate.Manifest(sql.FieldNotNull(FieldUploadedAt))
 }
 
 // HasTags applies the HasEdge predicate on the "tags" edge.

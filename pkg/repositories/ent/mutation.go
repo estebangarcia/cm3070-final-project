@@ -704,6 +704,7 @@ type ManifestMutation struct {
 	s3_path                *string
 	digest                 *string
 	scanned_at             *time.Time
+	uploaded_at            *time.Time
 	clearedFields          map[string]struct{}
 	tags                   map[int]struct{}
 	removedtags            map[int]struct{}
@@ -1029,6 +1030,55 @@ func (m *ManifestMutation) ScannedAtCleared() bool {
 func (m *ManifestMutation) ResetScannedAt() {
 	m.scanned_at = nil
 	delete(m.clearedFields, manifest.FieldScannedAt)
+}
+
+// SetUploadedAt sets the "uploaded_at" field.
+func (m *ManifestMutation) SetUploadedAt(t time.Time) {
+	m.uploaded_at = &t
+}
+
+// UploadedAt returns the value of the "uploaded_at" field in the mutation.
+func (m *ManifestMutation) UploadedAt() (r time.Time, exists bool) {
+	v := m.uploaded_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUploadedAt returns the old "uploaded_at" field's value of the Manifest entity.
+// If the Manifest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ManifestMutation) OldUploadedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUploadedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUploadedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUploadedAt: %w", err)
+	}
+	return oldValue.UploadedAt, nil
+}
+
+// ClearUploadedAt clears the value of the "uploaded_at" field.
+func (m *ManifestMutation) ClearUploadedAt() {
+	m.uploaded_at = nil
+	m.clearedFields[manifest.FieldUploadedAt] = struct{}{}
+}
+
+// UploadedAtCleared returns if the "uploaded_at" field was cleared in this mutation.
+func (m *ManifestMutation) UploadedAtCleared() bool {
+	_, ok := m.clearedFields[manifest.FieldUploadedAt]
+	return ok
+}
+
+// ResetUploadedAt resets all changes to the "uploaded_at" field.
+func (m *ManifestMutation) ResetUploadedAt() {
+	m.uploaded_at = nil
+	delete(m.clearedFields, manifest.FieldUploadedAt)
 }
 
 // AddTagIDs adds the "tags" edge to the ManifestTagReference entity by ids.
@@ -1374,7 +1424,7 @@ func (m *ManifestMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ManifestMutation) Fields() []string {
-	fields := make([]string, 0, 5)
+	fields := make([]string, 0, 6)
 	if m.media_type != nil {
 		fields = append(fields, manifest.FieldMediaType)
 	}
@@ -1389,6 +1439,9 @@ func (m *ManifestMutation) Fields() []string {
 	}
 	if m.scanned_at != nil {
 		fields = append(fields, manifest.FieldScannedAt)
+	}
+	if m.uploaded_at != nil {
+		fields = append(fields, manifest.FieldUploadedAt)
 	}
 	return fields
 }
@@ -1408,6 +1461,8 @@ func (m *ManifestMutation) Field(name string) (ent.Value, bool) {
 		return m.Digest()
 	case manifest.FieldScannedAt:
 		return m.ScannedAt()
+	case manifest.FieldUploadedAt:
+		return m.UploadedAt()
 	}
 	return nil, false
 }
@@ -1427,6 +1482,8 @@ func (m *ManifestMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldDigest(ctx)
 	case manifest.FieldScannedAt:
 		return m.OldScannedAt(ctx)
+	case manifest.FieldUploadedAt:
+		return m.OldUploadedAt(ctx)
 	}
 	return nil, fmt.Errorf("unknown Manifest field %s", name)
 }
@@ -1471,6 +1528,13 @@ func (m *ManifestMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetScannedAt(v)
 		return nil
+	case manifest.FieldUploadedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUploadedAt(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Manifest field %s", name)
 }
@@ -1507,6 +1571,9 @@ func (m *ManifestMutation) ClearedFields() []string {
 	if m.FieldCleared(manifest.FieldScannedAt) {
 		fields = append(fields, manifest.FieldScannedAt)
 	}
+	if m.FieldCleared(manifest.FieldUploadedAt) {
+		fields = append(fields, manifest.FieldUploadedAt)
+	}
 	return fields
 }
 
@@ -1526,6 +1593,9 @@ func (m *ManifestMutation) ClearField(name string) error {
 		return nil
 	case manifest.FieldScannedAt:
 		m.ClearScannedAt()
+		return nil
+	case manifest.FieldUploadedAt:
+		m.ClearUploadedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown Manifest nullable field %s", name)
@@ -1549,6 +1619,9 @@ func (m *ManifestMutation) ResetField(name string) error {
 		return nil
 	case manifest.FieldScannedAt:
 		m.ResetScannedAt()
+		return nil
+	case manifest.FieldUploadedAt:
+		m.ResetUploadedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown Manifest field %s", name)

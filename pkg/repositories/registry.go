@@ -5,6 +5,7 @@ import (
 
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
+	ent_organization "github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/user"
@@ -65,4 +66,16 @@ func (registryRepo *RegistryRepository) GetForOrgAndUser(ctx context.Context, us
 	}
 
 	return registry, true, nil
+}
+
+func (registryRepo *RegistryRepository) GetCountForOrg(ctx context.Context, organization *ent.Organization) (int, error) {
+	dbClient := getClient(ctx)
+
+	return dbClient.Registry.Query().Where(
+		registry.And(
+			registry.HasOrganizationWith(
+				ent_organization.ID(organization.ID),
+			),
+		),
+	).Count(ctx)
 }

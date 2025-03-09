@@ -72,6 +72,20 @@ func (mc *ManifestCreate) SetNillableScannedAt(t *time.Time) *ManifestCreate {
 	return mc
 }
 
+// SetUploadedAt sets the "uploaded_at" field.
+func (mc *ManifestCreate) SetUploadedAt(t time.Time) *ManifestCreate {
+	mc.mutation.SetUploadedAt(t)
+	return mc
+}
+
+// SetNillableUploadedAt sets the "uploaded_at" field if the given value is not nil.
+func (mc *ManifestCreate) SetNillableUploadedAt(t *time.Time) *ManifestCreate {
+	if t != nil {
+		mc.SetUploadedAt(*t)
+	}
+	return mc
+}
+
 // AddTagIDs adds the "tags" edge to the ManifestTagReference entity by IDs.
 func (mc *ManifestCreate) AddTagIDs(ids ...int) *ManifestCreate {
 	mc.mutation.AddTagIDs(ids...)
@@ -173,6 +187,7 @@ func (mc *ManifestCreate) Mutation() *ManifestMutation {
 
 // Save creates the Manifest in the database.
 func (mc *ManifestCreate) Save(ctx context.Context) (*Manifest, error) {
+	mc.defaults()
 	return withHooks(ctx, mc.sqlSave, mc.mutation, mc.hooks)
 }
 
@@ -195,6 +210,14 @@ func (mc *ManifestCreate) Exec(ctx context.Context) error {
 func (mc *ManifestCreate) ExecX(ctx context.Context) {
 	if err := mc.Exec(ctx); err != nil {
 		panic(err)
+	}
+}
+
+// defaults sets the default values of the builder before save.
+func (mc *ManifestCreate) defaults() {
+	if _, ok := mc.mutation.UploadedAt(); !ok {
+		v := manifest.DefaultUploadedAt()
+		mc.mutation.SetUploadedAt(v)
 	}
 }
 
@@ -255,6 +278,10 @@ func (mc *ManifestCreate) createSpec() (*Manifest, *sqlgraph.CreateSpec) {
 	if value, ok := mc.mutation.ScannedAt(); ok {
 		_spec.SetField(manifest.FieldScannedAt, field.TypeTime, value)
 		_node.ScannedAt = &value
+	}
+	if value, ok := mc.mutation.UploadedAt(); ok {
+		_spec.SetField(manifest.FieldUploadedAt, field.TypeTime, value)
+		_node.UploadedAt = &value
 	}
 	if nodes := mc.mutation.TagsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -477,6 +504,24 @@ func (u *ManifestUpsert) ClearScannedAt() *ManifestUpsert {
 	return u
 }
 
+// SetUploadedAt sets the "uploaded_at" field.
+func (u *ManifestUpsert) SetUploadedAt(v time.Time) *ManifestUpsert {
+	u.Set(manifest.FieldUploadedAt, v)
+	return u
+}
+
+// UpdateUploadedAt sets the "uploaded_at" field to the value that was provided on create.
+func (u *ManifestUpsert) UpdateUploadedAt() *ManifestUpsert {
+	u.SetExcluded(manifest.FieldUploadedAt)
+	return u
+}
+
+// ClearUploadedAt clears the value of the "uploaded_at" field.
+func (u *ManifestUpsert) ClearUploadedAt() *ManifestUpsert {
+	u.SetNull(manifest.FieldUploadedAt)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -601,6 +646,27 @@ func (u *ManifestUpsertOne) ClearScannedAt() *ManifestUpsertOne {
 	})
 }
 
+// SetUploadedAt sets the "uploaded_at" field.
+func (u *ManifestUpsertOne) SetUploadedAt(v time.Time) *ManifestUpsertOne {
+	return u.Update(func(s *ManifestUpsert) {
+		s.SetUploadedAt(v)
+	})
+}
+
+// UpdateUploadedAt sets the "uploaded_at" field to the value that was provided on create.
+func (u *ManifestUpsertOne) UpdateUploadedAt() *ManifestUpsertOne {
+	return u.Update(func(s *ManifestUpsert) {
+		s.UpdateUploadedAt()
+	})
+}
+
+// ClearUploadedAt clears the value of the "uploaded_at" field.
+func (u *ManifestUpsertOne) ClearUploadedAt() *ManifestUpsertOne {
+	return u.Update(func(s *ManifestUpsert) {
+		s.ClearUploadedAt()
+	})
+}
+
 // Exec executes the query.
 func (u *ManifestUpsertOne) Exec(ctx context.Context) error {
 	if len(u.create.conflict) == 0 {
@@ -653,6 +719,7 @@ func (mcb *ManifestCreateBulk) Save(ctx context.Context) ([]*Manifest, error) {
 	for i := range mcb.builders {
 		func(i int, root context.Context) {
 			builder := mcb.builders[i]
+			builder.defaults()
 			var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
 				mutation, ok := m.(*ManifestMutation)
 				if !ok {
@@ -885,6 +952,27 @@ func (u *ManifestUpsertBulk) UpdateScannedAt() *ManifestUpsertBulk {
 func (u *ManifestUpsertBulk) ClearScannedAt() *ManifestUpsertBulk {
 	return u.Update(func(s *ManifestUpsert) {
 		s.ClearScannedAt()
+	})
+}
+
+// SetUploadedAt sets the "uploaded_at" field.
+func (u *ManifestUpsertBulk) SetUploadedAt(v time.Time) *ManifestUpsertBulk {
+	return u.Update(func(s *ManifestUpsert) {
+		s.SetUploadedAt(v)
+	})
+}
+
+// UpdateUploadedAt sets the "uploaded_at" field to the value that was provided on create.
+func (u *ManifestUpsertBulk) UpdateUploadedAt() *ManifestUpsertBulk {
+	return u.Update(func(s *ManifestUpsert) {
+		s.UpdateUploadedAt()
+	})
+}
+
+// ClearUploadedAt clears the value of the "uploaded_at" field.
+func (u *ManifestUpsertBulk) ClearUploadedAt() *ManifestUpsertBulk {
+	return u.Update(func(s *ManifestUpsert) {
+		s.ClearUploadedAt()
 	})
 }
 

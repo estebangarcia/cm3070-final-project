@@ -1,6 +1,8 @@
 package schema
 
 import (
+	"time"
+
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
@@ -20,6 +22,7 @@ func (Manifest) Fields() []ent.Field {
 		field.String("s3_path"),
 		field.String("digest"),
 		field.Time("scanned_at").Optional().Nillable(),
+		field.Time("uploaded_at").Default(time.Now).Optional().Nillable(),
 	}
 }
 

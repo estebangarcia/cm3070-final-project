@@ -34,7 +34,7 @@ func (a *DbTxMiddleware) HandleTransaction(next http.Handler) http.Handler {
 		var err error
 
 		if isMutable {
-			tx, err = a.DBClient.Debug().Tx(ctx)
+			tx, err = a.DBClient.Tx(ctx)
 			if err != nil {
 				log.Println(err)
 				http.Error(w, "Internal Server Error", 500)

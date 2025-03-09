@@ -28,6 +28,8 @@ type Manifest struct {
 	Digest string `json:"digest,omitempty"`
 	// ScannedAt holds the value of the "scanned_at" field.
 	ScannedAt *time.Time `json:"scanned_at,omitempty"`
+	// UploadedAt holds the value of the "uploaded_at" field.
+	UploadedAt *time.Time `json:"uploaded_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ManifestQuery when eager-loading is set.
 	Edges                ManifestEdges `json:"edges"`
@@ -119,7 +121,7 @@ func (*Manifest) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case manifest.FieldMediaType, manifest.FieldArtifactType, manifest.FieldS3Path, manifest.FieldDigest:
 			values[i] = new(sql.NullString)
-		case manifest.FieldScannedAt:
+		case manifest.FieldScannedAt, manifest.FieldUploadedAt:
 			values[i] = new(sql.NullTime)
 		case manifest.ForeignKeys[0]: // repository_manifests
 			values[i] = new(sql.NullInt64)
@@ -174,6 +176,13 @@ func (m *Manifest) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				m.ScannedAt = new(time.Time)
 				*m.ScannedAt = value.Time
+			}
+		case manifest.FieldUploadedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field uploaded_at", values[i])
+			} else if value.Valid {
+				m.UploadedAt = new(time.Time)
+				*m.UploadedAt = value.Time
 			}
 		case manifest.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -262,6 +271,11 @@ func (m *Manifest) String() string {
 	builder.WriteString(", ")
 	if v := m.ScannedAt; v != nil {
 		builder.WriteString("scanned_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := m.UploadedAt; v != nil {
+		builder.WriteString("uploaded_at=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
 	builder.WriteByte(')')
