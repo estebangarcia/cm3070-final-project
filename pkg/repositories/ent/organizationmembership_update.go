@@ -58,23 +58,16 @@ func (omu *OrganizationMembershipUpdate) SetNillableOrganizationID(i *int) *Orga
 }
 
 // SetRole sets the "role" field.
-func (omu *OrganizationMembershipUpdate) SetRole(i int) *OrganizationMembershipUpdate {
-	omu.mutation.ResetRole()
-	omu.mutation.SetRole(i)
+func (omu *OrganizationMembershipUpdate) SetRole(o organizationmembership.Role) *OrganizationMembershipUpdate {
+	omu.mutation.SetRole(o)
 	return omu
 }
 
 // SetNillableRole sets the "role" field if the given value is not nil.
-func (omu *OrganizationMembershipUpdate) SetNillableRole(i *int) *OrganizationMembershipUpdate {
-	if i != nil {
-		omu.SetRole(*i)
+func (omu *OrganizationMembershipUpdate) SetNillableRole(o *organizationmembership.Role) *OrganizationMembershipUpdate {
+	if o != nil {
+		omu.SetRole(*o)
 	}
-	return omu
-}
-
-// AddRole adds i to the "role" field.
-func (omu *OrganizationMembershipUpdate) AddRole(i int) *OrganizationMembershipUpdate {
-	omu.mutation.AddRole(i)
 	return omu
 }
 
@@ -134,6 +127,11 @@ func (omu *OrganizationMembershipUpdate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (omu *OrganizationMembershipUpdate) check() error {
+	if v, ok := omu.mutation.Role(); ok {
+		if err := organizationmembership.RoleValidator(v); err != nil {
+			return &ValidationError{Name: "role", err: fmt.Errorf(`ent: validator failed for field "OrganizationMembership.role": %w`, err)}
+		}
+	}
 	if omu.mutation.UserCleared() && len(omu.mutation.UserIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "OrganizationMembership.user"`)
 	}
@@ -156,10 +154,7 @@ func (omu *OrganizationMembershipUpdate) sqlSave(ctx context.Context) (n int, er
 		}
 	}
 	if value, ok := omu.mutation.Role(); ok {
-		_spec.SetField(organizationmembership.FieldRole, field.TypeInt, value)
-	}
-	if value, ok := omu.mutation.AddedRole(); ok {
-		_spec.AddField(organizationmembership.FieldRole, field.TypeInt, value)
+		_spec.SetField(organizationmembership.FieldRole, field.TypeEnum, value)
 	}
 	if omu.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -268,23 +263,16 @@ func (omuo *OrganizationMembershipUpdateOne) SetNillableOrganizationID(i *int) *
 }
 
 // SetRole sets the "role" field.
-func (omuo *OrganizationMembershipUpdateOne) SetRole(i int) *OrganizationMembershipUpdateOne {
-	omuo.mutation.ResetRole()
-	omuo.mutation.SetRole(i)
+func (omuo *OrganizationMembershipUpdateOne) SetRole(o organizationmembership.Role) *OrganizationMembershipUpdateOne {
+	omuo.mutation.SetRole(o)
 	return omuo
 }
 
 // SetNillableRole sets the "role" field if the given value is not nil.
-func (omuo *OrganizationMembershipUpdateOne) SetNillableRole(i *int) *OrganizationMembershipUpdateOne {
-	if i != nil {
-		omuo.SetRole(*i)
+func (omuo *OrganizationMembershipUpdateOne) SetNillableRole(o *organizationmembership.Role) *OrganizationMembershipUpdateOne {
+	if o != nil {
+		omuo.SetRole(*o)
 	}
-	return omuo
-}
-
-// AddRole adds i to the "role" field.
-func (omuo *OrganizationMembershipUpdateOne) AddRole(i int) *OrganizationMembershipUpdateOne {
-	omuo.mutation.AddRole(i)
 	return omuo
 }
 
@@ -357,6 +345,11 @@ func (omuo *OrganizationMembershipUpdateOne) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (omuo *OrganizationMembershipUpdateOne) check() error {
+	if v, ok := omuo.mutation.Role(); ok {
+		if err := organizationmembership.RoleValidator(v); err != nil {
+			return &ValidationError{Name: "role", err: fmt.Errorf(`ent: validator failed for field "OrganizationMembership.role": %w`, err)}
+		}
+	}
 	if omuo.mutation.UserCleared() && len(omuo.mutation.UserIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "OrganizationMembership.user"`)
 	}
@@ -398,10 +391,7 @@ func (omuo *OrganizationMembershipUpdateOne) sqlSave(ctx context.Context) (_node
 		}
 	}
 	if value, ok := omuo.mutation.Role(); ok {
-		_spec.SetField(organizationmembership.FieldRole, field.TypeInt, value)
-	}
-	if value, ok := omuo.mutation.AddedRole(); ok {
-		_spec.AddField(organizationmembership.FieldRole, field.TypeInt, value)
+		_spec.SetField(organizationmembership.FieldRole, field.TypeEnum, value)
 	}
 	if omuo.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{

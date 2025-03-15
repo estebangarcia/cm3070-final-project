@@ -3,6 +3,8 @@
 package organizationmembership
 
 import (
+	"fmt"
+
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 )
@@ -57,6 +59,30 @@ func ValidColumn(column string) bool {
 		}
 	}
 	return false
+}
+
+// Role defines the type for the "role" enum field.
+type Role string
+
+// Role values.
+const (
+	RoleOwner   Role = "owner"
+	RoleManager Role = "manager"
+	RoleMember  Role = "member"
+)
+
+func (r Role) String() string {
+	return string(r)
+}
+
+// RoleValidator is a validator for the "role" field enum values. It is called by the builders before save.
+func RoleValidator(r Role) error {
+	switch r {
+	case RoleOwner, RoleManager, RoleMember:
+		return nil
+	default:
+		return fmt.Errorf("organizationmembership: invalid enum value for role field: %q", r)
+	}
 }
 
 // OrderOption defines the ordering options for the OrganizationMembership queries.

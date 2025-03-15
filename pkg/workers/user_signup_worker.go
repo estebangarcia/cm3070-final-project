@@ -3,7 +3,7 @@ package workers
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
@@ -20,14 +20,16 @@ type CognitoUserSignUpEvent struct {
 }
 
 type UserSignupWorker struct {
-	sqsClient      *sqs.Client
-	userRepository *repositories.UserRepository
+	sqsClient                    *sqs.Client
+	userRepository               *repositories.UserRepository
+	organizationInviteRepository *repositories.OrganizationInviteRepository
 }
 
-func NewUserSignupWorker(sqsClient *sqs.Client, userRepository *repositories.UserRepository) *UserSignupWorker {
+func NewUserSignupWorker(sqsClient *sqs.Client, userRepository *repositories.UserRepository, organizationInviteRepository *repositories.OrganizationInviteRepository) *UserSignupWorker {
 	return &UserSignupWorker{
-		sqsClient:      sqsClient,
-		userRepository: userRepository,
+		sqsClient:                    sqsClient,
+		userRepository:               userRepository,
+		organizationInviteRepository: organizationInviteRepository,
 	}
 }
 
@@ -36,13 +38,19 @@ func (w *UserSignupWorker) Handle(ctx context.Context, message types.Message) er
 
 	err := json.Unmarshal([]byte(*message.Body), &userSignUpEvent)
 	if err != nil {
-		log.Printf("error unmarshaling event %v", err)
+		fmt.Printf("error unmarshaling event %v\n", err)
 		return err
 	}
 
-	_, _, err = w.userRepository.CreateUserAndStartingOrg(ctx, userSignUpEvent.GivenName, userSignUpEvent.FamilyName, userSignUpEvent.Email, userSignUpEvent.Sub)
+	user, _, err := w.userRepository.CreateUserAndStartingOrg(ctx, userSignUpEvent.GivenName, userSignUpEvent.FamilyName, userSignUpEvent.Email, userSignUpEvent.Sub)
 	if err != nil {
-		log.Printf("error creating user and org in database %v", err)
+		fmt.Printf("error creating user and org in database %v\n", err)
+		return err
+	}
+
+	err = w.organizationInviteRepository.FindInvitesForEmailAndLinkToUser(ctx, user.Email, user)
+	if err != nil {
+		fmt.Printf("error linking invites to user %v\n", err)
 		return err
 	}
 

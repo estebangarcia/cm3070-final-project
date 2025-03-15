@@ -1,0 +1,18 @@
+{{ template "base" . }}
+
+{{ define "title" }}
+  You've been invited to {{ .OrganizationName }}
+{{ end }}
+
+{{ define "body" }}
+  <p>Hi there</p>
+  <p>{{ .InviterName }} has invited you to join their organization "{{ .OrganizationName }}".</p>
+
+  {{ if .UserExists }}
+    <p>To accept the invitation click on the button below!</p>
+    {{ template "button" (arr .AcceptLink "Accept Invite") }}
+  {{ else }}
+    <p>To accept the invitation click on the button below and create an account!</p>
+    {{ template "button" (arr .SignupLink "Sign up") }}
+  {{ end }}
+{{ end }}

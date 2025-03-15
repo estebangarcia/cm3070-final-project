@@ -22,6 +22,8 @@ const (
 	EdgeRegistries = "registries"
 	// EdgeMembers holds the string denoting the members edge name in mutations.
 	EdgeMembers = "members"
+	// EdgeOrganizationInvites holds the string denoting the organization_invites edge name in mutations.
+	EdgeOrganizationInvites = "organization_invites"
 	// EdgeOrgMembers holds the string denoting the org_members edge name in mutations.
 	EdgeOrgMembers = "org_members"
 	// Table holds the table name of the organization in the database.
@@ -38,6 +40,13 @@ const (
 	// MembersInverseTable is the table name for the User entity.
 	// It exists in this package in order to avoid circular dependency with the "user" package.
 	MembersInverseTable = "users"
+	// OrganizationInvitesTable is the table that holds the organization_invites relation/edge.
+	OrganizationInvitesTable = "organization_invites"
+	// OrganizationInvitesInverseTable is the table name for the OrganizationInvite entity.
+	// It exists in this package in order to avoid circular dependency with the "organizationinvite" package.
+	OrganizationInvitesInverseTable = "organization_invites"
+	// OrganizationInvitesColumn is the table column denoting the organization_invites relation/edge.
+	OrganizationInvitesColumn = "organization_id"
 	// OrgMembersTable is the table that holds the org_members relation/edge.
 	OrgMembersTable = "organization_memberships"
 	// OrgMembersInverseTable is the table name for the OrganizationMembership entity.
@@ -122,6 +131,20 @@ func ByMembers(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByOrganizationInvitesCount orders the results by organization_invites count.
+func ByOrganizationInvitesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newOrganizationInvitesStep(), opts...)
+	}
+}
+
+// ByOrganizationInvites orders the results by organization_invites terms.
+func ByOrganizationInvites(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newOrganizationInvitesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByOrgMembersCount orders the results by org_members count.
 func ByOrgMembersCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -147,6 +170,13 @@ func newMembersStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(MembersInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2M, true, MembersTable, MembersPrimaryKey...),
+	)
+}
+func newOrganizationInvitesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(OrganizationInvitesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, OrganizationInvitesTable, OrganizationInvitesColumn),
 	)
 }
 func newOrgMembersStep() *sqlgraph.Step {

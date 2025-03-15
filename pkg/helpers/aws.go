@@ -7,6 +7,7 @@ import (
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
 )
@@ -41,4 +42,13 @@ func GetSQSClient(ctx context.Context, cfg config.AppConfig) *sqs.Client {
 	}
 
 	return sqs.NewFromConfig(awsCfg)
+}
+
+func GetSESClient(ctx context.Context, cfg config.AppConfig) *sesv2.Client {
+	awsCfg, err := awsConfig.LoadDefaultConfig(ctx, awsConfig.WithRegion(cfg.Cognito.Region))
+	if err != nil {
+		log.Fatalf("unable to load SDK config, %v", err)
+	}
+
+	return sesv2.NewFromConfig(awsCfg)
 }

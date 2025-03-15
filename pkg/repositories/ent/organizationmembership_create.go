@@ -36,8 +36,8 @@ func (omc *OrganizationMembershipCreate) SetOrganizationID(i int) *OrganizationM
 }
 
 // SetRole sets the "role" field.
-func (omc *OrganizationMembershipCreate) SetRole(i int) *OrganizationMembershipCreate {
-	omc.mutation.SetRole(i)
+func (omc *OrganizationMembershipCreate) SetRole(o organizationmembership.Role) *OrganizationMembershipCreate {
+	omc.mutation.SetRole(o)
 	return omc
 }
 
@@ -94,6 +94,11 @@ func (omc *OrganizationMembershipCreate) check() error {
 	if _, ok := omc.mutation.Role(); !ok {
 		return &ValidationError{Name: "role", err: errors.New(`ent: missing required field "OrganizationMembership.role"`)}
 	}
+	if v, ok := omc.mutation.Role(); ok {
+		if err := organizationmembership.RoleValidator(v); err != nil {
+			return &ValidationError{Name: "role", err: fmt.Errorf(`ent: validator failed for field "OrganizationMembership.role": %w`, err)}
+		}
+	}
 	if len(omc.mutation.UserIDs()) == 0 {
 		return &ValidationError{Name: "user", err: errors.New(`ent: missing required edge "OrganizationMembership.user"`)}
 	}
@@ -124,7 +129,7 @@ func (omc *OrganizationMembershipCreate) createSpec() (*OrganizationMembership, 
 	)
 	_spec.OnConflict = omc.conflict
 	if value, ok := omc.mutation.Role(); ok {
-		_spec.SetField(organizationmembership.FieldRole, field.TypeInt, value)
+		_spec.SetField(organizationmembership.FieldRole, field.TypeEnum, value)
 		_node.Role = value
 	}
 	if nodes := omc.mutation.UserIDs(); len(nodes) > 0 {
@@ -238,7 +243,7 @@ func (u *OrganizationMembershipUpsert) UpdateOrganizationID() *OrganizationMembe
 }
 
 // SetRole sets the "role" field.
-func (u *OrganizationMembershipUpsert) SetRole(v int) *OrganizationMembershipUpsert {
+func (u *OrganizationMembershipUpsert) SetRole(v organizationmembership.Role) *OrganizationMembershipUpsert {
 	u.Set(organizationmembership.FieldRole, v)
 	return u
 }
@@ -246,12 +251,6 @@ func (u *OrganizationMembershipUpsert) SetRole(v int) *OrganizationMembershipUps
 // UpdateRole sets the "role" field to the value that was provided on create.
 func (u *OrganizationMembershipUpsert) UpdateRole() *OrganizationMembershipUpsert {
 	u.SetExcluded(organizationmembership.FieldRole)
-	return u
-}
-
-// AddRole adds v to the "role" field.
-func (u *OrganizationMembershipUpsert) AddRole(v int) *OrganizationMembershipUpsert {
-	u.Add(organizationmembership.FieldRole, v)
 	return u
 }
 
@@ -324,16 +323,9 @@ func (u *OrganizationMembershipUpsertOne) UpdateOrganizationID() *OrganizationMe
 }
 
 // SetRole sets the "role" field.
-func (u *OrganizationMembershipUpsertOne) SetRole(v int) *OrganizationMembershipUpsertOne {
+func (u *OrganizationMembershipUpsertOne) SetRole(v organizationmembership.Role) *OrganizationMembershipUpsertOne {
 	return u.Update(func(s *OrganizationMembershipUpsert) {
 		s.SetRole(v)
-	})
-}
-
-// AddRole adds v to the "role" field.
-func (u *OrganizationMembershipUpsertOne) AddRole(v int) *OrganizationMembershipUpsertOne {
-	return u.Update(func(s *OrganizationMembershipUpsert) {
-		s.AddRole(v)
 	})
 }
 
@@ -553,16 +545,9 @@ func (u *OrganizationMembershipUpsertBulk) UpdateOrganizationID() *OrganizationM
 }
 
 // SetRole sets the "role" field.
-func (u *OrganizationMembershipUpsertBulk) SetRole(v int) *OrganizationMembershipUpsertBulk {
+func (u *OrganizationMembershipUpsertBulk) SetRole(v organizationmembership.Role) *OrganizationMembershipUpsertBulk {
 	return u.Update(func(s *OrganizationMembershipUpsert) {
 		s.SetRole(v)
-	})
-}
-
-// AddRole adds v to the "role" field.
-func (u *OrganizationMembershipUpsertBulk) AddRole(v int) *OrganizationMembershipUpsertBulk {
-	return u.Update(func(s *OrganizationMembershipUpsert) {
-		s.AddRole(v)
 	})
 }
 

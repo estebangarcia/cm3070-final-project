@@ -34,11 +34,13 @@ type OrganizationEdges struct {
 	Registries []*Registry `json:"registries,omitempty"`
 	// Members holds the value of the members edge.
 	Members []*User `json:"members,omitempty"`
+	// OrganizationInvites holds the value of the organization_invites edge.
+	OrganizationInvites []*OrganizationInvite `json:"organization_invites,omitempty"`
 	// OrgMembers holds the value of the org_members edge.
 	OrgMembers []*OrganizationMembership `json:"org_members,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [4]bool
 }
 
 // RegistriesOrErr returns the Registries value or an error if the edge
@@ -59,10 +61,19 @@ func (e OrganizationEdges) MembersOrErr() ([]*User, error) {
 	return nil, &NotLoadedError{edge: "members"}
 }
 
+// OrganizationInvitesOrErr returns the OrganizationInvites value or an error if the edge
+// was not loaded in eager-loading.
+func (e OrganizationEdges) OrganizationInvitesOrErr() ([]*OrganizationInvite, error) {
+	if e.loadedTypes[2] {
+		return e.OrganizationInvites, nil
+	}
+	return nil, &NotLoadedError{edge: "organization_invites"}
+}
+
 // OrgMembersOrErr returns the OrgMembers value or an error if the edge
 // was not loaded in eager-loading.
 func (e OrganizationEdges) OrgMembersOrErr() ([]*OrganizationMembership, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[3] {
 		return e.OrgMembers, nil
 	}
 	return nil, &NotLoadedError{edge: "org_members"}
@@ -139,6 +150,11 @@ func (o *Organization) QueryRegistries() *RegistryQuery {
 // QueryMembers queries the "members" edge of the Organization entity.
 func (o *Organization) QueryMembers() *UserQuery {
 	return NewOrganizationClient(o.config).QueryMembers(o)
+}
+
+// QueryOrganizationInvites queries the "organization_invites" edge of the Organization entity.
+func (o *Organization) QueryOrganizationInvites() *OrganizationInviteQuery {
+	return NewOrganizationClient(o.config).QueryOrganizationInvites(o)
 }
 
 // QueryOrgMembers queries the "org_members" edge of the Organization entity.

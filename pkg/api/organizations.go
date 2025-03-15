@@ -1,11 +1,18 @@
 package api
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
+	"os"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sesv2"
+	"github.com/aws/aws-sdk-go-v2/service/sesv2/types"
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent"
@@ -15,12 +22,14 @@ import (
 )
 
 type OrganizationsHandler struct {
-	Config                 *config.AppConfig
-	OrganizationRepository *repositories.OrganizationRepository
-	UserRepository         *repositories.UserRepository
-	RegistryRepository     *repositories.RegistryRepository
-	RepositoryRepository   *repositories.RepositoryRepository
-	ManifestRepository     *repositories.ManifestRepository
+	Config                       *config.AppConfig
+	OrganizationRepository       *repositories.OrganizationRepository
+	OrganizationInviteRepository *repositories.OrganizationInviteRepository
+	UserRepository               *repositories.UserRepository
+	RegistryRepository           *repositories.RegistryRepository
+	RepositoryRepository         *repositories.RepositoryRepository
+	ManifestRepository           *repositories.ManifestRepository
+	SESClient                    *sesv2.Client
 }
 
 func (oh *OrganizationsHandler) GetOrganizationsForUser(w http.ResponseWriter, r *http.Request) {
@@ -133,4 +142,141 @@ func (oh *OrganizationsHandler) GetOrganizationStats(w http.ResponseWriter, r *h
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
+}
+
+func (oh *OrganizationsHandler) GetOrganizationMembers(w http.ResponseWriter, r *http.Request) {
+	organization := r.Context().Value("organization").(*ent.Organization)
+
+	members, err := oh.OrganizationRepository.GetOrganizationMembers(r.Context(), organization)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+
+	var membersResponse []responses.OrganizationMember
+
+	for _, member := range members {
+		membersResponse = append(membersResponse, responses.OrganizationMember{
+			GivenName:  member.GivenName,
+			FamilyName: member.FamilyName,
+			Email:      member.Email,
+			Role:       member.Edges.JoinedOrganizations[0].Role.String(),
+		})
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(membersResponse)
+}
+
+func (oh *OrganizationsHandler) InviteToOrganization(w http.ResponseWriter, r *http.Request) {
+	organization := r.Context().Value("organization").(*ent.Organization)
+	userSub := r.Context().Value("user_sub").(string)
+
+	user, err := oh.UserRepository.GetUserBySub(r.Context(), userSub)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+
+	inviteToOrgRequest, err := requests.BindRequest[requests.InviteToOrganization](r)
+	if err != nil {
+		fmt.Println(err.Error())
+		w.WriteHeader(400)
+		return
+	}
+
+	inviteeUser, inviteeFound, err := oh.UserRepository.GetUserByEmail(r.Context(), inviteToOrgRequest.Email)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+
+	hasInvite, err := oh.OrganizationInviteRepository.HasInviteForOrganization(r.Context(), organization, inviteeUser, inviteToOrgRequest.Email)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+
+	if hasInvite {
+		w.WriteHeader(400)
+		return
+	}
+
+	if err := oh.OrganizationInviteRepository.InviteUserToOrganization(r.Context(), organization, inviteeUser, inviteToOrgRequest.Email, inviteToOrgRequest.Role); err != nil {
+		fmt.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+
+	if err := oh.sendInviteEmail(context.Background(), user.GivenName+" "+user.FamilyName, inviteToOrgRequest.Email, organization.Name, inviteeFound); err != nil {
+		fmt.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (oh *OrganizationsHandler) sendInviteEmail(ctx context.Context, inviterName string, email string, orgName string, userExists bool) error {
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	tmpl, err := template.New("organization_invite.tmpl").Funcs(template.FuncMap{
+		"arr": func(els ...any) []any { return els },
+	}).ParseGlob(wd + "/pkg/templates/emails/*.tmpl")
+	if err != nil {
+		return err
+	}
+
+	type EmailData struct {
+		OrganizationName string
+		InviterName      string
+		AcceptLink       string
+		SignupLink       string
+		UserExists       bool
+	}
+
+	emailData := EmailData{
+		OrganizationName: orgName,
+		InviterName:      inviterName,
+		UserExists:       userExists,
+		AcceptLink:       oh.Config.FrontendBaseURL + "/invites/accept",
+		SignupLink:       oh.Config.FrontendBaseURL,
+	}
+
+	var tpl bytes.Buffer
+
+	if err := tmpl.Execute(&tpl, emailData); err != nil {
+		return err
+	}
+
+	_, err = oh.SESClient.SendEmail(ctx, &sesv2.SendEmailInput{
+		FromEmailAddress: aws.String(oh.Config.SES.FromEmailAddress),
+		Destination: &types.Destination{
+			ToAddresses: []string{email},
+		},
+		Content: &types.EmailContent{
+			Simple: &types.Message{
+				Subject: &types.Content{
+					Data: aws.String(fmt.Sprintf("You've been invited to the %v organization", orgName)),
+				},
+				Body: &types.Body{
+					Html: &types.Content{
+						Data: aws.String(tpl.String()),
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

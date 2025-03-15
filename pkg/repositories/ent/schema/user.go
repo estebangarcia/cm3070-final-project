@@ -34,5 +34,6 @@ func (User) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("organizations", Organization.Type).
 			Through("joined_organizations", OrganizationMembership.Type),
+		edge.To("organization_invites", OrganizationInvite.Type),
 	}
 }

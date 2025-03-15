@@ -19,6 +19,7 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/misconfiguration"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organizationinvite"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organizationmembership"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
@@ -91,6 +92,7 @@ func checkColumn(table, column string) error {
 			manifesttagreference.Table:     manifesttagreference.ValidColumn,
 			misconfiguration.Table:         misconfiguration.ValidColumn,
 			organization.Table:             organization.ValidColumn,
+			organizationinvite.Table:       organizationinvite.ValidColumn,
 			organizationmembership.Table:   organizationmembership.ValidColumn,
 			registry.Table:                 registry.ValidColumn,
 			repository.Table:               repository.ValidColumn,

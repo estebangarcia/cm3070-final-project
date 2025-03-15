@@ -356,6 +356,29 @@ func HasOrganizationsWith(preds ...predicate.Organization) predicate.User {
 	})
 }
 
+// HasOrganizationInvites applies the HasEdge predicate on the "organization_invites" edge.
+func HasOrganizationInvites() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, OrganizationInvitesTable, OrganizationInvitesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasOrganizationInvitesWith applies the HasEdge predicate on the "organization_invites" edge with a given conditions (other predicates).
+func HasOrganizationInvitesWith(preds ...predicate.OrganizationInvite) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newOrganizationInvitesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasJoinedOrganizations applies the HasEdge predicate on the "joined_organizations" edge.
 func HasJoinedOrganizations() predicate.User {
 	return predicate.User(func(s *sql.Selector) {

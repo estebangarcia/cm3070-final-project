@@ -7,6 +7,14 @@ import (
 	"entgo.io/ent/schema/field"
 )
 
+var (
+	RoleNames = []string{
+		"owner",
+		"manager",
+		"member",
+	}
+)
+
 // OrganizationMembership holds the schema definition for the OrganizationMembership entity.
 type OrganizationMembership struct {
 	ent.Schema
@@ -23,7 +31,7 @@ func (OrganizationMembership) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int("user_id"),
 		field.Int("organization_id"),
-		field.Int("role"),
+		field.Enum("role").Values(RoleNames...),
 	}
 }
 

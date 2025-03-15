@@ -93,6 +93,18 @@ func (f OrganizationFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.OrganizationMutation", m)
 }
 
+// The OrganizationInviteFunc type is an adapter to allow the use of ordinary
+// function as OrganizationInvite mutator.
+type OrganizationInviteFunc func(context.Context, *ent.OrganizationInviteMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f OrganizationInviteFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.OrganizationInviteMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.OrganizationInviteMutation", m)
+}
+
 // The OrganizationMembershipFunc type is an adapter to allow the use of ordinary
 // function as OrganizationMembership mutator.
 type OrganizationMembershipFunc func(context.Context, *ent.OrganizationMembershipMutation) (ent.Value, error)
