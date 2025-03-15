@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organizationinvite"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organizationmembership"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/predicate"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
@@ -22,13 +23,14 @@ import (
 // OrganizationQuery is the builder for querying Organization entities.
 type OrganizationQuery struct {
 	config
-	ctx            *QueryContext
-	order          []organization.OrderOption
-	inters         []Interceptor
-	predicates     []predicate.Organization
-	withRegistries *RegistryQuery
-	withMembers    *UserQuery
-	withOrgMembers *OrganizationMembershipQuery
+	ctx                     *QueryContext
+	order                   []organization.OrderOption
+	inters                  []Interceptor
+	predicates              []predicate.Organization
+	withRegistries          *RegistryQuery
+	withMembers             *UserQuery
+	withOrganizationInvites *OrganizationInviteQuery
+	withOrgMembers          *OrganizationMembershipQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -102,6 +104,28 @@ func (oq *OrganizationQuery) QueryMembers() *UserQuery {
 			sqlgraph.From(organization.Table, organization.FieldID, selector),
 			sqlgraph.To(user.Table, user.FieldID),
 			sqlgraph.Edge(sqlgraph.M2M, true, organization.MembersTable, organization.MembersPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(oq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryOrganizationInvites chains the current query on the "organization_invites" edge.
+func (oq *OrganizationQuery) QueryOrganizationInvites() *OrganizationInviteQuery {
+	query := (&OrganizationInviteClient{config: oq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := oq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := oq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(organization.Table, organization.FieldID, selector),
+			sqlgraph.To(organizationinvite.Table, organizationinvite.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, organization.OrganizationInvitesTable, organization.OrganizationInvitesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(oq.driver.Dialect(), step)
 		return fromU, nil
@@ -318,14 +342,15 @@ func (oq *OrganizationQuery) Clone() *OrganizationQuery {
 		return nil
 	}
 	return &OrganizationQuery{
-		config:         oq.config,
-		ctx:            oq.ctx.Clone(),
-		order:          append([]organization.OrderOption{}, oq.order...),
-		inters:         append([]Interceptor{}, oq.inters...),
-		predicates:     append([]predicate.Organization{}, oq.predicates...),
-		withRegistries: oq.withRegistries.Clone(),
-		withMembers:    oq.withMembers.Clone(),
-		withOrgMembers: oq.withOrgMembers.Clone(),
+		config:                  oq.config,
+		ctx:                     oq.ctx.Clone(),
+		order:                   append([]organization.OrderOption{}, oq.order...),
+		inters:                  append([]Interceptor{}, oq.inters...),
+		predicates:              append([]predicate.Organization{}, oq.predicates...),
+		withRegistries:          oq.withRegistries.Clone(),
+		withMembers:             oq.withMembers.Clone(),
+		withOrganizationInvites: oq.withOrganizationInvites.Clone(),
+		withOrgMembers:          oq.withOrgMembers.Clone(),
 		// clone intermediate query.
 		sql:  oq.sql.Clone(),
 		path: oq.path,
@@ -351,6 +376,17 @@ func (oq *OrganizationQuery) WithMembers(opts ...func(*UserQuery)) *Organization
 		opt(query)
 	}
 	oq.withMembers = query
+	return oq
+}
+
+// WithOrganizationInvites tells the query-builder to eager-load the nodes that are connected to
+// the "organization_invites" edge. The optional arguments are used to configure the query builder of the edge.
+func (oq *OrganizationQuery) WithOrganizationInvites(opts ...func(*OrganizationInviteQuery)) *OrganizationQuery {
+	query := (&OrganizationInviteClient{config: oq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	oq.withOrganizationInvites = query
 	return oq
 }
 
@@ -443,9 +479,10 @@ func (oq *OrganizationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	var (
 		nodes       = []*Organization{}
 		_spec       = oq.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [4]bool{
 			oq.withRegistries != nil,
 			oq.withMembers != nil,
+			oq.withOrganizationInvites != nil,
 			oq.withOrgMembers != nil,
 		}
 	)
@@ -478,6 +515,15 @@ func (oq *OrganizationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 		if err := oq.loadMembers(ctx, query, nodes,
 			func(n *Organization) { n.Edges.Members = []*User{} },
 			func(n *Organization, e *User) { n.Edges.Members = append(n.Edges.Members, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := oq.withOrganizationInvites; query != nil {
+		if err := oq.loadOrganizationInvites(ctx, query, nodes,
+			func(n *Organization) { n.Edges.OrganizationInvites = []*OrganizationInvite{} },
+			func(n *Organization, e *OrganizationInvite) {
+				n.Edges.OrganizationInvites = append(n.Edges.OrganizationInvites, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -580,6 +626,36 @@ func (oq *OrganizationQuery) loadMembers(ctx context.Context, query *UserQuery, 
 		for kn := range nodes {
 			assign(kn, n)
 		}
+	}
+	return nil
+}
+func (oq *OrganizationQuery) loadOrganizationInvites(ctx context.Context, query *OrganizationInviteQuery, nodes []*Organization, init func(*Organization), assign func(*Organization, *OrganizationInvite)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Organization)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(organizationinvite.FieldOrganizationID)
+	}
+	query.Where(predicate.OrganizationInvite(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(organization.OrganizationInvitesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.OrganizationID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "organization_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

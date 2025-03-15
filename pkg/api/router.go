@@ -36,12 +36,14 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 	manifestTagRepository := repositories.NewManifestTagRepository()
 	repositoryRepository := repositories.NewRepositoryRepository()
 	organizationsRepository := repositories.NewOrganizationRepository()
+	organizationInviteRepository := repositories.NewOrganizationInviteRepository()
 	registryRepository := repositories.NewRegistryRepository()
 	userRepository := repositories.NewUserRepository()
 
 	/* AWS Helpers */
 	s3Client := helpers.GetS3Client(ctx, cfg)
 	s3Presigner := helpers.GetS3PresignClient(s3Client)
+	sesClient := helpers.GetSESClient(ctx, cfg)
 	jwkCache, err := helpers.InitJWKCache(ctx, &cfg)
 	if err != nil {
 		return nil, err
@@ -59,11 +61,19 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 		JwkCache: jwkCache,
 	}
 	organizationsHandlers := OrganizationsHandler{
-		Config:                 &cfg,
-		OrganizationRepository: organizationsRepository,
-		UserRepository:         userRepository,
-		RepositoryRepository:   repositoryRepository,
-		ManifestRepository:     manifestRepository,
+		Config:                       &cfg,
+		OrganizationRepository:       organizationsRepository,
+		OrganizationInviteRepository: organizationInviteRepository,
+		UserRepository:               userRepository,
+		RepositoryRepository:         repositoryRepository,
+		ManifestRepository:           manifestRepository,
+		RegistryRepository:           registryRepository,
+		SESClient:                    sesClient,
+	}
+
+	organizationInviteHandler := OrganizationInvitesHandler{
+		Config:                       &cfg,
+		OrganizationInviteRepository: organizationInviteRepository,
 	}
 
 	orgMiddleware := middleware.OrganizationMiddleware{
@@ -154,6 +164,13 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 
 	r.Route("/api/v1", func(authenticatedApiV1 chi.Router) {
 		authenticatedApiV1.Use(jwtAuthMiddleware.Validate)
+		authenticatedApiV1.Get("/invites", organizationInviteHandler.GetInvitesForUser)
+
+		authenticatedApiV1.Route("/invites/{inviteId:[a-zA-Z0-9]+}", func(inviteScopedRoutes chi.Router) {
+			inviteScopedRoutes.Post("/reject", organizationInviteHandler.RejectInvite)
+			inviteScopedRoutes.Post("/accept", organizationInviteHandler.AcceptInvite)
+		})
+
 		authenticatedApiV1.Get("/organizations", organizationsHandlers.GetOrganizationsForUser)
 		authenticatedApiV1.Post("/organizations", organizationsHandlers.CreateOrganization)
 
@@ -161,6 +178,8 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 			orgScopedRoutes.Use(orgMiddleware.ValidateOrg)
 			orgScopedRoutes.Get("/", organizationsHandlers.GetOrganizationsBySlugForUser)
 			orgScopedRoutes.Get("/stats", organizationsHandlers.GetOrganizationStats)
+			orgScopedRoutes.Get("/members", organizationsHandlers.GetOrganizationMembers)
+			orgScopedRoutes.Post("/members", organizationsHandlers.InviteToOrganization)
 			orgScopedRoutes.Get("/registries", registriesHandler.GetRegistries)
 			orgScopedRoutes.Post("/registries", registriesHandler.CreateRegistries)
 			orgScopedRoutes.Get("/artifacts", artifactsHandler.GetArtifactsForOrg)

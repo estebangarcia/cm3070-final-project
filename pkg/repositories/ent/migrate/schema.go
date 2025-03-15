@@ -179,9 +179,55 @@ var (
 			},
 		},
 	}
+	// OrganizationInvitesColumns holds the columns for the "organization_invites" table.
+	OrganizationInvitesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "invite_id", Type: field.TypeString},
+		{Name: "email", Type: field.TypeString, Nullable: true},
+		{Name: "role", Type: field.TypeEnum, Enums: []string{"owner", "manager", "member"}},
+		{Name: "organization_id", Type: field.TypeInt},
+		{Name: "user_id", Type: field.TypeInt, Nullable: true},
+	}
+	// OrganizationInvitesTable holds the schema information for the "organization_invites" table.
+	OrganizationInvitesTable = &schema.Table{
+		Name:       "organization_invites",
+		Columns:    OrganizationInvitesColumns,
+		PrimaryKey: []*schema.Column{OrganizationInvitesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "organization_invites_organizations_organization_invites",
+				Columns:    []*schema.Column{OrganizationInvitesColumns[4]},
+				RefColumns: []*schema.Column{OrganizationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "organization_invites_users_organization_invites",
+				Columns:    []*schema.Column{OrganizationInvitesColumns[5]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "organizationinvite_invite_id",
+				Unique:  true,
+				Columns: []*schema.Column{OrganizationInvitesColumns[1]},
+			},
+			{
+				Name:    "organizationinvite_user_id_organization_id",
+				Unique:  true,
+				Columns: []*schema.Column{OrganizationInvitesColumns[5], OrganizationInvitesColumns[4]},
+			},
+			{
+				Name:    "organizationinvite_email_organization_id",
+				Unique:  true,
+				Columns: []*schema.Column{OrganizationInvitesColumns[2], OrganizationInvitesColumns[4]},
+			},
+		},
+	}
 	// OrganizationMembershipsColumns holds the columns for the "organization_memberships" table.
 	OrganizationMembershipsColumns = []*schema.Column{
-		{Name: "role", Type: field.TypeInt},
+		{Name: "role", Type: field.TypeEnum, Enums: []string{"owner", "manager", "member"}},
 		{Name: "user_id", Type: field.TypeInt},
 		{Name: "organization_id", Type: field.TypeInt},
 	}
@@ -364,6 +410,7 @@ var (
 		ManifestTagReferencesTable,
 		MisconfigurationsTable,
 		OrganizationsTable,
+		OrganizationInvitesTable,
 		OrganizationMembershipsTable,
 		RegistriesTable,
 		RepositoriesTable,
@@ -379,6 +426,8 @@ func init() {
 	ManifestLayersTable.ForeignKeys[0].RefTable = ManifestsTable
 	ManifestMisconfigurationsTable.ForeignKeys[0].RefTable = MisconfigurationsTable
 	ManifestTagReferencesTable.ForeignKeys[0].RefTable = ManifestsTable
+	OrganizationInvitesTable.ForeignKeys[0].RefTable = OrganizationsTable
+	OrganizationInvitesTable.ForeignKeys[1].RefTable = UsersTable
 	OrganizationMembershipsTable.ForeignKeys[0].RefTable = UsersTable
 	OrganizationMembershipsTable.ForeignKeys[1].RefTable = OrganizationsTable
 	RegistriesTable.ForeignKeys[0].RefTable = OrganizationsTable

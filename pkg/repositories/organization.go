@@ -5,6 +5,7 @@ import (
 
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organizationmembership"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/user"
 	"github.com/gosimple/slug"
 )
@@ -57,10 +58,25 @@ func (orgRepo *OrganizationRepository) CreateOrganizationWithOwner(ctx context.C
 		return nil, err
 	}
 
-	_, err = dbClient.OrganizationMembership.Create().SetOrganization(org).SetUser(user).SetRole(0).Save(ctx)
+	_, err = dbClient.OrganizationMembership.Create().SetOrganization(org).SetUser(user).SetRole(organizationmembership.RoleOwner).Save(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	return org, nil
+}
+
+func (orgRepo *OrganizationRepository) GetOrganizationMembers(ctx context.Context, organization *ent.Organization) (ent.Users, error) {
+	dbClient := getClient(ctx)
+	return dbClient.User.Query().Where(
+		user.HasJoinedOrganizationsWith(
+			organizationmembership.OrganizationID(organization.ID),
+		),
+	).WithJoinedOrganizations(
+		func(omq *ent.OrganizationMembershipQuery) {
+			omq.Where(
+				organizationmembership.OrganizationID(organization.ID),
+			)
+		},
+	).All(ctx)
 }

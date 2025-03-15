@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organizationinvite"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/user"
 )
@@ -69,6 +70,21 @@ func (oc *OrganizationCreate) AddMembers(u ...*User) *OrganizationCreate {
 		ids[i] = u[i].ID
 	}
 	return oc.AddMemberIDs(ids...)
+}
+
+// AddOrganizationInviteIDs adds the "organization_invites" edge to the OrganizationInvite entity by IDs.
+func (oc *OrganizationCreate) AddOrganizationInviteIDs(ids ...int) *OrganizationCreate {
+	oc.mutation.AddOrganizationInviteIDs(ids...)
+	return oc
+}
+
+// AddOrganizationInvites adds the "organization_invites" edges to the OrganizationInvite entity.
+func (oc *OrganizationCreate) AddOrganizationInvites(o ...*OrganizationInvite) *OrganizationCreate {
+	ids := make([]int, len(o))
+	for i := range o {
+		ids[i] = o[i].ID
+	}
+	return oc.AddOrganizationInviteIDs(ids...)
 }
 
 // Mutation returns the OrganizationMutation object of the builder.
@@ -178,6 +194,22 @@ func (oc *OrganizationCreate) createSpec() (*Organization, *sqlgraph.CreateSpec)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := oc.mutation.OrganizationInvitesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.OrganizationInvitesTable,
+			Columns: []string{organization.OrganizationInvitesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationinvite.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

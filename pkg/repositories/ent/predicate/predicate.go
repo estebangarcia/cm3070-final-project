@@ -27,6 +27,9 @@ type Misconfiguration func(*sql.Selector)
 // Organization is the predicate function for organization builders.
 type Organization func(*sql.Selector)
 
+// OrganizationInvite is the predicate function for organizationinvite builders.
+type OrganizationInvite func(*sql.Selector)
+
 // OrganizationMembership is the predicate function for organizationmembership builders.
 type OrganizationMembership func(*sql.Selector)
 

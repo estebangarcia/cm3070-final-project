@@ -21,7 +21,7 @@ type OrganizationMembership struct {
 	// OrganizationID holds the value of the "organization_id" field.
 	OrganizationID int `json:"organization_id,omitempty"`
 	// Role holds the value of the "role" field.
-	Role int `json:"role,omitempty"`
+	Role organizationmembership.Role `json:"role,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the OrganizationMembershipQuery when eager-loading is set.
 	Edges        OrganizationMembershipEdges `json:"edges"`
@@ -66,8 +66,10 @@ func (*OrganizationMembership) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case organizationmembership.FieldUserID, organizationmembership.FieldOrganizationID, organizationmembership.FieldRole:
+		case organizationmembership.FieldUserID, organizationmembership.FieldOrganizationID:
 			values[i] = new(sql.NullInt64)
+		case organizationmembership.FieldRole:
+			values[i] = new(sql.NullString)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -96,10 +98,10 @@ func (om *OrganizationMembership) assignValues(columns []string, values []any) e
 				om.OrganizationID = int(value.Int64)
 			}
 		case organizationmembership.FieldRole:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
+			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field role", values[i])
 			} else if value.Valid {
-				om.Role = int(value.Int64)
+				om.Role = organizationmembership.Role(value.String)
 			}
 		default:
 			om.selectValues.Set(columns[i], values[i])

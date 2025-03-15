@@ -22,6 +22,7 @@ import (
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/manifesttagreference"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/misconfiguration"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organization"
+	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organizationinvite"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/organizationmembership"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/registry"
 	"github.com/estebangarcia/cm3070-final-project/pkg/repositories/ent/repository"
@@ -48,6 +49,8 @@ type Client struct {
 	Misconfiguration *MisconfigurationClient
 	// Organization is the client for interacting with the Organization builders.
 	Organization *OrganizationClient
+	// OrganizationInvite is the client for interacting with the OrganizationInvite builders.
+	OrganizationInvite *OrganizationInviteClient
 	// OrganizationMembership is the client for interacting with the OrganizationMembership builders.
 	OrganizationMembership *OrganizationMembershipClient
 	// Registry is the client for interacting with the Registry builders.
@@ -76,6 +79,7 @@ func (c *Client) init() {
 	c.ManifestTagReference = NewManifestTagReferenceClient(c.config)
 	c.Misconfiguration = NewMisconfigurationClient(c.config)
 	c.Organization = NewOrganizationClient(c.config)
+	c.OrganizationInvite = NewOrganizationInviteClient(c.config)
 	c.OrganizationMembership = NewOrganizationMembershipClient(c.config)
 	c.Registry = NewRegistryClient(c.config)
 	c.Repository = NewRepositoryClient(c.config)
@@ -180,6 +184,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ManifestTagReference:     NewManifestTagReferenceClient(cfg),
 		Misconfiguration:         NewMisconfigurationClient(cfg),
 		Organization:             NewOrganizationClient(cfg),
+		OrganizationInvite:       NewOrganizationInviteClient(cfg),
 		OrganizationMembership:   NewOrganizationMembershipClient(cfg),
 		Registry:                 NewRegistryClient(cfg),
 		Repository:               NewRepositoryClient(cfg),
@@ -211,6 +216,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ManifestTagReference:     NewManifestTagReferenceClient(cfg),
 		Misconfiguration:         NewMisconfigurationClient(cfg),
 		Organization:             NewOrganizationClient(cfg),
+		OrganizationInvite:       NewOrganizationInviteClient(cfg),
 		OrganizationMembership:   NewOrganizationMembershipClient(cfg),
 		Registry:                 NewRegistryClient(cfg),
 		Repository:               NewRepositoryClient(cfg),
@@ -221,7 +227,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
-//	client.
+//	client.Debug().
 //		BlobChunk.
 //		Query().
 //		Count(ctx)
@@ -247,7 +253,8 @@ func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.BlobChunk, c.Manifest, c.ManifestLayer, c.ManifestMisconfiguration,
 		c.ManifestTagReference, c.Misconfiguration, c.Organization,
-		c.OrganizationMembership, c.Registry, c.Repository, c.User, c.Vulnerability,
+		c.OrganizationInvite, c.OrganizationMembership, c.Registry, c.Repository,
+		c.User, c.Vulnerability,
 	} {
 		n.Use(hooks...)
 	}
@@ -259,7 +266,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.BlobChunk, c.Manifest, c.ManifestLayer, c.ManifestMisconfiguration,
 		c.ManifestTagReference, c.Misconfiguration, c.Organization,
-		c.OrganizationMembership, c.Registry, c.Repository, c.User, c.Vulnerability,
+		c.OrganizationInvite, c.OrganizationMembership, c.Registry, c.Repository,
+		c.User, c.Vulnerability,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -282,6 +290,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Misconfiguration.mutate(ctx, m)
 	case *OrganizationMutation:
 		return c.Organization.mutate(ctx, m)
+	case *OrganizationInviteMutation:
+		return c.OrganizationInvite.mutate(ctx, m)
 	case *OrganizationMembershipMutation:
 		return c.OrganizationMembership.mutate(ctx, m)
 	case *RegistryMutation:
@@ -1395,6 +1405,22 @@ func (c *OrganizationClient) QueryMembers(o *Organization) *UserQuery {
 	return query
 }
 
+// QueryOrganizationInvites queries the organization_invites edge of a Organization.
+func (c *OrganizationClient) QueryOrganizationInvites(o *Organization) *OrganizationInviteQuery {
+	query := (&OrganizationInviteClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := o.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(organization.Table, organization.FieldID, id),
+			sqlgraph.To(organizationinvite.Table, organizationinvite.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, organization.OrganizationInvitesTable, organization.OrganizationInvitesColumn),
+		)
+		fromV = sqlgraph.Neighbors(o.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryOrgMembers queries the org_members edge of a Organization.
 func (c *OrganizationClient) QueryOrgMembers(o *Organization) *OrganizationMembershipQuery {
 	query := (&OrganizationMembershipClient{config: c.config}).Query()
@@ -1433,6 +1459,171 @@ func (c *OrganizationClient) mutate(ctx context.Context, m *OrganizationMutation
 		return (&OrganizationDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Organization mutation op: %q", m.Op())
+	}
+}
+
+// OrganizationInviteClient is a client for the OrganizationInvite schema.
+type OrganizationInviteClient struct {
+	config
+}
+
+// NewOrganizationInviteClient returns a client for the OrganizationInvite from the given config.
+func NewOrganizationInviteClient(c config) *OrganizationInviteClient {
+	return &OrganizationInviteClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `organizationinvite.Hooks(f(g(h())))`.
+func (c *OrganizationInviteClient) Use(hooks ...Hook) {
+	c.hooks.OrganizationInvite = append(c.hooks.OrganizationInvite, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `organizationinvite.Intercept(f(g(h())))`.
+func (c *OrganizationInviteClient) Intercept(interceptors ...Interceptor) {
+	c.inters.OrganizationInvite = append(c.inters.OrganizationInvite, interceptors...)
+}
+
+// Create returns a builder for creating a OrganizationInvite entity.
+func (c *OrganizationInviteClient) Create() *OrganizationInviteCreate {
+	mutation := newOrganizationInviteMutation(c.config, OpCreate)
+	return &OrganizationInviteCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of OrganizationInvite entities.
+func (c *OrganizationInviteClient) CreateBulk(builders ...*OrganizationInviteCreate) *OrganizationInviteCreateBulk {
+	return &OrganizationInviteCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *OrganizationInviteClient) MapCreateBulk(slice any, setFunc func(*OrganizationInviteCreate, int)) *OrganizationInviteCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &OrganizationInviteCreateBulk{err: fmt.Errorf("calling to OrganizationInviteClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*OrganizationInviteCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &OrganizationInviteCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for OrganizationInvite.
+func (c *OrganizationInviteClient) Update() *OrganizationInviteUpdate {
+	mutation := newOrganizationInviteMutation(c.config, OpUpdate)
+	return &OrganizationInviteUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *OrganizationInviteClient) UpdateOne(oi *OrganizationInvite) *OrganizationInviteUpdateOne {
+	mutation := newOrganizationInviteMutation(c.config, OpUpdateOne, withOrganizationInvite(oi))
+	return &OrganizationInviteUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *OrganizationInviteClient) UpdateOneID(id int) *OrganizationInviteUpdateOne {
+	mutation := newOrganizationInviteMutation(c.config, OpUpdateOne, withOrganizationInviteID(id))
+	return &OrganizationInviteUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for OrganizationInvite.
+func (c *OrganizationInviteClient) Delete() *OrganizationInviteDelete {
+	mutation := newOrganizationInviteMutation(c.config, OpDelete)
+	return &OrganizationInviteDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *OrganizationInviteClient) DeleteOne(oi *OrganizationInvite) *OrganizationInviteDeleteOne {
+	return c.DeleteOneID(oi.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *OrganizationInviteClient) DeleteOneID(id int) *OrganizationInviteDeleteOne {
+	builder := c.Delete().Where(organizationinvite.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &OrganizationInviteDeleteOne{builder}
+}
+
+// Query returns a query builder for OrganizationInvite.
+func (c *OrganizationInviteClient) Query() *OrganizationInviteQuery {
+	return &OrganizationInviteQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeOrganizationInvite},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a OrganizationInvite entity by its id.
+func (c *OrganizationInviteClient) Get(ctx context.Context, id int) (*OrganizationInvite, error) {
+	return c.Query().Where(organizationinvite.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *OrganizationInviteClient) GetX(ctx context.Context, id int) *OrganizationInvite {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryOrganization queries the organization edge of a OrganizationInvite.
+func (c *OrganizationInviteClient) QueryOrganization(oi *OrganizationInvite) *OrganizationQuery {
+	query := (&OrganizationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := oi.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(organizationinvite.Table, organizationinvite.FieldID, id),
+			sqlgraph.To(organization.Table, organization.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, organizationinvite.OrganizationTable, organizationinvite.OrganizationColumn),
+		)
+		fromV = sqlgraph.Neighbors(oi.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryInvitee queries the invitee edge of a OrganizationInvite.
+func (c *OrganizationInviteClient) QueryInvitee(oi *OrganizationInvite) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := oi.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(organizationinvite.Table, organizationinvite.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, organizationinvite.InviteeTable, organizationinvite.InviteeColumn),
+		)
+		fromV = sqlgraph.Neighbors(oi.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *OrganizationInviteClient) Hooks() []Hook {
+	return c.hooks.OrganizationInvite
+}
+
+// Interceptors returns the client interceptors.
+func (c *OrganizationInviteClient) Interceptors() []Interceptor {
+	return c.inters.OrganizationInvite
+}
+
+func (c *OrganizationInviteClient) mutate(ctx context.Context, m *OrganizationInviteMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&OrganizationInviteCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&OrganizationInviteUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&OrganizationInviteUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&OrganizationInviteDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown OrganizationInvite mutation op: %q", m.Op())
 	}
 }
 
@@ -2006,6 +2197,22 @@ func (c *UserClient) QueryOrganizations(u *User) *OrganizationQuery {
 	return query
 }
 
+// QueryOrganizationInvites queries the organization_invites edge of a User.
+func (c *UserClient) QueryOrganizationInvites(u *User) *OrganizationInviteQuery {
+	query := (&OrganizationInviteClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(organizationinvite.Table, organizationinvite.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.OrganizationInvitesTable, user.OrganizationInvitesColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryJoinedOrganizations queries the joined_organizations edge of a User.
 func (c *UserClient) QueryJoinedOrganizations(u *User) *OrganizationMembershipQuery {
 	query := (&OrganizationMembershipClient{config: c.config}).Query()
@@ -2200,12 +2407,13 @@ func (c *VulnerabilityClient) mutate(ctx context.Context, m *VulnerabilityMutati
 type (
 	hooks struct {
 		BlobChunk, Manifest, ManifestLayer, ManifestMisconfiguration,
-		ManifestTagReference, Misconfiguration, Organization, OrganizationMembership,
-		Registry, Repository, User, Vulnerability []ent.Hook
+		ManifestTagReference, Misconfiguration, Organization, OrganizationInvite,
+		OrganizationMembership, Registry, Repository, User, Vulnerability []ent.Hook
 	}
 	inters struct {
 		BlobChunk, Manifest, ManifestLayer, ManifestMisconfiguration,
-		ManifestTagReference, Misconfiguration, Organization, OrganizationMembership,
-		Registry, Repository, User, Vulnerability []ent.Interceptor
+		ManifestTagReference, Misconfiguration, Organization, OrganizationInvite,
+		OrganizationMembership, Registry, Repository, User,
+		Vulnerability []ent.Interceptor
 	}
 )

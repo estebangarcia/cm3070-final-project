@@ -26,6 +26,8 @@ type Tx struct {
 	Misconfiguration *MisconfigurationClient
 	// Organization is the client for interacting with the Organization builders.
 	Organization *OrganizationClient
+	// OrganizationInvite is the client for interacting with the OrganizationInvite builders.
+	OrganizationInvite *OrganizationInviteClient
 	// OrganizationMembership is the client for interacting with the OrganizationMembership builders.
 	OrganizationMembership *OrganizationMembershipClient
 	// Registry is the client for interacting with the Registry builders.
@@ -174,6 +176,7 @@ func (tx *Tx) init() {
 	tx.ManifestTagReference = NewManifestTagReferenceClient(tx.config)
 	tx.Misconfiguration = NewMisconfigurationClient(tx.config)
 	tx.Organization = NewOrganizationClient(tx.config)
+	tx.OrganizationInvite = NewOrganizationInviteClient(tx.config)
 	tx.OrganizationMembership = NewOrganizationMembershipClient(tx.config)
 	tx.Registry = NewRegistryClient(tx.config)
 	tx.Repository = NewRepositoryClient(tx.config)

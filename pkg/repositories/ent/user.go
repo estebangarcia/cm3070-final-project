@@ -34,11 +34,13 @@ type User struct {
 type UserEdges struct {
 	// Organizations holds the value of the organizations edge.
 	Organizations []*Organization `json:"organizations,omitempty"`
+	// OrganizationInvites holds the value of the organization_invites edge.
+	OrganizationInvites []*OrganizationInvite `json:"organization_invites,omitempty"`
 	// JoinedOrganizations holds the value of the joined_organizations edge.
 	JoinedOrganizations []*OrganizationMembership `json:"joined_organizations,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // OrganizationsOrErr returns the Organizations value or an error if the edge
@@ -50,10 +52,19 @@ func (e UserEdges) OrganizationsOrErr() ([]*Organization, error) {
 	return nil, &NotLoadedError{edge: "organizations"}
 }
 
+// OrganizationInvitesOrErr returns the OrganizationInvites value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) OrganizationInvitesOrErr() ([]*OrganizationInvite, error) {
+	if e.loadedTypes[1] {
+		return e.OrganizationInvites, nil
+	}
+	return nil, &NotLoadedError{edge: "organization_invites"}
+}
+
 // JoinedOrganizationsOrErr returns the JoinedOrganizations value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) JoinedOrganizationsOrErr() ([]*OrganizationMembership, error) {
-	if e.loadedTypes[1] {
+	if e.loadedTypes[2] {
 		return e.JoinedOrganizations, nil
 	}
 	return nil, &NotLoadedError{edge: "joined_organizations"}
@@ -129,6 +140,11 @@ func (u *User) Value(name string) (ent.Value, error) {
 // QueryOrganizations queries the "organizations" edge of the User entity.
 func (u *User) QueryOrganizations() *OrganizationQuery {
 	return NewUserClient(u.config).QueryOrganizations(u)
+}
+
+// QueryOrganizationInvites queries the "organization_invites" edge of the User entity.
+func (u *User) QueryOrganizationInvites() *OrganizationInviteQuery {
+	return NewUserClient(u.config).QueryOrganizationInvites(u)
 }
 
 // QueryJoinedOrganizations queries the "joined_organizations" edge of the User entity.

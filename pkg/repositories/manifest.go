@@ -462,8 +462,11 @@ func (mr *ManifestRepository) GetStorageUsedInBytesForOrganization(ctx context.C
 				GroupBy(manifestLayerTable.C(manifestlayer.FieldDigest)).As("aggregation_layer_size")
 
 			s.From(aggregationLayerSize)
-
-			return sql.As(sql.Sum(aggregationLayerSize.C("size_per_layer")), "total_storage_used")
+			q, _ := sql.ExprFunc(func(b *sql.Builder) {
+				b.WriteString("COALESCE(").Ident(sql.Sum(aggregationLayerSize.C("size_per_layer")))
+				b.Comma().WriteString("0)")
+			}).Query()
+			return sql.As(q, "total_storage_used")
 		},
 	).Int(ctx)
 }

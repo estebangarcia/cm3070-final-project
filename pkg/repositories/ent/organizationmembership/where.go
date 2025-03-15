@@ -18,11 +18,6 @@ func OrganizationID(v int) predicate.OrganizationMembership {
 	return predicate.OrganizationMembership(sql.FieldEQ(FieldOrganizationID, v))
 }
 
-// Role applies equality check predicate on the "role" field. It's identical to RoleEQ.
-func Role(v int) predicate.OrganizationMembership {
-	return predicate.OrganizationMembership(sql.FieldEQ(FieldRole, v))
-}
-
 // UserIDEQ applies the EQ predicate on the "user_id" field.
 func UserIDEQ(v int) predicate.OrganizationMembership {
 	return predicate.OrganizationMembership(sql.FieldEQ(FieldUserID, v))
@@ -64,43 +59,23 @@ func OrganizationIDNotIn(vs ...int) predicate.OrganizationMembership {
 }
 
 // RoleEQ applies the EQ predicate on the "role" field.
-func RoleEQ(v int) predicate.OrganizationMembership {
+func RoleEQ(v Role) predicate.OrganizationMembership {
 	return predicate.OrganizationMembership(sql.FieldEQ(FieldRole, v))
 }
 
 // RoleNEQ applies the NEQ predicate on the "role" field.
-func RoleNEQ(v int) predicate.OrganizationMembership {
+func RoleNEQ(v Role) predicate.OrganizationMembership {
 	return predicate.OrganizationMembership(sql.FieldNEQ(FieldRole, v))
 }
 
 // RoleIn applies the In predicate on the "role" field.
-func RoleIn(vs ...int) predicate.OrganizationMembership {
+func RoleIn(vs ...Role) predicate.OrganizationMembership {
 	return predicate.OrganizationMembership(sql.FieldIn(FieldRole, vs...))
 }
 
 // RoleNotIn applies the NotIn predicate on the "role" field.
-func RoleNotIn(vs ...int) predicate.OrganizationMembership {
+func RoleNotIn(vs ...Role) predicate.OrganizationMembership {
 	return predicate.OrganizationMembership(sql.FieldNotIn(FieldRole, vs...))
-}
-
-// RoleGT applies the GT predicate on the "role" field.
-func RoleGT(v int) predicate.OrganizationMembership {
-	return predicate.OrganizationMembership(sql.FieldGT(FieldRole, v))
-}
-
-// RoleGTE applies the GTE predicate on the "role" field.
-func RoleGTE(v int) predicate.OrganizationMembership {
-	return predicate.OrganizationMembership(sql.FieldGTE(FieldRole, v))
-}
-
-// RoleLT applies the LT predicate on the "role" field.
-func RoleLT(v int) predicate.OrganizationMembership {
-	return predicate.OrganizationMembership(sql.FieldLT(FieldRole, v))
-}
-
-// RoleLTE applies the LTE predicate on the "role" field.
-func RoleLTE(v int) predicate.OrganizationMembership {
-	return predicate.OrganizationMembership(sql.FieldLTE(FieldRole, v))
 }
 
 // HasUser applies the HasEdge predicate on the "user" edge.
