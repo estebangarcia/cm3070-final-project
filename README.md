@@ -13,16 +13,44 @@ You ideally need an [ngrok account](https://ngrok.com/docs/getting-started/) to 
 
 3. Run:
 ```bash
-$ docker-compose up
+$ docker-compose up --build
 ```
+
+This will start the database, workers and API
 
 4. Apply migrations
 ```bash
 $ make migrate
 ```
 
-5. Run the UI
+5. You can access the API on:
+OCI API: `https://<NGROK_HOST>/v2`
+Admin API: `https://<NGROK_HOST>/api/v1`
 
+## Run the UI
+
+1. To run the UI first install [npmjs](https://www.npmjs.com/).
+2. Clone the submodule
+```bash
+$ git submodule update --init --recursive
+$ cd cm3070-final-project-frontend
+```
+3. Create an `.env.local` file with the following data:
+```
+AUTH_SECRET="ATYIjDoR4Ge3KbCUNRRwcxOatziJ22CKdeTRA46S9ss="
+AUTH_COGNITO_ID="<GET FROM REPORT>"
+AUTH_COGNITO_SECRET="<GET FROM REPORT>"
+AUTH_COGNITO_ISSUER="<GET FROM REPORT>"
+AUTH_COGNITO_LOGOUT_URL="<GET FROM REPORT>"
+API_BASE_URL="https://<NGROK_HOST>/api/v1"
+OCI_API_BASE_URL="https://<NGROK_HOST>/v2"
+```
+4. Run it
+```bash
+$ npm run dev
+```
+
+5. Go to `http://localhost:3000` to access it
 
 ## Project structure
 
