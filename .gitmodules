@@ -1,0 +1,3 @@
+[submodule "cm3070-final-project-frontend"]
+	path = cm3070-final-project-frontend
+	url = git@github.com:estebangarcia/cm3070-final-project-frontend.git
