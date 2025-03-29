@@ -17,6 +17,7 @@ func NewOrganizationRepository() *OrganizationRepository {
 	return &OrganizationRepository{}
 }
 
+// Get all organizations a user belong to
 func (orgRepo *OrganizationRepository) GetForUser(ctx context.Context, sub string) ([]*ent.Organization, error) {
 	dbClient := getClient(ctx)
 	return dbClient.Organization.Query().Where(
@@ -26,6 +27,7 @@ func (orgRepo *OrganizationRepository) GetForUser(ctx context.Context, sub strin
 	).All(ctx)
 }
 
+// Get organization by slug if the user belongs to it
 func (orgRepo *OrganizationRepository) GetForUserAndSlug(ctx context.Context, sub string, orgSlug string) (*ent.Organization, bool, error) {
 	dbClient := getClient(ctx)
 
@@ -48,7 +50,8 @@ func (orgRepo *OrganizationRepository) GetForUserAndSlug(ctx context.Context, su
 	return org, true, nil
 }
 
-func (orgRepo *OrganizationRepository) CreateOrganizationWithOwner(ctx context.Context, user *ent.User, orgName string) (*ent.Organization, error) {
+// Create an organization and set the specified user as admin
+func (orgRepo *OrganizationRepository) CreateOrganizationWithAdmin(ctx context.Context, user *ent.User, orgName string) (*ent.Organization, error) {
 	dbClient := getClient(ctx)
 
 	orgSlug := slug.Make(orgName)
@@ -58,7 +61,7 @@ func (orgRepo *OrganizationRepository) CreateOrganizationWithOwner(ctx context.C
 		return nil, err
 	}
 
-	_, err = dbClient.OrganizationMembership.Create().SetOrganization(org).SetUser(user).SetRole(organizationmembership.RoleOwner).Save(ctx)
+	_, err = dbClient.OrganizationMembership.Create().SetOrganization(org).SetUser(user).SetRole(organizationmembership.RoleAdmin).Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -66,6 +69,7 @@ func (orgRepo *OrganizationRepository) CreateOrganizationWithOwner(ctx context.C
 	return org, nil
 }
 
+// Get all members for the specified organization
 func (orgRepo *OrganizationRepository) GetOrganizationMembers(ctx context.Context, organization *ent.Organization) (ent.Users, error) {
 	dbClient := getClient(ctx)
 	return dbClient.User.Query().Where(

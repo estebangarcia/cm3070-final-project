@@ -8,6 +8,8 @@ import (
 	"github.com/lestrrat-go/jwx/v3/jwk"
 )
 
+// Initialize the JWK cache, this is used to cache the JWK public keys
+// used to verify the signature of a JWT token
 func InitJWKCache(ctx context.Context, cfg *config.AppConfig) (*jwk.Cache, error) {
 	cache, err := jwk.NewCache(ctx, httprc.NewClient())
 	if err != nil {

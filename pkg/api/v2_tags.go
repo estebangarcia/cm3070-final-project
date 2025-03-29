@@ -18,6 +18,7 @@ type V2TagsHandler struct {
 	ManifestTagRepository *repositories.ManifestTagRepository
 }
 
+// Endpoint to list all the tags of a specified manifest
 func (h *V2TagsHandler) ListTags(w http.ResponseWriter, r *http.Request) {
 	imageName := r.Context().Value("repositoryName").(string)
 	registry := r.Context().Value("registry").(*ent.Registry)

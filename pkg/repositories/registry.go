@@ -19,6 +19,7 @@ func NewRegistryRepository() *RegistryRepository {
 	return &RegistryRepository{}
 }
 
+// Get all registries for the organization
 func (registryRepo *RegistryRepository) GetForOrg(ctx context.Context, orgSlug string) ([]*ent.Registry, error) {
 	dbClient := getClient(ctx)
 	return dbClient.Registry.Query().Where(
@@ -28,12 +29,14 @@ func (registryRepo *RegistryRepository) GetForOrg(ctx context.Context, orgSlug s
 	).All(ctx)
 }
 
+// Create registry in the specified organization
 func (registryRepo *RegistryRepository) CreateRegistry(ctx context.Context, name string, orgId int) (*ent.Registry, error) {
 	registrySlug := slug.Make(name)
 	dbClient := getClient(ctx)
 	return dbClient.Registry.Create().SetOrganizationID(orgId).SetName(name).SetSlug(registrySlug).Save(ctx)
 }
 
+// Create registry by slug in the specified organization if user is an org member
 func (registryRepo *RegistryRepository) GetForOrgAndUser(ctx context.Context, userSub string, orgSlug string, registrySlug string) (*ent.Registry, bool, error) {
 	dbClient := getClient(ctx)
 
@@ -68,6 +71,7 @@ func (registryRepo *RegistryRepository) GetForOrgAndUser(ctx context.Context, us
 	return registry, true, nil
 }
 
+// Get count of registries in the specified organization
 func (registryRepo *RegistryRepository) GetCountForOrg(ctx context.Context, organization *ent.Organization) (int, error) {
 	dbClient := getClient(ctx)
 

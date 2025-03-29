@@ -17,27 +17,33 @@ type customMux struct {
 	routes map[string][]customRoute
 }
 
+// Create new CustomMux struct
 func NewCustomMux() customMux {
 	return customMux{
 		routes: map[string][]customRoute{},
 	}
 }
 
+// This function maps a request to a route configured in the routes map of the mux
 func (c customMux) Handle(w http.ResponseWriter, r *http.Request) {
 	uri := chi.URLParam(r, "*")
 
+	// Get all routes for the request method
 	methodRoutes, exists := c.routes[r.Method]
 	if !exists {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
+	// For each configured route find a match based on the URI
 	for _, route := range methodRoutes {
 		matches := route.Pattern.FindStringSubmatch(uri)
 		if len(matches) > 0 {
 			ctx := r.Context()
 			for i, name := range route.Pattern.SubexpNames() {
 				if i != 0 && name != "" {
+					// Store the named parameters of the regex in the context
+					// so they can be used in the handlers
 					ctx = context.WithValue(ctx, name, matches[i])
 				}
 			}
@@ -49,6 +55,7 @@ func (c customMux) Handle(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Not Found", http.StatusNotFound)
 }
 
+// Add a regex route to the mux
 func (c customMux) addRoute(method string, route string, handler http.HandlerFunc) {
 	r := customRoute{
 		Pattern: regexp.MustCompile(route),

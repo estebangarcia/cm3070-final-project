@@ -15,6 +15,7 @@ type OrganizationInvitesHandler struct {
 	OrganizationInviteRepository *repositories.OrganizationInviteRepository
 }
 
+// Get all the invites for a user
 func (oh *OrganizationInvitesHandler) GetInvitesForUser(w http.ResponseWriter, r *http.Request) {
 	userSub := r.Context().Value("user_sub").(string)
 
@@ -29,6 +30,7 @@ func (oh *OrganizationInvitesHandler) GetInvitesForUser(w http.ResponseWriter, r
 	json.NewEncoder(w).Encode(invites)
 }
 
+// Accept an invitation
 func (oh *OrganizationInvitesHandler) AcceptInvite(w http.ResponseWriter, r *http.Request) {
 	userSub := r.Context().Value("user_sub").(string)
 	inviteId := chi.URLParam(r, "inviteId")
@@ -54,6 +56,7 @@ func (oh *OrganizationInvitesHandler) AcceptInvite(w http.ResponseWriter, r *htt
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// Reject an invitation
 func (oh *OrganizationInvitesHandler) RejectInvite(w http.ResponseWriter, r *http.Request) {
 	userSub := r.Context().Value("user_sub").(string)
 	inviteId := chi.URLParam(r, "inviteId")

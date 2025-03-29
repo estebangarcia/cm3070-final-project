@@ -21,6 +21,10 @@ type JWTAuthMiddleware struct {
 	JwkCache *jwk.Cache
 }
 
+// This middleware checks that requests that use it have a valid JWT
+// token that was issued by our cognito pool, if not it returns an error
+// and per the OCI specification specifies where the user can go to authenticate
+// in the WWW-Authenticate header
 func (a *JWTAuthMiddleware) Validate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		jwtToken, ok := r.Context().Value("token").(string)
@@ -44,16 +48,20 @@ func (a *JWTAuthMiddleware) Validate(next http.Handler) http.Handler {
 
 		userSub, _ := token.Subject()
 
+		// Send the user sub in the context to be used in the handlers to identify the user
+		// performing actions
 		ctx := context.WithValue(r.Context(), "user_sub", userSub)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
+// Build the Authentication URL to send back to the user
 func (a *JWTAuthMiddleware) getAuthenticationUrl() string {
 	return fmt.Sprintf(`Bearer realm="%s/v2/login",service="registry.io"`, a.Config.GetBaseUrl())
 }
 
+// Parse and validate the JWT Token
 func parseJWT(ctx context.Context, jwtToken string, jwkCache *jwk.Cache, cognitoJWKUrl string) (jwt.Token, error) {
 	jwkSet, err := jwkCache.Lookup(ctx, cognitoJWKUrl)
 	if err != nil {

@@ -9,7 +9,7 @@ import (
 
 var (
 	RoleNames = []string{
-		"owner",
+		"admin",
 		"manager",
 		"member",
 	}

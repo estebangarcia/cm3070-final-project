@@ -18,11 +18,13 @@ func NewUserRepository() *UserRepository {
 	return &UserRepository{}
 }
 
+// Get a user by Cognito SUB
 func (ur *UserRepository) GetUserBySub(ctx context.Context, sub string) (*ent.User, error) {
 	dbClient := getClient(ctx)
 	return dbClient.User.Query().Where(user.SubEQ(sub)).First(ctx)
 }
 
+// Get a user by its email
 func (ur *UserRepository) GetUserByEmail(ctx context.Context, email string) (*ent.User, bool, error) {
 	dbClient := getClient(ctx)
 	user, err := dbClient.User.Query().Where(user.EmailEQ(email)).First(ctx)
@@ -36,11 +38,13 @@ func (ur *UserRepository) GetUserByEmail(ctx context.Context, email string) (*en
 	return user, true, nil
 }
 
+// Create a user
 func (ur *UserRepository) CreateUser(ctx context.Context, givenName string, familyName string, email string, sub string) (*ent.User, error) {
 	dbClient := getClient(ctx)
 	return dbClient.User.Create().SetGivenName(givenName).SetFamilyName(familyName).SetEmail(email).SetSub(sub).Save(ctx)
 }
 
+// Create a user and the starting organization
 func (ur *UserRepository) CreateUserAndStartingOrg(ctx context.Context, givenName string, familyName string, email string, sub string) (*ent.User, *ent.Organization, error) {
 	dbClient := getClient(ctx)
 
@@ -68,7 +72,7 @@ func (ur *UserRepository) CreateUserAndStartingOrg(ctx context.Context, givenNam
 		return nil, nil, err
 	}
 
-	_, err = dbClient.OrganizationMembership.Create().SetOrganization(org).SetUser(user).SetRole(organizationmembership.RoleOwner).Save(ctx)
+	_, err = dbClient.OrganizationMembership.Create().SetOrganization(org).SetUser(user).SetRole(organizationmembership.RoleAdmin).Save(ctx)
 	if err != nil {
 		return nil, nil, err
 	}

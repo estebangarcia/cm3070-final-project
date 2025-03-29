@@ -15,6 +15,7 @@ type RepositoriesHandler struct {
 	RepositoryRepository *repositories.RepositoryRepository
 }
 
+// Get a repository by its name and registry
 func (rh *RepositoriesHandler) GetRepository(w http.ResponseWriter, r *http.Request) {
 	registry := r.Context().Value("registry").(*ent.Registry)
 	repositoryName := r.Context().Value("repositoryName").(string)
@@ -35,6 +36,7 @@ func (rh *RepositoriesHandler) GetRepository(w http.ResponseWriter, r *http.Requ
 	json.NewEncoder(w).Encode(repo)
 }
 
+// Get a list of all the repositories in the registry
 func (rh *RepositoriesHandler) GetRepositories(w http.ResponseWriter, r *http.Request) {
 	registry := r.Context().Value("registry").(*ent.Registry)
 

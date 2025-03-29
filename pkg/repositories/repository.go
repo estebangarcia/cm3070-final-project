@@ -16,6 +16,7 @@ func NewRepositoryRepository() *RepositoryRepository {
 	return &RepositoryRepository{}
 }
 
+// Get repository by name in the specified registry
 func (rr *RepositoryRepository) GetForRegistryByName(ctx context.Context, registryId int, repositoryName string) (*ent.Repository, bool, error) {
 	dbClient := getClient(ctx)
 	repo, err := dbClient.Repository.Query().Where(
@@ -37,6 +38,7 @@ func (rr *RepositoryRepository) GetForRegistryByName(ctx context.Context, regist
 	return repo, true, nil
 }
 
+// Get all repositories in the specified registry
 func (rr *RepositoryRepository) GetAllForRegistry(ctx context.Context, registryId int) ([]*ent.Repository, error) {
 	dbClient := getClient(ctx)
 	return dbClient.Repository.Query().Where(
@@ -48,6 +50,7 @@ func (rr *RepositoryRepository) GetAllForRegistry(ctx context.Context, registryI
 	).All(ctx)
 }
 
+// Get or create a repository by name in the specified registry
 func (rr *RepositoryRepository) GetOrCreateRepository(ctx context.Context, registryId int, repositoryName string) (*ent.Repository, error) {
 	dbClient := getClient(ctx)
 	repository, err := dbClient.Repository.Query().Where(
@@ -68,6 +71,7 @@ func (rr *RepositoryRepository) GetOrCreateRepository(ctx context.Context, regis
 	return repository, err
 }
 
+// Get count of repositories in organization
 func (rr *RepositoryRepository) GetCountForOrg(ctx context.Context, organization *ent.Organization) (int, error) {
 	dbClient := getClient(ctx)
 	return dbClient.Repository.Query().Where(

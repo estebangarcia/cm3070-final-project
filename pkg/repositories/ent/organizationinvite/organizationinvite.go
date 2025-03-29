@@ -76,7 +76,7 @@ type Role string
 
 // Role values.
 const (
-	RoleOwner   Role = "owner"
+	RoleAdmin   Role = "admin"
 	RoleManager Role = "manager"
 	RoleMember  Role = "member"
 )
@@ -88,7 +88,7 @@ func (r Role) String() string {
 // RoleValidator is a validator for the "role" field enum values. It is called by the builders before save.
 func RoleValidator(r Role) error {
 	switch r {
-	case RoleOwner, RoleManager, RoleMember:
+	case RoleAdmin, RoleManager, RoleMember:
 		return nil
 	default:
 		return fmt.Errorf("organizationinvite: invalid enum value for role field: %q", r)

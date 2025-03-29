@@ -17,6 +17,7 @@ func NewManifestTagRepository() *ManifestTagRepository {
 	return &ManifestTagRepository{}
 }
 
+// Get the list of tags for a specific repository
 func (mr *ManifestTagRepository) ListTagsForRepository(ctx context.Context, repository *ent.Repository, limit int, lastTagName string) ([]*ent.ManifestTagReference, error) {
 	dbClient := getClient(ctx)
 
@@ -42,6 +43,7 @@ func (mr *ManifestTagRepository) ListTagsForRepository(ctx context.Context, repo
 	).Limit(limit).All(ctx)
 }
 
+// Get a tag by its name in the specified repository
 func (mr *ManifestTagRepository) GetTagByName(ctx context.Context, repository *ent.Repository, tagName string) (*ent.ManifestTagReference, bool, error) {
 	dbClient := getClient(ctx)
 
@@ -66,6 +68,7 @@ func (mr *ManifestTagRepository) GetTagByName(ctx context.Context, repository *e
 	return tag, true, nil
 }
 
+// Delete the specified tag
 func (mr *ManifestTagRepository) DeleteTag(ctx context.Context, tag *ent.ManifestTagReference) error {
 	dbClient := getClient(ctx)
 	return dbClient.ManifestTagReference.DeleteOne(tag).Exec(ctx)

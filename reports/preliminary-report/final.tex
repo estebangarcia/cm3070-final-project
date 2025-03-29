@@ -1,5 +1,6 @@
 \documentclass{article}
 
+\usepackage{float}
 \usepackage{verbatim}
 \usepackage[dvipsnames]{xcolor}
 \usepackage{blindtext}
@@ -12,6 +13,15 @@
 \usepackage{indentfirst}
 \usepackage[hyphens]{url}
 \usepackage[hidelinks]{hyperref}
+
+\newcommand{\widefig}[3][1.2\textwidth]{%
+  \begin{figure}[H]
+    \makebox[\textwidth][c]{%
+      \includegraphics[width=#1]{#2}%
+    }
+    \caption{#3}
+  \end{figure}
+}
 
 \lstdefinelanguage{Golang}{
   alsodigit = {-},
@@ -62,15 +72,15 @@
 \setcounter{secnumdepth}{4}
 \setcounter{tocdepth}{4}
 
-\usepackage[a4paper, total={6in, 8in}]{geometry}
+\usepackage[a4paper, top=1in,bottom=1in,left=1in,right=1in]{geometry}
 \setlength{\parskip}{0.8em}
 
-\title{CM3070 Final Project - Preliminary Report}
+\title{CM3070 Final Project - Final Report}
 \author{Esteban Garcia}
 \date{ }
 \pagestyle{fancy}
 \fancyhf{}
-\lhead{CM3070 Final Project - Preliminary Report}
+\lhead{CM3070 Final Project - Final Report}
 \rfoot{Page \thepage}
 
 \begin{document}
@@ -427,10 +437,14 @@
 
   To avoid storing sensitive credentials that could be leaked in the case of a data breach, I will instead be leveraging AWS Cognito [25] an OAuth2 provider [26], with this I don't need to store sensitive credential data and can just verify incoming if an incoming JWT token was issued by my AWS Cognito User Pool.
 
-  This means that signup and, by default, authentication happen outside the control of the application too. This is fine for the Web UI but for OCI-compliant tooling we need to provide a login endpoint, receive the user's credentials and exchange them for a JWT token. Luckily OAuth2 has a flow designed for this called the username-password flow [27] and Cognito supports it, so I will be leveraging this functionality for credentials exchange on the OCI login endpoint. The usage of this authentication flow is discourage as it means the application has to recieve user credentials directly, but unfortunately for now most OCI-tooling doesn't have support for OAuth2-compatible authentication mechanisms. See \hyperref[sec:appendix-a]{Appendix A} for OCI authentication flow integrating cognito.
+  This means that signup and, by default, authentication happen outside the control of the application too. This is fine for the Web UI but for OCI-compliant tooling we need to provide a login endpoint, receive the user's credentials and exchange them for a JWT token. Luckily OAuth2 has a flow designed for this called the username-password flow [27] and Cognito supports it, so I will be leveraging this functionality for credentials exchange on the OCI login endpoint. The usage of this authentication flow is discourage as it means the application has to recieve user credentials directly, but unfortunately for now most OCI-tooling doesn't have support for OAuth2-compatible authentication mechanisms.
+
+  \widefig{appendix/auth-flow.png}{Authentication Flow}
 
   The application would still need to at least be aware of user signups and maintain a User profile to be used for RBAC authorization, as signup and signin occur completly outside the control of the application I will be leveraging Cognito Triggers to execute an AWS Lambda function that will send a message to an SQS queue, a background worker will consume these messages and create an entry on the database.
 
+  \widefig{appendix/signup-flow.png}{Signup Flow}
+  
   \subsection{Access Control}
 
   With authentication sorted, the project has to deny access to an authenticated user to resources it doesn't have the necessary permissions for.
@@ -468,11 +482,17 @@
     \item Once the upload session is finished and the application receives the digest for the blob, it will leverage the S3 API to move the file to the final location using the digest as key.
   \end{itemize}
 
-  See \hyperref[sec:appendix-b]{Appendices B, C and D} for upload flows.
+  \widefig{appendix/blob-monolithic-upload-with-session.png}{Blob monolithic Upload}
+
+  \widefig{appendix/blob-single-post-upload.png}{Blob single POST Upload}
 
   As S3 has a limit for a single file upload of 5 GB, OCI artifacts, specially container images can very quickly reach that limit. So to account for this the multipart upload API [29] will have to be used, with this objects up to 5TB can be uploaded. The way the application will manage this is by creating an multipart upload session when an OCI client requests a new upload session and finalise it when the OCI upload session is finalised too.
 
-  With the data stored on S3, I can then create self-expiring presigned[30] links and redirect the user directy to S3 to download a blob or manifest without having to keep a connection to my own application, reducing load and making it more cost-effective to run. See \hyperref[sec:appendix-e]{Appendix E} for blob download flow.
+  \widefig{appendix/blob-upload-in-chunks.png}{Blob Upload in Chunks}
+
+  With the data stored on S3, I can then create self-expiring presigned[30] links and redirect the user directy to S3 to download a blob or manifest without having to keep a connection to my own application, reducing load and making it more cost-effective to run.
+
+  \widefig{appendix/download-blob.png}{Download Flow}
 
   \subsection{Implementing the PyPi interface}
 
@@ -506,7 +526,7 @@
 
   I will be using `application/vnd.python.artifact' as custom `artifactType' for python packages, this will allow the registry and users to query for python packages.
 
-  See \hyperref[sec:appendix-f]{Appendix F} for Python Upload flow diagram.
+  \widefig{appendix/python-upload-flow.png}{Python Upload Flow}
 
   This will automatically expose the Python package via the OCI APIs. But for pip to be able to discover this package the application needs to implement the Simple Index Repository API endpoint.
 
@@ -526,10 +546,17 @@
 
   The implementation of this API is based on the PEP-503[33] Python Enhancement Proposal specification.
 
-  Within a repository, the root URL MUST be a valid HTML5 page with a single anchor element per project in the repository. The text of the anchor tag MUST be the name of the project and the href attribute MUST link to the URL for that particular project. As an example. See \hyperref[sec:appendix-h]{Appendix H} for an example.
+  Within a repository, the root URL MUST be a valid HTML5 page with a single anchor element per project in the repository. The text of the anchor tag MUST be the name of the project and the href attribute MUST link to the URL for that particular project.
+
+  Example:
+
+  \verbatiminput{./images/appendix/simple-repository-index.html}
 
   Below the root URL is another URL for each individual project contained within a repository. This URL must respond with a valid HTML5 page with a single anchor element per file for the project. The href attribute MUST be a URL that links to the location of the file for download, and the text of the anchor tag MUST match the final path component (the filename) of the URL. The URL SHOULD include a hash in the form of a URL fragment with the following syntax: `\#\textless{}hashname\textgreater{}=\textless{}hashvalue\textgreater', where `\textless{}hashname\textgreater' is the lowercase name of the hash function (such as sha256) and `\textless{}hashvalue\textgreater' is the hex encoded digest.
-  See \hyperref[sec:appendix-i]{Appendix I} for an example.
+
+  Example:
+
+  \verbatiminput{./images/appendix/simple-repository-index-2.html}
 
   To implement this in my project, the endpoint would need to discover all OCI artifacts with the custom `mediaType' created on upload and dinamically generate the HTML response, this will allow for PIP to download Python packages stored on an OCI-compliant repository.
 
@@ -540,13 +567,45 @@
   The biggest downside is that each request would need to validate credentials with AWS Cognito, calling an external service on each request will more than likely impact the 
   response time of the service.
 
-  \subsection{Database Design}
+  \subsection{Implementing vulnerability scanning}
 
-  \includegraphics[scale=0.35]{db.png}
+  Security is one the most important aspects of my project and a key feature for my target users. The registry has to provide a security scanning feature where uploaded artifacts are scanned for any known vulnerability in the National Vulnerability Database[add-reference].
+
+  For this I will be using the Trivy Vulnerability Scanner, this is an open-source security scanner developed by Aqua Security[add-reference].
+
+  Trivy provides scanning of container images, python packages, helm chart misconfigurations and more. It aligns perfectly with the types of artifacts my project will be supporting.
+
+  To run the scanner I will be developing a background worker that checks for unscanned artifacts periodically, I will integrate trivy in the worker for scanning the upload artifacts, the reports generated will be stored in the database.
+
+  As vulnerabilities are known and multiple artifacts can have the same vulnerabilities I will make sure to not store duplicate data in the database and just create a relationship between vulnerabilities and the affected artifacts.
+
+  \widefig[1.1\textwidth]{appendix/trivy-scanning.png}{Vulnerability Scanning Flow}
+
+  \subsection{Database Design}
+  \widefig{db.png}{Database Design Diagram}
+
+  Explanation of tables:
+  \begin{itemize}
+    \item Users: As explained in the authentication section, my project won't be handling the login and signup flows of this table will store user profile information and be used for relationships between organizatations
+    \item Organizations: this table stores the data on all the available organizations in the platform
+    \item OrganizationMemberships: This is a many to many relationship table, as a user can belong to multiple organizations, this table stores that.
+    \item OrganizationInvites: This table stores a user invitations to an organization 
+    \item Registries: This table stores the data on all the available registries in the plaform, registries belong to organizations
+    \item Repositories: This table stores information on OCI Repositories dynamically created on upload, they belong to registries
+    \item Manifests: This table stores metadata from the uploaded OCI manifests, things like the path of the JSON manifest in the S3 bucket, and if it was scanned or not.
+    \item ManifestLayers: This stores information on the different layers in the manifest
+    \item ManifestSubject: this is a many-to-many relationship table between manifest and manifest for the purpose of supporting OCI v1.1 Referrers.
+    \item ManifestTagReferences: This table holds the relationship between a manifest and its tags. A manifest can have many tags.
+    \item Vulnerabilities: this table holds unique information on all vulnerabilities found across the platform
+    \item VulnerabilityManifest: This is a many to many relationship table between a manifest and its vulnerabilities. This is so I don't store duplicate vulnerability data unneccesarly
+    \item Misconfigurations: similar to vulnerabilities. Misconfigurations are vulnerabilities in Infrastructure as Code uploaded artifacts, like Helm Charts.
+    \item ManifestMisconfigurations: This is a many to many relationship table between a manifest and its misconfigurations, but it holds some extra information as misconfigurations are unique, but they have context on which file within the artifacts is affected and this is unique for each artifact.
+    \item BlobChunks: This contains temporary information on the state of a chunked blob upload
+  \end{itemize}
 
   \subsection{Gantt Chart}
-
-  \includegraphics[scale=0.27]{gantt.png}
+  \newpage
+  \widefig[1.1\textwidth]{gantt.png}{Gantt Chart}
 
   \section{Implementation}
 
@@ -561,7 +620,6 @@
     \item AWS Cognito as OAuth2 Provider
     \item Trivy Scanner for vulnerability scanning
     \item Terraform[38] for Infrastructure as Code
-    \item Terraform Cloud for orchestrating the deployment of AWS infrastructure
   \end{enumerate}
 
   I selected Golang as the main programing language for the backend API for the following reasons:
@@ -580,7 +638,7 @@
 
   \subsection{High-level Architecture Diagram}
 
-  \includegraphics[scale=0.25]{architecture.png}
+  \widefig{architecture.png}{High-level architecture diagram}
 
   \subsection{Software Development Lifecycle}
   I'll be using Git as a Version Control system, I will have 3 different projects.
@@ -591,13 +649,13 @@
     \item Terraform Code
   \end{enumerate}
 
-  All changes to the 3 different projects will be submitted via the Merge Request system in Git, this will allow for cleaner commit history and traceability of changes, and it will be paired with a CircleCI pipeline that will automatically execute any unit tests available and block the change to be merged if they fail.
+  All changes to the 3 different projects will be submitted via the Pull Request system in Github, this will allow for cleaner commit history and traceability of changes.
   
-  For organising work tasks I'm going to use Trello. I will be doing 1-week sprints, keeping them short will allow me to better plan work and break down stores to simpler tasks that can fit in one week.
+  I will be doing 1-week sprints, keeping them short will allow me to better plan work and break down stories to simpler tasks that can fit in one week.
 
   At the end of each sprint I will do a review of all the commited work, test each feature individually, create stories for Bugs if any are found and plan the next sprint.
 
-  As I'm the only developer involved in the development it will be very hard to not be baised on all the submitted changes, to try to mitigate this I'm going to be leaning on the tooling provided by the go language to lint the code and perform static analysis of the changes. This will be included in the CircleCI pipeline and block me from merging changes if I don't solve the outstanding issues.
+  As I'm the only developer involved in the development it will be very hard to not be baised on all the submitted changes, to try to mitigate this I'm going to be leaning on the tooling provided by the go language to lint the code and perform static analysis of the changes.
 
   \subsection{Managing Database Changes}
 
@@ -609,7 +667,7 @@
 
   Based on an EntGo schema like:
 
-  \begin{lstlisting}
+  \begin{lstlisting}[language=Golang]
     package schema
 
     import "entgo.io/ent"
@@ -653,7 +711,7 @@
 
   Each repository is represented by its own struct, this contains any dependencies required by the repository, usually the shared database connection. They are instantiated as a pointer when the application starts, this is to avoid unneccesary copies reducing the memory footprint and contributing to the application's performance.
 
-  \includegraphics[scale=0.30]{repository_pattern.png}
+  \widefig{repository_pattern.png}{Repository Pattern}
 
   \subsection{HTTP Handler Pattern}
 
@@ -685,44 +743,38 @@
   
   Depending on the route group, not all of these middlewares are executed, but in some scenarios they are all chained together executed in order.
 
-  See \hyperref[sec:appendix-l]{Appendix L} for an example of the middleware flow for a python index request.
+  \widefig{appendix/middleware-flow-python-example.png}{Example of Middleware flow for Python Index}
 
   \subsection{Web UI}
 
-  As mentioned in the Technology Stack section of the report, I'm using NextJS a React-based framework to create the web UI. As the target users of my project will mostly be using CLI tooling to interact with it, there won't be significant development of UI-based features.
+  As mentioned in the Technology Stack section of the report, I'm using NextJS a React-based framework to create the web UI. As the target users of my project will mostly be using CLI tooling to interact with it, there won't be significant development of UI-based features but as explained in the Evaluation section, during the usability testing I did with some of my target demographic, they appreciate UI elements for easier administration of artifacts.
 
-  To accelerate development, I'm using the free to use ShadCN UI[43] components.
+  To accelerate development, I used the free to use ShadCN UI[43] components.
 
-  The Web UI currently has the following features:
+  The Web UI has the following features:
   \begin{itemize}
     \item WebUI can Signup and Login users via AWS Cognito
     \item A user can switch between organisation on the WebUI
+    \item Create new organizations
     \item List of registries
     \item Create a registry
     \item List of repositories
+    \item List of artifacts
+    \item Artifact Details
+    \item Browse artifact vulnerabilities
+    \item Accept or reject organization invitations
+    \item Send organization invitations to users
   \end{itemize}
 
-  There are still some features that I need to include that haven't been started yet:
-  \begin{itemize}
-    \item Creation of new organizations
-    \item Visualization of artifacts in a repository
-    \item Invite users to an organization
-    \item Manage access control for a user
-  \end{itemize}
-
-  See \hyperref[sec:appendix-m]{Appendix M} for screenshots of the UI.
+  See \hyperref[sec:appendix-m]{Appendix M} for screenshots of the UI
 
   \section{Evaluation}
 
-  I will be testing my project in 3 different ways.
+  Being fully OCI-compliant is the backbone of the project, without being comformant with the specification I won't be able to develop the other features that depend on it. The OpenContainer Initiative provides an automated test suite[41] that developers can use to understand how compliant their projects are with the distribution specification, and outputs an HTML report. I used this test suite to identify gaps and issues on my OCI interface.
 
-  Being fully OCI-compliant is the backbone of my idea, without being comformant with the specification I won't be able to develop the other features that depend on it. The OpenContainer Initiative provides an automated test suite[41] that developers can use to understand how compliant their projects are with the distribution specification, and outputs an HTML report. I will be using this test suite to identify gaps and issues on my OCI interface.
+  I did some usability testing with some of my target users to evaluate the UX and interface design, the feedback gathered influenced further development and bug fixing and improve the different features.
 
-  I will be creating unit tests for all the developed APIs on the backend to validate each individual component in it. A CircleCI project will be used to automate running these tests on each commited change, this will ensure that new changes don't break existing functionality.
-
-  Finally I will be doing some usability testing with some of my target users to evaluate the UX and interface design, the feedback gathered will be used to fix bugs and improve the different features.
-
-  To test e2e functionality from a user perspective I will be using:
+  To test e2e functionality from a user perspective I used the following tooling:
 
   \begin{itemize}
     \item Docker CLI
@@ -747,15 +799,17 @@
   
   As of the time of writting the project is fully OCI-compliant. See \hyperref[sec:appendix-n]{Appendix N} for a screenshot of the test suite.
 
+  A key accomplishment in this project is achieving full OCI compliance for the registry. This milestone reflects the rigorous engineering and development practices implemented, and it serves as a significant indicator of adherence to industry standards.
+
   \subsection{Unit Testing}
 
-  At this moment the projects lacks unit testing, and this will be something I'm going to be working on the next couple of weeks. I made the conscious decision to not follow a test-driven development workflow as when I started the development there were some areas of the implementation of my project that were not very clear to me at that point in time.
-
-  In hindsight delaying the creation of these has been a mistake as I've found software regression when working on new features
+  Originally I planned to do unit testing of all features in the project, but I kept pushing their development in favour of finishing all the originally proposed features in the project. In hindsight delaying the creation of these has been a mistake as I've found software regression when working on new features that could have been easily avoided by having a proper unit testing suite.
+  
+  I also made the conscious decision to not follow a test-driven development workflow as when I started the development there were some areas of the implementation of my project that were not very clear to me.
 
   \subsection{User Testing}
 
-  I've reached out to people I know in the DevOps space and asked them to give the prototype of my project a try. I was able to get 2 people to try it out and give me some feedback based on their experience.
+  I've reached out to people I know in the DevOps space and asked them to give the prototype of my project a try. I was able to get 2 people to try it out and give me some feedback based on their experience at two different milestones of the project.
 
   For this I sent a survey with a couple of questions:
 
@@ -767,13 +821,13 @@
     \item What is the one thing you would change or improve immediately if you could?
   \end{itemize}
 
-  They both stated that because they had experience with similar technologies, starting to use the registry was easy and integration with an existing CI/CD pipeline would be trivial given the compliance with the OCI standard. But the lack of documentation and onboarding procedure on the UI would make it harder for someone not as experienced.
+  They both stated that because they had experience with similar technologies, starting to use the registry was easy and integration with an existing CI/CD pipeline would be trivial given the compliance with the OCI standard, but they both pointed out that the lack of OIDC Connect[add-reference] authentication would make it impossible for them to use this as it is critical security feature needed for their workflows. Unfortunately this was outside the scope of the project but would be something to add if there is further development.
 
-  In terms of missing functionality one of them mentioned the lack of OIDC Connect authentication for CI/CD pipelines and that even though it is soon to be developed, the lack of access control is very important.
+  The lack of documentation and onboarding procedure on the UI was mentioned as something would make it harder for someone not as experienced to understand and start using the registry.  
 
-  None of them had any unexpected issues, and for the last question the most important thing missing is visibility of uploaded artifacts via the UI
+  None of them had any unexpected issues in any of their 2 tests, on their first usage they pointed out that the UI was missing a view to manage uploaded artifacts, this was something still in development at the time and their feedback influenced a change in priority for that feature as even though the UI is not something they feel is very important for their day to day workflows, the lack of visilibility of stored artifacts is, and is not something that is very well solved by current OCI-compliant tooling.
 
-  So even though the UI is not something they feel is very important for their day to day workflows, the lack of visilibility of stored artifacts is, and is not something that is very well solved by current OCI-compliant tooling.
+  On the second test when shown the new artifact details view the inclusion of the full JSON manifest was called out as something positive as it is good for debugging when there is issues on their workflows.
 
   \section{Conclusion}
 
@@ -891,7 +945,9 @@
   \subsection{Appendix C. Blob Monolithic Upload with Single POST}
   \label{sec:appendix-c}
 
+  \includegraphics[scale=0.25]{appendix/blob-monolithic-upload-with-session.png}
   \includegraphics[scale=0.25]{appendix/blob-single-post-upload.png}
+  \includegraphics[scale=0.20]{appendix/blob-upload-in-chunks.png}
 
   \subsection{Appendix D. Blob Upload in Chunks}
   \label{sec:appendix-d}

@@ -21,6 +21,7 @@ type V2ReferrersHandler struct {
 	ManifestRepository   *repositories.ManifestRepository
 }
 
+// This endpoint returns all the manifests that are being referenced by the specified manifest digest
 func (h *V2ReferrersHandler) GetReferrersForDigest(w http.ResponseWriter, r *http.Request) {
 	imageName := r.Context().Value("repositoryName").(string)
 	reference := r.Context().Value("reference").(string)

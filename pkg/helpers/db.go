@@ -13,6 +13,7 @@ import (
 )
 
 func GetDBClient(ctx context.Context, cfg *config.AppConfig) (*ent.Client, error) {
+	// Open DB connection to the configured DSN
 	drv, err := entsql.Open("postgres", cfg.Database.DSN)
 	if err != nil {
 		return nil, err
@@ -20,6 +21,8 @@ func GetDBClient(ctx context.Context, cfg *config.AppConfig) (*ent.Client, error
 
 	client := ent.NewClient(ent.Driver(drv))
 
+	// If the configuration sets the debug to true then we configure the driver to
+	// output executed queries to the terminal
 	if cfg.Database.Debug {
 		sqlDrv := dialect.DebugWithContext(drv, func(ctx context.Context, i ...interface{}) {
 			for _, inter := range i {

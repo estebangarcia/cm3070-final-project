@@ -16,6 +16,7 @@ type ArtifactsHandler struct {
 	ManifestRepository   *repositories.ManifestRepository
 }
 
+// Get all artifacts for a specified repository
 func (ah *ArtifactsHandler) GetArtifactsForRepository(w http.ResponseWriter, r *http.Request) {
 	registry := r.Context().Value("registry").(*ent.Registry)
 	repositoryName := r.Context().Value("repositoryName").(string)
@@ -32,6 +33,7 @@ func (ah *ArtifactsHandler) GetArtifactsForRepository(w http.ResponseWriter, r *
 		return
 	}
 
+	// returns all manifests with their associated tags
 	manifests, err := ah.ManifestRepository.GetAllWithTags(r.Context(), repo)
 	if err != nil {
 		log.Println(err)
@@ -43,6 +45,7 @@ func (ah *ArtifactsHandler) GetArtifactsForRepository(w http.ResponseWriter, r *
 	json.NewEncoder(w).Encode(manifests)
 }
 
+// Get a specific artifact by its manifest digest
 func (ah *ArtifactsHandler) GetArtifactByDigest(w http.ResponseWriter, r *http.Request) {
 	registry := r.Context().Value("registry").(*ent.Registry)
 	repositoryName := r.Context().Value("repositoryName").(string)
@@ -76,6 +79,7 @@ func (ah *ArtifactsHandler) GetArtifactByDigest(w http.ResponseWriter, r *http.R
 	json.NewEncoder(w).Encode(manifest)
 }
 
+// Get all artifacts for an organization
 func (ah *ArtifactsHandler) GetArtifactsForOrg(w http.ResponseWriter, r *http.Request) {
 	organization := r.Context().Value("organization").(*ent.Organization)
 

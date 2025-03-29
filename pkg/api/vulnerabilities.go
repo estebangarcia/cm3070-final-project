@@ -17,6 +17,8 @@ type VulnerabilitiesHandlers struct {
 	ManifestRepository   *repositories.ManifestRepository
 }
 
+// Get all the vulnerabilities for a specific artifact by its manifest digest
+// it returns both misconfigurations and vulnerabilities
 func (vh *VulnerabilitiesHandlers) GetVulnerabilitiesForArtifact(w http.ResponseWriter, r *http.Request) {
 	registry := r.Context().Value("registry").(*ent.Registry)
 	repositoryName := r.Context().Value("repositoryName").(string)

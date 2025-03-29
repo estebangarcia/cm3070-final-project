@@ -32,6 +32,7 @@ type OrganizationsHandler struct {
 	SESClient                    *sesv2.Client
 }
 
+// Get all the organizations for the user
 func (oh *OrganizationsHandler) GetOrganizationsForUser(w http.ResponseWriter, r *http.Request) {
 	userSub := r.Context().Value("user_sub").(string)
 
@@ -46,6 +47,7 @@ func (oh *OrganizationsHandler) GetOrganizationsForUser(w http.ResponseWriter, r
 	json.NewEncoder(w).Encode(orgs)
 }
 
+// Get a specific organization by its slug
 func (oh *OrganizationsHandler) GetOrganizationsBySlugForUser(w http.ResponseWriter, r *http.Request) {
 	userSub := r.Context().Value("user_sub").(string)
 	orgSlug := chi.URLParam(r, "organizationSlug")
@@ -66,6 +68,7 @@ func (oh *OrganizationsHandler) GetOrganizationsBySlugForUser(w http.ResponseWri
 	json.NewEncoder(w).Encode(org)
 }
 
+// Create an organization
 func (oh *OrganizationsHandler) CreateOrganization(w http.ResponseWriter, r *http.Request) {
 	userSub := r.Context().Value("user_sub").(string)
 
@@ -83,7 +86,7 @@ func (oh *OrganizationsHandler) CreateOrganization(w http.ResponseWriter, r *htt
 		return
 	}
 
-	org, err := oh.OrganizationRepository.CreateOrganizationWithOwner(r.Context(), user, createOrgRequest.Name)
+	org, err := oh.OrganizationRepository.CreateOrganizationWithAdmin(r.Context(), user, createOrgRequest.Name)
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(500)
@@ -94,6 +97,7 @@ func (oh *OrganizationsHandler) CreateOrganization(w http.ResponseWriter, r *htt
 	json.NewEncoder(w).Encode(org)
 }
 
+// Get the organization stats, to be shown in the UI dashboard
 func (oh *OrganizationsHandler) GetOrganizationStats(w http.ResponseWriter, r *http.Request) {
 	organization := r.Context().Value("organization").(*ent.Organization)
 
@@ -144,6 +148,7 @@ func (oh *OrganizationsHandler) GetOrganizationStats(w http.ResponseWriter, r *h
 	json.NewEncoder(w).Encode(response)
 }
 
+// Get all the members of an organization
 func (oh *OrganizationsHandler) GetOrganizationMembers(w http.ResponseWriter, r *http.Request) {
 	organization := r.Context().Value("organization").(*ent.Organization)
 
@@ -169,6 +174,7 @@ func (oh *OrganizationsHandler) GetOrganizationMembers(w http.ResponseWriter, r 
 	json.NewEncoder(w).Encode(membersResponse)
 }
 
+// Invite a new user to the organization
 func (oh *OrganizationsHandler) InviteToOrganization(w http.ResponseWriter, r *http.Request) {
 	organization := r.Context().Value("organization").(*ent.Organization)
 	userSub := r.Context().Value("user_sub").(string)
@@ -187,6 +193,7 @@ func (oh *OrganizationsHandler) InviteToOrganization(w http.ResponseWriter, r *h
 		return
 	}
 
+	// Get the user by email in the invite, the user might not exist
 	inviteeUser, inviteeFound, err := oh.UserRepository.GetUserByEmail(r.Context(), inviteToOrgRequest.Email)
 	if err != nil {
 		fmt.Println(err)
@@ -194,6 +201,7 @@ func (oh *OrganizationsHandler) InviteToOrganization(w http.ResponseWriter, r *h
 		return
 	}
 
+	// Check if the user already has an invite for this organization
 	hasInvite, err := oh.OrganizationInviteRepository.HasInviteForOrganization(r.Context(), organization, inviteeUser, inviteToOrgRequest.Email)
 	if err != nil {
 		fmt.Println(err)
@@ -206,12 +214,15 @@ func (oh *OrganizationsHandler) InviteToOrganization(w http.ResponseWriter, r *h
 		return
 	}
 
+	// Create the invitation for the user. If the user doesn't exist this will add the user's email to the database instead of
+	// creating a relationship to an existing user.
 	if err := oh.OrganizationInviteRepository.InviteUserToOrganization(r.Context(), organization, inviteeUser, inviteToOrgRequest.Email, inviteToOrgRequest.Role); err != nil {
 		fmt.Println(err)
 		w.WriteHeader(500)
 		return
 	}
 
+	// Send email to notify user of their inviation
 	if err := oh.sendInviteEmail(context.Background(), user.GivenName+" "+user.FamilyName, inviteToOrgRequest.Email, organization.Name, inviteeFound); err != nil {
 		fmt.Println(err)
 		w.WriteHeader(500)
@@ -221,6 +232,7 @@ func (oh *OrganizationsHandler) InviteToOrganization(w http.ResponseWriter, r *h
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// Build the email's body and use AWS SES for sending the email
 func (oh *OrganizationsHandler) sendInviteEmail(ctx context.Context, inviterName string, email string, orgName string, userExists bool) error {
 	wd, err := os.Getwd()
 	if err != nil {

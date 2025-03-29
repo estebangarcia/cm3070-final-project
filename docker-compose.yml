@@ -16,12 +16,23 @@ services:
     environment:
       - PGADMIN_DEFAULT_EMAIL=admin@admin.com
       - PGADMIN_DEFAULT_PASSWORD=admin
-  trivy:
-    image: aquasec/trivy
-    command: ["server", "--listen", ":8080"]
+  registry:
+    depends_on:
+      - postgres
+    build:
+      dockerfile: Dockerfile
+    command: "server"
+    env_file: .env
     ports:
-      - 9000:8080
-  
+      - 8081:8081
+  workers:
+    depends_on:
+      - postgres
+      - registry
+    build:
+      dockerfile: Dockerfile
+    command: "workers"
+    env_file: .env
 
 volumes:
   db-data:

@@ -184,7 +184,7 @@ var (
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "invite_id", Type: field.TypeString},
 		{Name: "email", Type: field.TypeString, Nullable: true},
-		{Name: "role", Type: field.TypeEnum, Enums: []string{"owner", "manager", "member"}},
+		{Name: "role", Type: field.TypeEnum, Enums: []string{"admin", "manager", "member"}},
 		{Name: "organization_id", Type: field.TypeInt},
 		{Name: "user_id", Type: field.TypeInt, Nullable: true},
 	}
@@ -227,7 +227,7 @@ var (
 	}
 	// OrganizationMembershipsColumns holds the columns for the "organization_memberships" table.
 	OrganizationMembershipsColumns = []*schema.Column{
-		{Name: "role", Type: field.TypeEnum, Enums: []string{"owner", "manager", "member"}},
+		{Name: "role", Type: field.TypeEnum, Enums: []string{"admin", "manager", "member"}},
 		{Name: "user_id", Type: field.TypeInt},
 		{Name: "organization_id", Type: field.TypeInt},
 	}

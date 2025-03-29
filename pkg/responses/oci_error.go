@@ -16,6 +16,7 @@ type OCIErrorResponse struct {
 	Errors []OCIErrorDetail `json:"errors"`
 }
 
+// This function builds OCI-compliant errors
 func GenericOCIError(w http.ResponseWriter, code string, status int, message string, detail interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

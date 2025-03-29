@@ -17,6 +17,7 @@ func NewOrganizationInviteRepository() *OrganizationInviteRepository {
 	return &OrganizationInviteRepository{}
 }
 
+// Check if the specified user has an invite to the specified organization
 func (orgRepo *OrganizationInviteRepository) HasInviteForOrganization(ctx context.Context, organization *ent.Organization, user *ent.User, email string) (bool, error) {
 	dbClient := getClient(ctx)
 
@@ -37,6 +38,7 @@ func (orgRepo *OrganizationInviteRepository) HasInviteForOrganization(ctx contex
 	).Exist(ctx)
 }
 
+// Invite an user to the specified organization, if the user doesn't exist store the user email instead of a relationship to the user table
 func (orgRepo *OrganizationInviteRepository) InviteUserToOrganization(ctx context.Context, organization *ent.Organization, user *ent.User, email string, role string) error {
 	dbClient := getClient(ctx)
 
@@ -51,6 +53,7 @@ func (orgRepo *OrganizationInviteRepository) InviteUserToOrganization(ctx contex
 	return err
 }
 
+// Get all the invitations for a user
 func (orgRepo *OrganizationInviteRepository) GetInvitesForUser(ctx context.Context, userSub string) (ent.OrganizationInvites, error) {
 	dbClient := getClient(ctx)
 
@@ -61,6 +64,7 @@ func (orgRepo *OrganizationInviteRepository) GetInvitesForUser(ctx context.Conte
 	).WithOrganization().All(ctx)
 }
 
+// Check if user has an invite by id
 func (orgRepo *OrganizationInviteRepository) HasInviteWithID(ctx context.Context, inviteId string, userSub string) (bool, error) {
 	dbClient := getClient(ctx)
 
@@ -72,6 +76,7 @@ func (orgRepo *OrganizationInviteRepository) HasInviteWithID(ctx context.Context
 	).Exist(ctx)
 }
 
+// Find all invites for the specified user by its email and link them to its user database record
 func (orgRepo *OrganizationInviteRepository) FindInvitesForEmailAndLinkToUser(ctx context.Context, email string, user *ent.User) error {
 	dbClient := getClient(ctx)
 
@@ -81,6 +86,7 @@ func (orgRepo *OrganizationInviteRepository) FindInvitesForEmailAndLinkToUser(ct
 	return err
 }
 
+// Reject specified invitation for the specified user by deleting it
 func (orgRepo *OrganizationInviteRepository) RejectInvite(ctx context.Context, inviteId string, userSub string) error {
 	dbClient := getClient(ctx)
 
@@ -94,6 +100,7 @@ func (orgRepo *OrganizationInviteRepository) RejectInvite(ctx context.Context, i
 	return err
 }
 
+// Accept specified invitation for the specified user by deleting it and creating the membership to the organization
 func (orgRepo *OrganizationInviteRepository) AcceptInvite(ctx context.Context, inviteId string, userSub string) error {
 	dbClient := getClient(ctx)
 

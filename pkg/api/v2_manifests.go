@@ -34,6 +34,7 @@ type V2ManifestsHandler struct {
 	ManifestTagRepository *repositories.ManifestTagRepository
 }
 
+// This handles the upload of an OCI manifest
 func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Request) {
 	imageName := r.Context().Value("repositoryName").(string)
 	reference := r.Context().Value("reference").(string)
@@ -55,12 +56,14 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Parse and validate the manifest's JSON request and bind it to the OCI V1 type.
 	manifestRequest, err := requests.BindRequestFromBytes[oci_models.OCIV1Manifest](buffer)
 	if err != nil {
 		responses.OCIUnprocessableEntity(w, "the manifest is bad")
 		return
 	}
 
+	// Calculate the manifest's sha256 digest
 	contentLength := int64(len(buffer))
 	digest, checksumBytes, err := h.getDigestFromReferenceOrBody(reference, buffer)
 	if err != nil {
@@ -75,6 +78,7 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 
 	digestEnc := base64.StdEncoding.EncodeToString(checksumBytes)
 
+	// Upload manifest to S3
 	_, err = h.S3Client.PutObject(r.Context(), &s3.PutObjectInput{
 		Bucket:         &h.Config.S3.BlobsBucketName,
 		Key:            &keyName,
@@ -109,11 +113,13 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
+	// Determine the artifact type
 	artifactType := manifestRequest.ArtifactType
 	if artifactType == nil {
 		artifactType = &manifestRequest.Config.MediaType
 	}
 
+	// Process the manifest layers and save their metadata in the database
 	var layers []*ent.ManifestLayer
 	manifestDescriptors := manifestRequest.Layers
 	manifestDescriptors = append(manifestDescriptors, manifestRequest.Config)
@@ -134,6 +140,8 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Return back the manifest digest and its location for download
+	// If there is a referred manifest then return that too
 	w.Header().Set("Docker-Content-Digest", m.Digest)
 	w.Header().Set("Location", h.getManifestDownloadUrl(org.Slug, registry.Slug, imageName, reference))
 	if subjectManifest != nil {
@@ -142,6 +150,7 @@ func (h *V2ManifestsHandler) UploadManifest(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusCreated)
 }
 
+// Handles the download of a manifest by redirecting the user to S3 for its download
 func (h *V2ManifestsHandler) DownloadManifest(w http.ResponseWriter, r *http.Request) {
 	imageName := r.Context().Value("repositoryName").(string)
 	reference := r.Context().Value("reference").(string)
@@ -155,6 +164,7 @@ func (h *V2ManifestsHandler) DownloadManifest(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Try to find the manifest by its reference and specified media type in the Accept header
 	manifests, err := h.ManifestRepository.GetManifestsByReferenceAndMediaType(r.Context(), reference, acceptedTypes, repo)
 	if err != nil {
 		responses.OCIInternalServerError(w)
@@ -167,6 +177,7 @@ func (h *V2ManifestsHandler) DownloadManifest(w http.ResponseWriter, r *http.Req
 	}
 	manifest := manifests[0]
 
+	// Generate S3 presign link
 	req, err := h.S3PresignClient.PresignGetObject(r.Context(), &s3.GetObjectInput{
 		Bucket: &h.Config.S3.BlobsBucketName,
 		Key:    &manifest.S3Path,
@@ -177,12 +188,14 @@ func (h *V2ManifestsHandler) DownloadManifest(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Redirect user to S3
 	w.Header().Set("Content-Type", manifest.MediaType)
 	w.Header().Set("Location", req.URL)
 	w.Header().Set("Docker-Content-Digest", manifest.Digest)
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
+// Handles the HEAD request to assert the existance of a manifest by its reference
 func (h *V2ManifestsHandler) HeadManifest(w http.ResponseWriter, r *http.Request) {
 	imageName := r.Context().Value("repositoryName").(string)
 	reference := r.Context().Value("reference").(string)
@@ -224,6 +237,7 @@ func (h *V2ManifestsHandler) HeadManifest(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 }
 
+// Handles the deletion of a manifest or a tag depending on the reference sent by the client
 func (h *V2ManifestsHandler) DeleteManifestOrTag(w http.ResponseWriter, r *http.Request) {
 	org := r.Context().Value("organization").(*ent.Organization)
 	imageName := r.Context().Value("repositoryName").(string)
@@ -250,6 +264,7 @@ func (h *V2ManifestsHandler) DeleteManifestOrTag(w http.ResponseWriter, r *http.
 	h.deleteManifestByDigest(r.Context(), w, org.Slug, repo, reference)
 }
 
+// Delete a manifest tag, this doesn't delete the manifest it just deletes the tag reference to it
 func (h *V2ManifestsHandler) deleteTag(ctx context.Context, w http.ResponseWriter, repo *ent.Repository, tagRef string) {
 	tag, found, err := h.ManifestTagRepository.GetTagByName(ctx, repo, tagRef)
 	if err != nil {
@@ -271,6 +286,7 @@ func (h *V2ManifestsHandler) deleteTag(ctx context.Context, w http.ResponseWrite
 	w.WriteHeader(http.StatusAccepted)
 }
 
+// Delete a manifest by digest both in S3 and the database
 func (h *V2ManifestsHandler) deleteManifestByDigest(ctx context.Context, w http.ResponseWriter, orgSlug string, repo *ent.Repository, digest string) {
 	manifest, found, err := h.ManifestRepository.GetManifestByReference(ctx, digest, repo, false)
 	if err != nil {
@@ -318,6 +334,7 @@ func (h *V2ManifestsHandler) deleteManifestByDigest(ctx context.Context, w http.
 	w.WriteHeader(http.StatusAccepted)
 }
 
+// Build the path for a manifest in S3
 func (h *V2ManifestsHandler) getKeyForManifestRef(contentType string, orgSlug string, registrySlug string, imageName string, digest string) string {
 	contentTypeSubFolder := ""
 
@@ -338,10 +355,12 @@ func (h *V2ManifestsHandler) getKeyForManifestRef(contentType string, orgSlug st
 	return fmt.Sprintf("%s/manifests/%s/%s/%s%s/manifest.json", orgSlug, registrySlug, imageName, digest, contentTypeSubFolder)
 }
 
+// Build the download url for a manifest
 func (h *V2ManifestsHandler) getManifestDownloadUrl(orgSlug string, registrySlug string, imageName string, reference string) string {
 	return fmt.Sprintf("%s/v2/%s/%s/%s/manifests/%s", h.Config.GetBaseUrl(), orgSlug, registrySlug, imageName, reference)
 }
 
+// Calculate the Sha256 reference for a manifest if the reference is not already a sha256 digest
 func (h *V2ManifestsHandler) getDigestFromReferenceOrBody(reference string, body []byte) (string, []byte, error) {
 	digest := helpers.TrimDigest(reference)
 	if !helpers.IsSHA256Digest(reference) {
@@ -356,6 +375,7 @@ func (h *V2ManifestsHandler) getDigestFromReferenceOrBody(reference string, body
 	return digest, checksumBytes, err
 }
 
+// Parses the Accept header to get the accepted media types for a manifest by the client
 func (h *V2ManifestsHandler) getAcceptedTypes(r *http.Request) []string {
 	acceptedTypes := r.Header["Accept"]
 	if len(acceptedTypes) == 1 && strings.Contains(acceptedTypes[0], ",") {

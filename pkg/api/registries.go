@@ -16,6 +16,8 @@ type RegistriesHandler struct {
 	RegistryRepository *repositories.RegistryRepository
 }
 
+// Get a specific registry by name, we can fetch this from the context as it
+// is already parsed and queried by the middleware
 func (rh *RegistriesHandler) GetRegistry(w http.ResponseWriter, r *http.Request) {
 	registry := r.Context().Value("registry").(*ent.Registry)
 
@@ -23,6 +25,7 @@ func (rh *RegistriesHandler) GetRegistry(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(registry)
 }
 
+// Get all the registries for the specified organization
 func (rh *RegistriesHandler) GetRegistries(w http.ResponseWriter, r *http.Request) {
 	org := r.Context().Value("organization").(*ent.Organization)
 
@@ -37,9 +40,11 @@ func (rh *RegistriesHandler) GetRegistries(w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(registries)
 }
 
+// Create a registry by name
 func (rh *RegistriesHandler) CreateRegistries(w http.ResponseWriter, r *http.Request) {
 	org := r.Context().Value("organization").(*ent.Organization)
 
+	// Validate creation request
 	createRegistryRequest, err := requests.BindRequest[requests.CreateRegistryRequest](r)
 	if err != nil {
 		log.Println(err.Error())
@@ -47,6 +52,7 @@ func (rh *RegistriesHandler) CreateRegistries(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Create registry in the database
 	registry, err := rh.RegistryRepository.CreateRegistry(r.Context(), createRegistryRequest.Name, org.ID)
 	if err != nil {
 		log.Println(err)
