@@ -1,6 +1,6 @@
 # CM3070 Final Project
 
-This repository contains the code of the OCI-compliant registry API in golang.
+This repository contains the backend code for the module CM3070 Final Project of the University of London BSc Computer Science degree
 
 The UI is available on a different github repository but also included as a submodule in this one.
 
@@ -20,6 +20,9 @@ $ docker-compose up
 ```bash
 $ make migrate
 ```
+
+5. Run the UI
+
 
 ## Project structure
 
