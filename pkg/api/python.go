@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"log"
 	"maps"
 	"net/http"
 	"net/mail"
@@ -53,11 +52,12 @@ type PythonHandler struct {
 func (rh *PythonHandler) DownloadPackage(w http.ResponseWriter, r *http.Request) {
 	organization := r.Context().Value("organization").(*ent.Organization)
 	registry := r.Context().Value("registry").(*ent.Registry)
+	token := r.Context().Value("token").(string)
 	packageName := chi.URLParam(r, "packageName")
 	fileName := chi.URLParam(r, "fileName")
 	digest := r.URL.Query().Get("digest")
 
-	w.Header().Set("Location", getBlobDownloadUrl(rh.Config.GetBaseUrl(), organization.Slug, registry.Slug, packageName, digest)+"?filename="+fileName)
+	w.Header().Set("Location", getBlobDownloadUrl(rh.Config.GetBaseUrl(), organization.Slug, registry.Slug, packageName, digest)+"?filename="+fileName+"&token="+token)
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
@@ -80,7 +80,7 @@ func (rh *PythonHandler) SimpleRepositoryIndex(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		responses.OCIInternalServerError(w)
 		return
 	}
@@ -88,7 +88,7 @@ func (rh *PythonHandler) SimpleRepositoryIndex(w http.ResponseWriter, r *http.Re
 	// Get all OCI manifests that have the python artifact type
 	manifests, err := rh.ManifestRepository.GetAllByTypeWithTags(r.Context(), PYTHON_ARTIFACT_TYPE, repo)
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		responses.OCIInternalServerError(w)
 		return
 	}
@@ -127,7 +127,7 @@ func (rh *PythonHandler) SimpleRepositoryIndex(w http.ResponseWriter, r *http.Re
 
 	html, err := rh.renderTemplate(packages)
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		responses.OCIInternalServerError(w)
 		return
 	}
@@ -149,20 +149,20 @@ func (rh *PythonHandler) UploadPythonPackage(w http.ResponseWriter, r *http.Requ
 
 	file, header, err := r.FormFile("content")
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		responses.OCIInternalServerError(w)
 		return
 	}
 
 	f, err := os.CreateTemp("/tmp", "python-pkg")
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		responses.OCIInternalServerError(w)
 		return
 	}
 	_, err = io.Copy(f, file)
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		responses.OCIInternalServerError(w)
 		return
 	}
@@ -170,14 +170,14 @@ func (rh *PythonHandler) UploadPythonPackage(w http.ResponseWriter, r *http.Requ
 	// Parse WHL metadata
 	whlMetadata, err := parseWheelMetadata(f.Name())
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		responses.OCIInternalServerError(w)
 		return
 	}
 
 	store, err := oras_file.New("/tmp")
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		responses.OCIInternalServerError(w)
 		return
 	}
@@ -188,7 +188,7 @@ func (rh *PythonHandler) UploadPythonPackage(w http.ResponseWriter, r *http.Requ
 
 	layerDescriptor, err := store.Add(r.Context(), header.Filename, PYTHON_WHL_MEDIA_TYPE, f.Name())
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		responses.OCIInternalServerError(w)
 		return
 	}
@@ -210,7 +210,7 @@ func (rh *PythonHandler) UploadPythonPackage(w http.ResponseWriter, r *http.Requ
 	// build the manifest descriptor
 	manifestDescriptor, err := oras.PackManifest(r.Context(), store, oras.PackManifestVersion1_1, PYTHON_ARTIFACT_TYPE, opts)
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		responses.OCIInternalServerError(w)
 		return
 	}
@@ -218,7 +218,7 @@ func (rh *PythonHandler) UploadPythonPackage(w http.ResponseWriter, r *http.Requ
 	// Set the tag for the manifest, this is equal to the python package version
 	pkgVersion := r.FormValue("version")
 	if err = store.Tag(r.Context(), manifestDescriptor, pkgVersion); err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		responses.OCIInternalServerError(w)
 		return
 	}
@@ -227,7 +227,7 @@ func (rh *PythonHandler) UploadPythonPackage(w http.ResponseWriter, r *http.Requ
 	reg := "localhost:8081"
 	repo, err := remote.NewRepository(reg + "/" + organization.Slug + "/" + registry.Slug + "/" + pkgName)
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		responses.OCIInternalServerError(w)
 		return
 	}
@@ -244,7 +244,7 @@ func (rh *PythonHandler) UploadPythonPackage(w http.ResponseWriter, r *http.Requ
 
 	_, err = oras.Copy(r.Context(), store, pkgVersion, repo, pkgVersion, oras.DefaultCopyOptions)
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		responses.OCIInternalServerError(w)
 		return
 	}

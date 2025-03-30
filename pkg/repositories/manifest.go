@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
@@ -45,7 +46,7 @@ func (mr *ManifestRepository) GetManifestsByReferenceAndMediaType(ctx context.Co
 		ent_manifest.HasRepositoryWith(ent_repository.ID(repository.ID)),
 	}
 
-	if len(mediaTypes) > 0 {
+	if len(mediaTypes) > 0 && !slices.Contains(mediaTypes, "*/*") {
 		predicates = append(predicates, ent_manifest.MediaTypeIn(mediaTypes...))
 	}
 
@@ -165,7 +166,10 @@ func (mr *ManifestRepository) GetAllWithTags(ctx context.Context, repository *en
 		ent_manifest.And(
 			ent_manifest.HasRepositoryWith(ent_repository.ID(repository.ID)),
 		),
-	).WithTags().All(ctx)
+	).WithTags().WithRepository(func(rq *ent.RepositoryQuery) {
+		rq.WithRegistry()
+	},
+	).All(ctx)
 
 	if err != nil {
 		return nil, err

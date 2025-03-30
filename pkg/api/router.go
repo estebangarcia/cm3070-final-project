@@ -239,7 +239,7 @@ func NewRouter(ctx context.Context, cfg config.AppConfig, dbClient *ent.Client) 
 		authenticatedOciV2.Get("/", v2PingHandler.Ping)
 
 		// Route group for interaction with OCI resources within an organization's registry
-		authenticatedOciV2.Route("/{organizationSlug:[a-z-]+}/{registrySlug:[a-z-]+}", func(registryScopedOCIRoutes chi.Router) {
+		authenticatedOciV2.Route("/{organizationSlug:[a-z0-9-]+}/{registrySlug:[a-z0-9-]+}", func(registryScopedOCIRoutes chi.Router) {
 			registryScopedOCIRoutes.Use(orgMiddleware.ValidateOrgAndRegistry)
 
 			// Route to initiate an upload session for a blob

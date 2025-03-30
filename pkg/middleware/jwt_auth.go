@@ -28,7 +28,11 @@ type JWTAuthMiddleware struct {
 func (a *JWTAuthMiddleware) Validate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		jwtToken, ok := r.Context().Value("token").(string)
-		if jwtToken == "" || !ok {
+		if !ok {
+			// Allow tokens to be receieved also as an URL parameter for python download redirection
+			jwtToken = r.URL.Query().Get("token")
+		}
+		if jwtToken == "" {
 			header := r.Header.Get("Authorization")
 			if header == "" || !strings.HasPrefix(header, bearerSchema) {
 				w.Header().Set(wwwAuthenticateHeader, a.getAuthenticationUrl())

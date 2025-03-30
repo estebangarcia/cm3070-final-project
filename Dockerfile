@@ -13,5 +13,6 @@ FROM alpine:latest
 WORKDIR /app
 
 COPY --from=builder /app/registry .
+COPY pkg/templates /app/pkg/templates
 
 ENTRYPOINT ["./registry"]

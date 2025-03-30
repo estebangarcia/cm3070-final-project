@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/estebangarcia/cm3070-final-project/pkg/config"
@@ -29,7 +28,7 @@ func (a *OrganizationMiddleware) ValidateOrg(next http.Handler) http.Handler {
 		// Get the organization if the user belongs to it
 		org, found, err := a.OrganizationRepository.GetForUserAndSlug(r.Context(), userSub, orgSlug)
 		if err != nil {
-			log.Println(err)
+			fmt.Println(err)
 			w.WriteHeader(500)
 			return
 		}
